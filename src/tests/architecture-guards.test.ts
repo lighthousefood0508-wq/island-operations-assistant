@@ -35,7 +35,7 @@ function assertNoCrossDomainImports(directory: string, forbiddenSegment: string)
 test("SQL boundary guard protects domain internals", () => {
   const domainsRoot = path.join(sourceRoot, "domains");
   for (const filename of filesUnder(path.join(domainsRoot, "operations"), [".ts", ".sql"])) {
-    assertNoTerms(readFileSync(filename, "utf8"), ["cost_"], filename);
+    assertNoTerms(readFileSync(filename, "utf8"), ["cost_", "catalog_", "catalogservice", "getpublishedproducts"], filename);
   }
   for (const filename of filesUnder(path.join(domainsRoot, "cost"), [".ts", ".sql"])) {
     assertNoTerms(readFileSync(filename, "utf8"), ["operations_"], filename);
@@ -49,10 +49,19 @@ test("SQL boundary guard protects domain internals", () => {
 test("import boundary guard allows shared contracts but blocks domain internals", () => {
   const domainsRoot = path.join(sourceRoot, "domains");
   assertNoCrossDomainImports(path.join(domainsRoot, "operations"), "/domains/cost/");
+  assertNoCrossDomainImports(path.join(domainsRoot, "operations"), "/domains/catalog/");
   assertNoCrossDomainImports(path.join(domainsRoot, "cost"), "/domains/operations/");
   assertNoCrossDomainImports(path.join(domainsRoot, "catalog"), "/domains/operations/");
   assertNoCrossDomainImports(path.join(domainsRoot, "catalog"), "/domains/cost/");
   assert.throws(() => assert.equal("../domains/cost/internal".includes("/domains/cost/"), false));
+});
+
+test("OPEN Event reads only Operations-owned product snapshots", () => {
+  const operationsRoot = path.join(sourceRoot, "domains", "operations");
+  for (const filename of filesUnder(operationsRoot, [".ts", ".sql"])) {
+    assertNoTerms(readFileSync(filename, "utf8"), ["catalog_", "catalogservice", "getpublishedproducts"], filename);
+  }
+  assert.throws(() => assertNoTerms("CatalogService.getPublishedProducts()", ["catalogservice", "getpublishedproducts"], "fixture"));
 });
 
 test("migration business tables have approved prefixes only", () => {

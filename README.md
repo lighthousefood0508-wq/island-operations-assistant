@@ -6,6 +6,10 @@ Desert Island Restaurant Operating System (ROS) is an isolated restaurant founda
 
 Catalog Admin is available at `/admin`. It creates categories, product drafts, channels, and immutable published product versions. Event Admin is available at `/admin/events`: create a draft Event, choose published products, enter planned sellable quantities, then open the Event. `/pos` reads only `GET /api/events/current/products`, and displays active `pos` products with `remainingQuantity > 0` from the one OPEN Event.
 
+## Architecture Governance
+
+An OPEN Event freezes its selected Product Contract v2 snapshot. Republishing a Catalog product never changes the live Event; the new product version can be selected only for a new draft Event. New phases, scope expansion, and contract changes require explicit Architecture Owner approval before implementation starts. See [ADR-013](docs/adr/ADR-013-open-event-product-snapshot-policy.md) and the [Architecture Timeline](docs/ARCHITECTURE_TIMELINE.md).
+
 ## Install and start
 
 Requires Node.js 24 or later.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-07-20 - Phase 1B.1 Governance and Event Snapshot Freeze
+
+- Recorded Architecture Owner approval for the completed Phase 1B scope.
+- Added ADR-013, the Architecture Timeline, and the rule that no phase, scope expansion, or contract change begins without new explicit approval.
+- Added snapshot regression coverage: an OPEN Event stays on its selected Product Contract v2 even after Catalog republishes a newer price.
+
 ## 2026-07-20 - Phase 1B Event and Sellable Inventory
 
 - Added Product Contract v2 with approved category display snapshots and runtime validation.

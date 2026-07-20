@@ -28,3 +28,30 @@ test("current event API returns only open event products and empties after close
   assert.deepEqual((await request(baseUrl, "/api/events/current/products")).body.data, []);
   server.close(); await once(server, "close");
 });
+
+test("OPEN Event keeps its Product Contract v2 snapshot after Catalog republishes", async () => {
+  const server = createRosServer({ host: "127.0.0.1", port: 0, databasePath: path.resolve("data", `operations-snapshot-${randomUUID()}.sqlite`) });
+  server.listen(0, "127.0.0.1"); await once(server, "listening");
+  const address = server.address(); assert.ok(address && typeof address !== "string"); const baseUrl = `http://127.0.0.1:${address.port}`;
+  const category = await request(baseUrl, "/api/admin/categories", "POST", { code: "rice", displayName: "飯類", sortOrder: 1 });
+  const product = await request(baseUrl, "/api/admin/products", "POST", { internalName: "東坡肉飯", categoryId: category.body.data.categoryId, displayName: "東坡肉飯", posName: "東坡", sellingPrice: 180, channels: ["pos"] });
+  const firstPublish = await request(baseUrl, `/api/admin/products/${product.body.data.productId}/publish`, "POST", {});
+  const firstEvent = await request(baseUrl, "/api/admin/events", "POST", { eventCode: "first", displayName: "第一場", date: "2026-07-20", startTime: "11:00", endTime: "14:00" });
+  await request(baseUrl, `/api/admin/events/${firstEvent.body.data.eventId}/sellable-inventory`, "PUT", { productVersionId: firstPublish.body.data.contract.productVersionId, plannedQuantity: 20 });
+  await request(baseUrl, `/api/admin/events/${firstEvent.body.data.eventId}/open`, "POST", {});
+
+  await request(baseUrl, `/api/admin/products/${product.body.data.productId}`, "PATCH", { sellingPrice: 190 });
+  const secondPublish = await request(baseUrl, `/api/admin/products/${product.body.data.productId}/publish`, "POST", {});
+  const liveFirstEvent = await request(baseUrl, "/api/events/current/products");
+  assert.equal(liveFirstEvent.body.data[0].sellingPrice, 180);
+  assert.equal(liveFirstEvent.body.data[0].productVersionId, firstPublish.body.data.contract.productVersionId);
+
+  await request(baseUrl, `/api/admin/events/${firstEvent.body.data.eventId}/close`, "POST", {});
+  const secondEvent = await request(baseUrl, "/api/admin/events", "POST", { eventCode: "second", displayName: "第二場", date: "2026-07-20", startTime: "17:00", endTime: "22:00" });
+  await request(baseUrl, `/api/admin/events/${secondEvent.body.data.eventId}/sellable-inventory`, "PUT", { productVersionId: secondPublish.body.data.contract.productVersionId, plannedQuantity: 20 });
+  await request(baseUrl, `/api/admin/events/${secondEvent.body.data.eventId}/open`, "POST", {});
+  const liveSecondEvent = await request(baseUrl, "/api/events/current/products");
+  assert.equal(liveSecondEvent.body.data[0].sellingPrice, 190);
+  assert.equal(liveSecondEvent.body.data[0].productVersionId, secondPublish.body.data.contract.productVersionId);
+  server.close(); await once(server, "close");
+});

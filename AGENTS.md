@@ -8,10 +8,11 @@ Read `CONSTITUTION.md` before modifying code. Then read `README.md`, `docs/02_SY
 - Shared contracts are the only cross-domain interface.
 - Put scheduler and batch coordination only in `src/server/jobs/`. Jobs may call an application service and record results, but must not execute SQL, access repositories, query Domain tables, add business rules, or operate another Domain.
 - Before modifying any file under `src/shared/contracts/`, stop and ask for explicit Architecture Owner approval.
+- Before any new phase, scope expansion, or contract change, stop and wait for explicit Architecture Owner approval. Never start work automatically from a prior report, roadmap item, or completed phase.
 - Do not implement Kafka, RabbitMQ, CQRS, message queues, microservices, or a complex event bus.
 - Do not modify the Legacy project.
 - Do not connect LINE, n8n, Google Sheets, or production credentials during Phase 1A.
-- Phase 1B additionally approves Operations Events and Sellable Inventory only. Do not implement orders, payments, Kitchen, Customer, Cost, jobs, or any integration.
+- Phase 1B.1 approves governance and OPEN Event snapshot freeze tests only. Do not implement orders, payments, Kitchen, Customer, Cost, jobs, or any integration.
 - Run architecture guard tests before reporting completion.
 
 Keep changes small, use SQL migrations for schema changes, and update `docs/CURRENT_STATUS.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, and `docs/CHANGELOG.md` when architecture or implementation changes.

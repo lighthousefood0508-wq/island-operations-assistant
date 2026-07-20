@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-07-21 - DECISIONS #017 Cloudflare Tunnel Deployment Preparation
+
+- Added credential-free Cloudflare Tunnel configuration and Windows start/stop/readiness/service templates for a ROS-only Shadow Run endpoint.
+- Added Owner-only authorization, safe rollback, health, and Legacy-isolation instructions.
+- No Cloudflare login, Tunnel creation, Windows service installation, business behavior, or Legacy change.
+
 ## 2026-07-21 - DECISIONS #016 Realtime Synchronization Hardening
 
 - Added shared POS, Kitchen, and Statistics connection telemetry: device identity, Connected/Reconnecting/Offline state, current Event, last event, last sync, reconnect count, server time, SQLite state, and an opt-in Debug Mode panel.

@@ -10,6 +10,15 @@ The Shadow Run work is on `feature/20260726-shadow-run-mvp` under **DECISIONS #0
 
 The DECISIONS #016 hardening branch adds a small connection indicator and optional diagnostics to `/pos`, `/kitchen`, and `/pos/statistics`. Add `?device=POS-A&debug=1`, `?device=Kitchen-A&debug=1`, or `?device=Statistics&debug=1` when testing devices. The debug panel shows connection state, SSE state, polling fallback, last sync/event, reconnect count, server time, and central SQLite status. See [the realtime test checklist](docs/acceptance/SYNC_TEST.md).
 
+## Cloudflare Deployment Preparation
+
+DECISIONS #017 prepares a dedicated ROS-only Cloudflare Tunnel without changing Legacy or creating a live Tunnel. The Windows host has non-secret start, stop, and readiness scripts; they refuse to start without an Owner-provided environment-only connector token and healthy ROS SQLite. The only remaining Owner actions are Cloudflare login and named-Tunnel authorization. See [Cloudflare Tunnel setup](docs/deployment/CLOUDFLARE_TUNNEL_SETUP.md).
+
+### Architecture Owner Checklist
+
+1. Log in to Cloudflare and authorize one dedicated ROS Shadow Run Tunnel.
+2. Configure its ROS-only hostname and securely provide the connector token to the Windows host for the current session.
+
 For a local-network rehearsal, start ROS on the Windows host with `ROS_HOST=0.0.0.0` and `ROS_PORT=3090`, then allow inbound TCP 3090 in Windows Firewall on the private network. Find the host IPv4 address with `ipconfig`; on each iPad or Android device open `http://HOST-IP:3090/pos` or `http://HOST-IP:3090/kitchen`. Confirm every device returns the same `http://HOST-IP:3090/health` response before taking orders. `http://HOST-IP:3090/pos/statistics` is the owner-only closeout page. Do not use ngrok as the 7/26 production path.
 
 If ROS becomes unavailable, stop entering orders into ROS, continue in Legacy only, and record the time, device, order number, and screenshot. Do not repair code during service. Restart the Windows ROS process only after the current Legacy transaction is safe.

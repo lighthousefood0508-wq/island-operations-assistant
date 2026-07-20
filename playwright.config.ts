@@ -7,6 +7,7 @@ export default defineConfig({
   testDir: "./tests/e2e",
   timeout: 30_000,
   fullyParallel: false,
+  workers: 1,
   reporter: [["html", { open: "never" }], ["list"]],
   outputDir: "test-results",
   use: {

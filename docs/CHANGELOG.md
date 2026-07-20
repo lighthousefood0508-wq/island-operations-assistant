@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-07-20 - Phase 1C.1 POS Minimal UI
+
+- Added a responsive POS shopping cart driven only by the Current Event and POS Order APIs.
+- Grouped product cards by frozen display category and added POS short name, price, remaining quantity, quantity controls, total, submit-state protection, success number, refresh, and Order error messages.
+- Added Playwright coverage for a two-product Order and two browser contexts competing for the final portion. Set the shared SQLite E2E suite to one worker so independent specs cannot pollute each other's database state.
+- Did not add payment, Kitchen, Kiosk, preorder, cancellation, Sales Contract, Cost, or external integration behavior.
+
 ## ROS v0.4 - 2026-07-20
 
 - Released the verified Catalog, Event, Sellable Inventory, and POS Order Core foundation locally as `v0.4-order-core`.

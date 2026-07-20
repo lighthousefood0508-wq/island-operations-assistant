@@ -4,7 +4,7 @@ Desert Island Restaurant Operating System (ROS) is an isolated restaurant founda
 
 Current stable release: [ROS v0.4](docs/releases/RELEASE_v0.4.md), tagged locally as `v0.4-order-core`.
 
-## Phase 1C: POS Order Core
+## Phase 1C.1: POS Minimal UI
 
 Catalog Admin is available at `/admin`. It creates categories, product drafts, channels, and immutable published product versions. Event Admin is available at `/admin/events`: create a draft Event, choose published products, enter planned sellable quantities, then open the Event. `/pos` reads only `GET /api/events/current/products`, and displays active `pos` products with `remainingQuantity > 0` from the one OPEN Event.
 
@@ -12,7 +12,9 @@ Catalog Admin is available at `/admin`. It creates categories, product drafts, c
 
 An OPEN Event freezes its selected Product Contract v2 snapshot. Republishing a Catalog product never changes the live Event; the new product version can be selected only for a new draft Event. New phases, scope expansion, and contract changes require explicit Architecture Owner approval before implementation starts. See [ADR-013](docs/adr/ADR-013-open-event-product-snapshot-policy.md) and the [Architecture Timeline](docs/ARCHITECTURE_TIMELINE.md).
 
-`POST /api/orders` creates a POS-only, confirmed/unpaid/not-started Order against the one OPEN Event. It atomically decrements Event sellable quantity, stores immutable item snapshots, assigns an Event-local number such as `YONG-001`, records `order.created`, and supports idempotent retry. `GET /api/orders/:orderId` returns only public Order fields and snapshots. This phase has no POS cart UI, payment, Kitchen, Kiosk, preorder, cancellation, refund, Sales Contract, or Cost behavior.
+`POST /api/orders` creates a POS-only, confirmed/unpaid/not-started Order against the one OPEN Event. It atomically decrements Event sellable quantity, stores immutable item snapshots, assigns an Event-local number such as `YONG-001`, records `order.created`, and supports idempotent retry. `GET /api/orders/:orderId` returns only public Order fields and snapshots.
+
+`/pos` now groups the open Event's POS products by frozen display category, shows POS short name, price, and remaining quantity, and provides a local shopping cart with quantity controls. **建立中央訂單** submits only to the existing Order API, shows the returned order number, then refreshes remaining quantity. It contains no payment, Kitchen, cancellation, discount, member, or promotion controls.
 
 ## Install and start
 

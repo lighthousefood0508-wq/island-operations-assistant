@@ -11,7 +11,7 @@ Read `CONSTITUTION.md` before modifying code. Then read `README.md`, `docs/02_SY
 - Do not implement Kafka, RabbitMQ, CQRS, message queues, microservices, or a complex event bus.
 - Do not modify the Legacy project.
 - Do not connect LINE, n8n, Google Sheets, or production credentials during Phase 1A.
-- Only the Phase 1A Catalog Admin, Product Contract publication, and read-only POS proof are approved. Do not implement Operations, Cost, ordering, Kitchen, or jobs.
+- Phase 1B additionally approves Operations Events and Sellable Inventory only. Do not implement orders, payments, Kitchen, Customer, Cost, jobs, or any integration.
 - Run architecture guard tests before reporting completion.
 
 Keep changes small, use SQL migrations for schema changes, and update `docs/CURRENT_STATUS.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, and `docs/CHANGELOG.md` when architecture or implementation changes.

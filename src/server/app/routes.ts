@@ -1,13 +1,15 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { CatalogService } from "../../domains/catalog/index.js";
+import { OperationsService } from "../../domains/operations/index.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { openSseStream, writeHeartbeat } from "../events/sse.js";
 import { renderAdmin } from "../../web/admin/page.js";
+import { renderEventsAdmin } from "../../web/events/page.js";
 import { renderKitchen } from "../../web/kitchen/page.js";
 import { renderOrdering } from "../../web/ordering/page.js";
 import { renderPos } from "../../web/pos/page.js";
 
-type Services = Readonly<{ catalog: CatalogService }>;
+type Services = Readonly<{ catalog: CatalogService; operations: OperationsService }>;
 
 function sendJson(response: ServerResponse, status: number, payload: unknown): void {
   response.writeHead(status, { "content-type": "application/json; charset=utf-8" });
@@ -66,6 +68,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
       return;
     }
     if (request.method === "GET" && pathname === "/admin") return sendHtml(response, renderAdmin());
+    if (request.method === "GET" && pathname === "/admin/events") return sendHtml(response, renderEventsAdmin());
     if (request.method === "GET" && pathname === "/pos") return sendHtml(response, renderPos());
     if (request.method === "GET" && pathname === "/order") return sendHtml(response, renderOrdering());
     if (request.method === "GET" && pathname === "/kitchen") return sendHtml(response, renderKitchen());
@@ -84,6 +87,28 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "POST" && publishMatch?.[1]) return success(response, 200, services.catalog.publishProduct(decodeURIComponent(publishMatch[1])));
 
     if (request.method === "GET" && pathname === "/api/catalog/products/published") return success(response, 200, services.catalog.getPublishedProducts(url.searchParams.get("channel") || undefined));
+    if (request.method === "GET" && pathname === "/api/events/current") return success(response, 200, services.operations.getCurrentEvent());
+    if (request.method === "GET" && pathname === "/api/events/current/products") return success(response, 200, services.operations.getCurrentProducts());
+
+    if (request.method === "GET" && pathname === "/api/admin/events") return success(response, 200, services.operations.listEvents());
+    if (request.method === "POST" && pathname === "/api/admin/events") return success(response, 201, services.operations.createEvent(await readJson(request) as never));
+    const eventMatch = pathname.match(/^\/api\/admin\/events\/([^/]+)$/);
+    if (request.method === "PATCH" && eventMatch?.[1]) return success(response, 200, services.operations.updateEvent(decodeURIComponent(eventMatch[1]), await readJson(request) as never));
+    const eventActionMatch = pathname.match(/^\/api\/admin\/events\/([^/]+)\/(open|close|archive)$/);
+    if (request.method === "POST" && eventActionMatch?.[1] && eventActionMatch[2]) {
+      const eventId = decodeURIComponent(eventActionMatch[1]);
+      const action = eventActionMatch[2];
+      return success(response, 200, action === "open" ? services.operations.openEvent(eventId) : action === "close" ? services.operations.closeEvent(eventId) : services.operations.archiveEvent(eventId));
+    }
+    const inventoryMatch = pathname.match(/^\/api\/admin\/events\/([^/]+)\/sellable-inventory$/);
+    if (inventoryMatch?.[1] && request.method === "GET") return success(response, 200, services.operations.getInventory(decodeURIComponent(inventoryMatch[1])));
+    if (inventoryMatch?.[1] && request.method === "PUT") {
+      const input = await readJson(request);
+      const productVersionId = typeof input.productVersionId === "string" ? input.productVersionId : "";
+      const contract = services.catalog.getPublishedProducts().find((product) => product.productVersionId === productVersionId);
+      if (!contract) throw new HttpError(422, "published_product_not_found", "Choose a currently published product version.", { field: "productVersionId" });
+      return success(response, 200, services.operations.setSellableInventory(decodeURIComponent(inventoryMatch[1]), contract, input as never));
+    }
     if (request.method === "GET" && pathname === "/api/v1") return sendJson(response, 501, { ok: false, error: { code: "not_implemented", message: "Business APIs are intentionally scoped to Catalog Phase 1A." } });
     return sendJson(response, 404, { ok: false, error: { code: "not_found", message: "Route not found." } });
   } catch (error) {

@@ -1,5 +1,5 @@
 import { HttpError } from "../../../shared/errors/http-error.js";
-import { parseProductContract, type ProductContractV1 } from "../../../shared/contracts/product-contract.js";
+import { parseProductContract, type ProductContractV2 } from "../../../shared/contracts/product-contract.js";
 import { createId } from "../../../shared/utils/ids.js";
 import { CATALOG_CHANNELS, type CatalogChannel, type CatalogProduct, type Category, type ProductDraft, type ProductStatus, type ProductVersion } from "../domain/types.js";
 import { CatalogRepository } from "../infrastructure/catalog-repository.js";
@@ -118,7 +118,7 @@ export class CatalogService {
     return this.getProduct(productId);
   }
 
-  publishProduct(productId: string): { product: CatalogProduct; contract: ProductContractV1; version: ProductVersion } {
+  publishProduct(productId: string): { product: CatalogProduct; contract: ProductContractV2; version: ProductVersion } {
     const product = this.getProduct(productId);
     const category = this.requireCategory(product.categoryId);
     if (!category.isActive) throw new HttpError(422, "category_inactive", "A product cannot be published under an inactive category.");
@@ -139,7 +139,7 @@ export class CatalogService {
     return { product: this.getProduct(productId), contract, version };
   }
 
-  getPublishedProducts(channel?: string): ProductContractV1[] {
+  getPublishedProducts(channel?: string): ProductContractV2[] {
     if (channel !== undefined && !CATALOG_CHANNELS.includes(channel as CatalogChannel)) throw new HttpError(422, "validation_error", "Unsupported channel.", { field: "channel" });
     return this.repository.listPublishedProducts(channel as CatalogChannel | undefined).map(({ productId, category, version }) => this.toContract({ productId, categoryId: category.categoryId, status: "published" }, category, version));
   }
@@ -156,8 +156,8 @@ export class CatalogService {
     return category;
   }
 
-  private toContract(product: Pick<CatalogProduct, "productId" | "categoryId" | "status">, category: Category, version: ProductVersion): ProductContractV1 {
-    return parseProductContract({ contractVersion: "1", productId: product.productId, productVersionId: version.productVersionId, categoryId: category.categoryId, displayName: version.displayName, posName: version.posName, sellingPrice: version.sellingPrice, channels: version.channels, isActive: product.status === "published" && category.isActive, publishedAt: version.publishedAt });
+  private toContract(product: Pick<CatalogProduct, "productId" | "categoryId" | "status">, category: Category, version: ProductVersion): ProductContractV2 {
+    return parseProductContract({ contractVersion: "2", productId: product.productId, productVersionId: version.productVersionId, categoryId: category.categoryId, displayCategoryName: category.displayName, displayCategorySortOrder: category.sortOrder, displayName: version.displayName, posName: version.posName, sellingPrice: version.sellingPrice, channels: version.channels, isActive: product.status === "published" && category.isActive, publishedAt: version.publishedAt });
   }
 
   private audit(entityType: string, entityId: string, action: string, payload: unknown): void {

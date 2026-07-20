@@ -23,7 +23,8 @@ test("Admin publish flows through Product Contract API for POS", async () => {
   assert.equal(product.status, 201);
   const published = await request(baseUrl, `/api/admin/products/${product.body.data.productId}/publish`, "POST", {});
   assert.equal(published.status, 200);
-  assert.equal(published.body.data.contract.contractVersion, "1");
+  assert.equal(published.body.data.contract.contractVersion, "2");
+  assert.equal(published.body.data.contract.displayCategoryName, "飯類");
   const posProducts = await request(baseUrl, "/api/catalog/products/published?channel=pos");
   assert.equal(posProducts.status, 200);
   assert.equal(posProducts.body.data.length, 1);

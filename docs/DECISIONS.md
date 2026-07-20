@@ -5,7 +5,7 @@
 - ROS uses one SQLite database first, with `catalog_*`, `operations_*`, and `cost_*` ownership boundaries guarded in tests.
 - `better-sqlite3` is used only through `DatabaseAdapter`; foreign keys, WAL, and busy timeout are configured centrally.
 - BOM belongs only to Cost. POS and Kitchen cannot write Catalog and never receive BOM data.
-- Product Contract and daily-batch Sales Contract are the only cross-domain interfaces.
+- Product Contract v2 and daily-batch Sales Contract v1 are the only cross-domain interfaces. Product Contract v2 carries Catalog-owned category display snapshots while `categoryId` remains the only category identity.
 - Contracts are frozen; Miles / 林子茂 must approve any contract change.
 - Catalog uses prefixed random UUID IDs; codes and names are never primary keys.
 - Google Sheets is a future reporting/review export, not the operational database.

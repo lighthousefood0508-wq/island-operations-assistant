@@ -72,7 +72,7 @@ test("contract freeze inventory is explicit", () => {
   const contractFiles = filesUnder(contractsDirectory, [".ts"]).map((filename) => path.basename(filename));
   assert.ok(contractFiles.includes("product-contract.ts"));
   assert.ok(contractFiles.includes("sales-contract.ts"));
-  assert.match(readFileSync(path.join(contractsDirectory, "product-contract.ts"), "utf8"), /PRODUCT_CONTRACT_VERSION = "1"/);
+  assert.match(readFileSync(path.join(contractsDirectory, "product-contract.ts"), "utf8"), /PRODUCT_CONTRACT_VERSION = "2"/);
   assert.match(readFileSync(path.join(contractsDirectory, "sales-contract.ts"), "utf8"), /SALES_CONTRACT_VERSION = "1"/);
 });
 

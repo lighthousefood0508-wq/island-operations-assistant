@@ -7,13 +7,15 @@ import {
   requireRecord
 } from "./validation.js";
 
-export const PRODUCT_CONTRACT_VERSION = "1" as const;
+export const PRODUCT_CONTRACT_VERSION = "2" as const;
 
-export type ProductContractV1 = Readonly<{
+export type ProductContractV2 = Readonly<{
   contractVersion: typeof PRODUCT_CONTRACT_VERSION;
   productId: string;
   productVersionId: string;
   categoryId: string;
+  displayCategoryName: string;
+  displayCategorySortOrder: number;
   displayName: string;
   posName: string;
   sellingPrice: number;
@@ -27,6 +29,8 @@ const allowedKeys = [
   "productId",
   "productVersionId",
   "categoryId",
+  "displayCategoryName",
+  "displayCategorySortOrder",
   "displayName",
   "posName",
   "sellingPrice",
@@ -35,7 +39,7 @@ const allowedKeys = [
   "publishedAt"
 ] as const;
 
-export function parseProductContract(value: unknown): ProductContractV1 {
+export function parseProductContract(value: unknown): ProductContractV2 {
   const record = requireRecord(value, "Product Contract");
   requireExactKeys(record, allowedKeys, "Product Contract");
   if (record.contractVersion !== PRODUCT_CONTRACT_VERSION) {
@@ -50,6 +54,8 @@ export function parseProductContract(value: unknown): ProductContractV1 {
     productId: requireNonEmptyString(record.productId, "productId"),
     productVersionId: requireNonEmptyString(record.productVersionId, "productVersionId"),
     categoryId: requireNonEmptyString(record.categoryId, "categoryId"),
+    displayCategoryName: requireNonEmptyString(record.displayCategoryName, "displayCategoryName"),
+    displayCategorySortOrder: requireNonNegativeInteger(record.displayCategorySortOrder, "displayCategorySortOrder"),
     displayName: requireNonEmptyString(record.displayName, "displayName"),
     posName: requireNonEmptyString(record.posName, "posName"),
     sellingPrice: requireNonNegativeInteger(record.sellingPrice, "sellingPrice"),

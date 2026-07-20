@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-07-20 - Phase 1B Event and Sellable Inventory
+
+- Added Product Contract v2 with approved category display snapshots and runtime validation.
+- Added Operations-owned Events, single OPEN Event enforcement, sellable inventory allocation, and remaining quantity calculation.
+- Added Event Admin, current Event public APIs, and event-scoped read-only POS display.
+- Added unit, API integration, and UI E2E coverage. No orders, payments, Kitchen, Customer, Cost, or external integration was added.
+
 ## 2026-07-20 - Phase 1A E2E acceptance
 
 - Added isolated Playwright Chromium acceptance tests for Admin publish to read-only POS.

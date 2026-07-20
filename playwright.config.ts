@@ -17,7 +17,7 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: "node dist/server/index.js",
+    command: `"${process.execPath}" dist/server/index.js`,
     url: `http://${host}:${port}/health`,
     reuseExistingServer: false,
     timeout: 30_000,

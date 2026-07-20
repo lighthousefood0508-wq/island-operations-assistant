@@ -3,12 +3,14 @@ import test from "node:test";
 import { parseProductContract } from "../shared/contracts/product-contract.js";
 import { parseSalesContract } from "../shared/contracts/sales-contract.js";
 
-test("Product Contract v1 accepts published product fields only", () => {
+test("Product Contract v2 accepts published product display snapshots only", () => {
   const contract = parseProductContract({
-    contractVersion: "1",
+    contractVersion: "2",
     productId: "product-1",
     productVersionId: "product-version-1",
     categoryId: "category-1",
+    displayCategoryName: "飯類",
+    displayCategorySortOrder: 10,
     displayName: "Sample Meal",
     posName: "Meal",
     sellingPrice: 120,

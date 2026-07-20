@@ -41,11 +41,27 @@ test("Admin publishes a product and POS reads Product Contract from central SQLi
   expect(body.data).toHaveLength(1);
   expect(body.data[0]).toMatchObject({ displayName: "一曲東坡肉", posName: "東坡", sellingPrice: 180 });
 
+  await page.goto("/admin/events");
+  await page.locator("#event-code").fill("e2e-night");
+  await page.locator("#event-name").fill("E2E 晚場");
+  await page.locator("#event-date").fill("2026-07-20");
+  await page.locator("#event-start").fill("17:00");
+  await page.locator("#event-end").fill("22:00");
+  await page.locator("#event-form button[type=submit]").click();
+  await expect(page.locator("#notice")).toContainText("場次已儲存");
+  await page.locator("#inventory-product").selectOption({ index: 1 });
+  await page.locator("#planned-quantity").fill("20");
+  await page.locator("#inventory-form button[type=submit]").click();
+  await expect(page.locator("#notice")).toContainText("可售份數已儲存");
+  await page.locator("#open-event").click();
+  await expect(page.locator("#notice")).toContainText("場次狀態已更新");
+
   await page.goto("/pos");
   await expect(page.locator("#products")).toContainText("一曲東坡肉");
   await expect(page.locator("#products")).toContainText("東坡");
   await expect(page.locator("#products")).toContainText("180 元");
-  await expect(page.locator("#products")).toContainText("分類：");
+  await expect(page.locator("#products")).toContainText("分類：便當");
+  await expect(page.locator("#products")).toContainText("剩餘：20 份");
   await page.reload();
   await expect(page.locator("#products")).toContainText("一曲東坡肉");
   expect(await page.evaluate(() => window.localStorage.length)).toBe(0);
@@ -56,6 +72,12 @@ test("Admin publishes a product and POS reads Product Contract from central SQLi
   await expect(freshPage.locator("#products")).toContainText("一曲東坡肉");
   expect(await freshPage.evaluate(() => window.localStorage.length)).toBe(0);
   await freshContext.close();
+
+  await page.goto("/admin/events");
+  await page.locator('#events .item', { hasText: "E2E 晚場" }).getByRole("button", { name: "選取" }).click();
+  await page.locator("#close-event").click();
+  await page.goto("/pos");
+  await expect(page.locator("#empty")).toContainText("目前沒有開放場次的可售 POS 商品");
 });
 
 test("publish rejects a draft without POS short name", async ({ page }) => {

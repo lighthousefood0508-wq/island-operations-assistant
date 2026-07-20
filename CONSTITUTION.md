@@ -18,9 +18,9 @@ This document is the highest architecture rule for ROS. It overrides earlier arc
 
 ## Frozen cross-domain contracts
 
-The only cross-domain interfaces are `Product Contract v1` and `Sales Contract v1`.
+The only cross-domain interfaces are `Product Contract v2` and `Sales Contract v1`.
 
-- Product Contract publishes safe product information from Catalog for Operations and Cost. It never contains BOM, ingredients, costs, inventory, or purchases.
+- Product Contract publishes safe product information and approved display snapshots from Catalog for Operations and Cost. It never contains BOM, ingredients, costs, inventory, or purchases.
 - Sales Contract is created only by Operations after a completed order. It is stored in `operations_sales_outbox` and imported by Cost once per day into `cost_sales_imports` using `salesEventId` for idempotency.
 - Cost never reads an Operations order table, and Operations never receives Cost's deduction result.
 - Before modifying any file under `src/shared/contracts/`, stop and obtain explicit approval from the Architecture Owner.

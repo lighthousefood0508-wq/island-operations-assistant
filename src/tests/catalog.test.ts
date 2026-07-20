@@ -47,7 +47,7 @@ test("Publishing creates immutable versions and valid Product Contracts", () => 
   const product = service.createProduct({ internalName: "燉肉飯", categoryId: category.categoryId, displayName: "燉肉飯", posName: "燉肉", sellingPrice: 120, channels: ["pos", "preorder"] });
   const first = service.publishProduct(product.productId);
   assert.equal(first.version.versionNumber, 1);
-  assert.deepEqual(Object.keys(first.contract).sort(), ["categoryId", "channels", "contractVersion", "displayName", "isActive", "posName", "productId", "productVersionId", "publishedAt", "sellingPrice"].sort());
+  assert.deepEqual(Object.keys(first.contract).sort(), ["categoryId", "channels", "contractVersion", "displayCategoryName", "displayCategorySortOrder", "displayName", "isActive", "posName", "productId", "productVersionId", "publishedAt", "sellingPrice"].sort());
   assert.throws(() => database.execute("UPDATE catalog_product_versions SET display_name = ? WHERE product_version_id = ?", ["不可改", first.version.productVersionId]));
   service.updateProduct(product.productId, { displayName: "新版燉肉飯", posName: "燉肉新版", sellingPrice: 130, channels: ["pos"] });
   const second = service.publishProduct(product.productId);

@@ -1,11 +1,10 @@
 # Domain Ownership
 
-| Domain | Owns | Reads | Writes | Notes |
-| --- | --- | --- | --- | --- |
-| Catalog | categories, products, versions, channel visibility/prices | event rules | Admin only | Product version becomes immutable after publish.
-| Operations | events, allocations, orders, order items, order state | catalog snapshots, availability | POS, Customer Order, Kitchen (status only) | Server validates all transitions.
-| Cost & Inventory | ingredients, aliases, conversions, BOM, purchases, batches, inventory movements, waste | catalog product references | Admin/cost workflow | Reserved schema only in this foundation.
-| Platform | businesses, users, roles, devices, audit logs | all domains by permission | Admin/service only | Authentication is not implemented yet.
-| Integrations | external events, sync jobs, webhook idempotency | domain records | worker only | Google Sheets is downstream reporting only.
+| Area | Owns | May consume | Forbidden |
+| --- | --- | --- | --- |
+| Catalog | `catalog_*`: categories, products, versions, channels, publication | Admin input | orders, payments, BOM, inventory, cost calculation |
+| Operations | `operations_*`: events, published-product copies, availability, orders, payments, status, sales outbox | Product Contract | direct `cost_*` access and BOM data |
+| Cost | `cost_*`: ingredients, aliases, conversions, BOM, purchases, imports, inventory | Product Contract and daily Sales Contract import | direct `operations_*` access or order mutation |
+| Shared/System | users, roles, audit logs, settings | infrastructure only | business ownership |
 
-The ROS SQLite database is the intended single source of truth. Browser storage is never an authority. Google Sheets edits must not overwrite ROS transaction state; approved import jobs may create controlled changes later.
+Catalog is intentionally small and Admin-only. The ROS SQLite database is the operational source of truth, but ownership is enforced by naming, source boundaries, and guard tests. Browser storage and Google Sheets are never authorities.

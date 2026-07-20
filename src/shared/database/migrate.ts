@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DatabaseSync } from "node:sqlite";
-import { loadConfig } from "../app/config.js";
+import { loadConfig } from "../../config/runtime.js";
 import { openDatabase } from "./client.js";
 
 const sourceDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../migrations");
@@ -13,6 +13,7 @@ function migrationDirectory(): string {
 }
 
 export function runMigrations(database: DatabaseSync): string[] {
+  database.exec("PRAGMA foreign_keys = ON;");
   database.exec("CREATE TABLE IF NOT EXISTS schema_migrations (migration_id TEXT PRIMARY KEY, applied_at TEXT NOT NULL);");
   const applied = new Set(
     database.prepare("SELECT migration_id FROM schema_migrations").all().map((row) => String(row.migration_id))

@@ -1,9 +1,9 @@
 import { createServer, type Server } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadConfig, type RosConfig } from "./app/config.js";
-import { openDatabase } from "./database/client.js";
-import { runMigrations } from "./database/migrate.js";
+import { loadConfig, type RosConfig } from "../config/runtime.js";
+import { openDatabase } from "../shared/database/client.js";
+import { runMigrations } from "../shared/database/migrate.js";
 import { route } from "./app/routes.js";
 
 export function createRosServer(config: RosConfig = loadConfig()): Server {

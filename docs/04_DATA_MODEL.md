@@ -1,15 +1,12 @@
 # Data Model
 
-The initial schema is in `migrations/001_initial_foundation.sql`. All ids are application-generated text identifiers, timestamps are ISO-8601 UTC text, and money is integer TWD.
+The initial schema is in `migrations/001_initial_foundation.sql`. IDs are stable text IDs, timestamps are UTC ISO-8601 text, and money is integer TWD. No business table may omit its `catalog_`, `operations_`, or `cost_` prefix.
 
-| Domain | Tables | Responsibility |
-| --- | --- | --- |
-| Platform | businesses, users, roles, user_roles, devices, audit_logs | tenant boundary, access, device identity, mutation evidence |
-| Catalog | categories, products, product_versions, product_channels | versioned products and explicit channel publication |
-| Operations | events, availability_allocations, orders, order_items, order_status_events, payments | event-based selling, immutable order snapshots, payment record |
-| Cost & Inventory | ingredients, boms, bom_items, production_batches, inventory_transactions, purchases, purchase_items, waste | future inventory and cost ledger interfaces |
-| Integrations | sync_jobs, external_events | asynchronous reporting sync and deduplicated external delivery |
+| Ownership | Tables |
+| --- | --- |
+| Catalog | `catalog_categories`, `catalog_products`, `catalog_product_versions`, `catalog_product_channels` |
+| Operations | `operations_events`, `operations_product_copies`, `operations_availability`, `operations_orders`, `operations_order_items`, `operations_payments`, `operations_order_status_events`, `operations_sales_outbox` |
+| Cost | `cost_ingredients`, `cost_ingredient_aliases`, `cost_unit_conversions`, `cost_boms`, `cost_bom_items`, `cost_sales_imports`, `cost_inventory_transactions`, `cost_purchases`, `cost_purchase_items` |
+| Shared/System | `schema_migrations`, `users`, `roles`, `user_roles`, `audit_logs`, `system_settings` |
 
-Planned later tables: `ingredient_aliases`, `unit_conversions`, promotions, order discounts, invoice records, invoice events, and an audit export index. They are documented contracts, not implemented schema in Phase 1.
-
-Important relations: `products.category_id -> categories`; `product_versions.product_id -> products`; `product_channels.product_version_id -> product_versions`; `orders.event_id -> events`; `order_items` holds product/version/name/price/cost snapshots; `payments.order_id -> orders`; `boms.product_id -> products`; `bom_items.ingredient_id -> ingredients`.
+`operations_product_copies` stores a Product Contract snapshot without a cross-domain foreign key. `cost_boms` stores product and product-version IDs as contract references; BOM itself exists only in `cost_*`. `operations_sales_outbox` and `cost_sales_imports` are separate records connected by `salesEventId`, not direct table access.

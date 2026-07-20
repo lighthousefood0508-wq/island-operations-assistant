@@ -1,9 +1,9 @@
 # Current Status
 
-Date: 2026-07-19
+Date: 2026-07-20
 
-Phase 0 foundation is complete: isolated Git repository, TypeScript Node service, SQLite migration runner, initial cross-domain schema, `/health`, SSE heartbeat, four page shells, environment template, and health test.
+Phase 0.5 aligns the isolated foundation with Architecture Constitution v2: one SQLite database with prefix-enforced Catalog/Operations/Cost ownership, frozen Product/Sales Contracts, guard tests, `/health`, SSE heartbeat, and four empty page shells.
 
-Not implemented: authentication, business APIs, catalog editing, orders, state transitions, payments, inventory behavior, Google Sheets/n8n/LINE/OpenAI integration, receipt processing, Docker, VPS, migration from legacy, and production monitoring.
+Not implemented: authentication, Catalog UI/API, orders, payment behavior, Cost behavior, daily import execution, Google Sheets/n8n/LINE/OpenAI integration, receipt processing, Docker, VPS, legacy migration, and production monitoring.
 
-The legacy project was read only as an architectural reference and was not modified.
+The legacy project remains read-only and unmodified. Phase 1 cannot begin without Architecture Owner approval.

@@ -10,6 +10,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): RosConfig {
   return {
     host: env.ROS_HOST || "127.0.0.1",
     port: Number(env.ROS_PORT || 3090),
-    databasePath: path.resolve(env.ROS_DATABASE_PATH || "./data/ros-dev.sqlite")
+    databasePath: path.resolve(env.ROS_DATABASE_PATH || "./data/ros-v2-dev.sqlite")
   };
 }

@@ -9,6 +9,6 @@ Implemented now:
 | `GET /admin`, `/pos`, `/order`, `/kitchen` | isolated placeholder pages |
 | `GET /api/v1` | intentional 501 skeleton response |
 
-Planned REST namespaces, not implemented: `/api/v1/catalog/*`, `/events`, `/availability`, `/orders`, `/orders/:id/status`, `/payments`, `/inventory/*`, `/purchases`, `/admin/*`, `/integrations/*`.
+Planned REST namespaces, not implemented: `/api/v1/catalog/*`, `/events`, `/availability`, `/orders`, `/orders/:id/status`, `/payments`, `/inventory/*`, `/purchases`, and `/admin/*`. They must conform to `CONSTITUTION.md` before implementation.
 
-Every future write needs authentication, business scope, request id, idempotency strategy where external retries are possible, validation, an audit log, and an emitted domain event after commit.
+Every future write needs authentication, request id, idempotency where retries are possible, validation, and audit evidence. Product and Sales Contracts are the only cross-domain interface and cannot be changed without Architecture Owner approval.

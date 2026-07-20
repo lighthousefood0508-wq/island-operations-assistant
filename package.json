@@ -11,10 +11,15 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json && node --watch dist/server/index.js",
     "start": "node dist/server/index.js",
-    "db:migrate": "tsc -p tsconfig.json && node dist/server/database/migrate.js",
+    "db:migrate": "tsc -p tsconfig.json && node dist/shared/database/migrate.js",
+    "migrate": "tsc -p tsconfig.json && node dist/shared/database/migrate.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "tsc --noEmit -p tsconfig.json",
-    "test": "tsc -p tsconfig.json && node --test dist/tests/health.test.js"
+    "test": "tsc -p tsconfig.json && node --test dist/tests/health.test.js dist/tests/contracts.test.js dist/tests/architecture-guards.test.js",
+    "architecture:guard": "tsc -p tsconfig.json && node --test dist/tests/architecture-guards.test.js",
+    "migration:smoke": "tsc -p tsconfig.json && node scripts/migration-smoke.mjs",
+    "verify": "node scripts/verify.mjs",
+    "dev:open": "tsc -p tsconfig.json && node --watch dist/server/index.js"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

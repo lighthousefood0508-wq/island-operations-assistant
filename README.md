@@ -2,6 +2,8 @@
 
 Desert Island Restaurant Operating System (ROS) is an isolated restaurant foundation. Read [CONSTITUTION.md](CONSTITUTION.md) before changing code. The Legacy food truck project is not imported or modified.
 
+Current stable release: [ROS v0.4](docs/releases/RELEASE_v0.4.md), tagged locally as `v0.4-order-core`.
+
 ## Phase 1C: POS Order Core
 
 Catalog Admin is available at `/admin`. It creates categories, product drafts, channels, and immutable published product versions. Event Admin is available at `/admin/events`: create a draft Event, choose published products, enter planned sellable quantities, then open the Event. `/pos` reads only `GET /api/events/current/products`, and displays active `pos` products with `remainingQuantity > 0` from the one OPEN Event.

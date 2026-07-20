@@ -1,5 +1,10 @@
 # Changelog
 
+## ROS v0.4 - 2026-07-20
+
+- Released the verified Catalog, Event, Sellable Inventory, and POS Order Core foundation locally as `v0.4-order-core`.
+- Recorded the migration baseline through `004_order_core.sql`, automated acceptance coverage, architecture guards, and remaining intentional gaps.
+
 ## 2026-07-20 - Governance and Phase 1B acceptance follow-up
 
 - Required all future implementation completion reports to begin with their `DECISIONS` approval record.

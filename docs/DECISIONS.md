@@ -7,6 +7,7 @@
 - **DECISIONS #003**: Phase 1C Design Finalization approval on 2026-07-20 for Order Policy Freeze and ADR-014 through ADR-018 acceptance only.
 - **DECISIONS #004**: Phase 1C Order Core approval on 2026-07-20 for POS-only Order create/read APIs, snapshots, Event numbers, idempotency, atomic sellable quantity handling, audit logging, and additive Operations migration.
 - **DECISIONS #005**: Governance follow-up on 2026-07-20 requiring every implementation completion report to cite its approval record first.
+- **DECISIONS #006**: Release v0.4 and Phase 1C.1 approval on 2026-07-20 by Architecture Owner Miles / Lin Zi-Mao for release documentation and a POS-only minimal shopping cart UI. Payment, Kitchen, Kiosk, Preorder, Sales Contract, Cost, LINE, n8n, and Google Sheets remain excluded.
 
 - ROS is a new repository, not a refactor of the legacy food truck system.
 - Operations and Cost are the only major business domains. Catalog is a deliberately small Admin-owned master.

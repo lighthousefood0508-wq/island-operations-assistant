@@ -8,5 +8,7 @@
 | Phase 1B.1 | Complete | 2026-07-20 | Governance record and OPEN Event snapshot freeze |
 | Phase 1C-Design | Complete (design only) | 2026-07-20 | Order Domain design package and policy freeze |
 | Phase 1C | Complete | 2026-07-20 | POS-only Order Core: snapshots, atomic quantity deduction, Event number, idempotency, audit, and create/read API |
+| Release v0.4 | Released locally | 2026-07-20 | Catalog, Event, Sellable Inventory, and POS Order Core (`v0.4-order-core`) |
+| Phase 1C.1 | Approved, not started | 2026-07-20 | POS minimal shopping cart UI only; DECISIONS #006 |
 
 No future phase starts automatically. A new phase, scope expansion, or contract change requires explicit Architecture Owner approval before implementation begins.

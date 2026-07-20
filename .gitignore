@@ -8,3 +8,5 @@ data/*.sqlite-*
 logs/
 coverage/
 *.log
+playwright-report/
+test-results/

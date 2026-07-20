@@ -1,15 +1,20 @@
 # Data Model
 
-The initial schema is in `migrations/001_initial_foundation.sql`. All ids are application-generated text identifiers, timestamps are ISO-8601 UTC text, and money is integer TWD.
+IDs are immutable prefixed random UUIDs, timestamps are UTC ISO-8601 text, and money is integer TWD. Business tables retain the `catalog_`, `operations_`, or `cost_` prefix.
 
-| Domain | Tables | Responsibility |
+| Ownership | Tables | Phase 1A state |
 | --- | --- | --- |
-| Platform | businesses, users, roles, user_roles, devices, audit_logs | tenant boundary, access, device identity, mutation evidence |
-| Catalog | categories, products, product_versions, product_channels | versioned products and explicit channel publication |
-| Operations | events, availability_allocations, orders, order_items, order_status_events, payments | event-based selling, immutable order snapshots, payment record |
-| Cost & Inventory | ingredients, boms, bom_items, production_batches, inventory_transactions, purchases, purchase_items, waste | future inventory and cost ledger interfaces |
-| Integrations | sync_jobs, external_events | asynchronous reporting sync and deduplicated external delivery |
+| Catalog | `catalog_categories`, `catalog_products`, `catalog_product_drafts`, `catalog_product_draft_channels`, `catalog_product_versions`, `catalog_product_channels` | implemented |
+| Operations | `operations_*` | reserved only; no application behavior |
+| Cost | `cost_*` | reserved only; no application behavior |
+| Shared/System | `schema_migrations`, `users`, `roles`, `user_roles`, `audit_logs`, `system_settings` | migration/audit infrastructure |
 
-Planned later tables: `ingredient_aliases`, `unit_conversions`, promotions, order discounts, invoice records, invoice events, and an audit export index. They are documented contracts, not implemented schema in Phase 1.
+`catalog_categories.code` is unique; renaming never changes `category_id`. Products own editable draft data, while published rows in `catalog_product_versions` are immutable by trigger and application rule. Published channel rows belong to the version. Product Contract exposes only approved published data, never the draft description, BOM, cost, stock, or purchase data.
 
-Important relations: `products.category_id -> categories`; `product_versions.product_id -> products`; `product_channels.product_version_id -> product_versions`; `orders.event_id -> events`; `order_items` holds product/version/name/price/cost snapshots; `payments.order_id -> orders`; `boms.product_id -> products`; `bom_items.ingredient_id -> ingredients`.
+## Phase 1C Operations Order Core
+
+`004_order_core.sql` adds fields to the existing Operations order skeleton only. `operations_orders` now stores the Event-local `order_number`, POS source, independent order/payment/production states, optional customer/name notes, idempotency key, canonical request fingerprint, and confirmation timestamps. POS creates only `confirmed` / `unpaid` / `not_started` rows with zero discount.
+
+`operations_order_items` keeps immutable Event Product Snapshot fields: product/version IDs, display/POS/category names, list and selling prices, quantity, discount, line total, item notes, and the deliberately unavailable Cost placeholders. The Order Core never reads Cost or BOM data.
+
+`operations_event_order_sequences` is one row per Event and allocates the next shared order number inside the same transaction. `operations_order_idempotency` stores the Event + source + idempotency key, fingerprint, and order ID for durable retry handling. Both are Operations-owned data.

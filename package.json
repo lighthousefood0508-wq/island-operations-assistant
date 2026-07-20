@@ -11,13 +11,27 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json && node --watch dist/server/index.js",
     "start": "node dist/server/index.js",
-    "db:migrate": "tsc -p tsconfig.json && node dist/server/database/migrate.js",
+    "db:migrate": "tsc -p tsconfig.json && node dist/shared/database/migrate.js",
+    "migrate": "tsc -p tsconfig.json && node dist/shared/database/migrate.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "tsc --noEmit -p tsconfig.json",
-    "test": "tsc -p tsconfig.json && node --test dist/tests/health.test.js"
+    "test": "tsc -p tsconfig.json && node --test dist/tests/health.test.js dist/tests/contracts.test.js dist/tests/architecture-guards.test.js dist/tests/catalog.test.js dist/tests/catalog-api.integration.test.js dist/tests/operations-events.test.js dist/tests/operations-events-api.integration.test.js dist/tests/order-core.test.js dist/tests/order-core-api.integration.test.js",
+    "architecture:guard": "tsc -p tsconfig.json && node --test dist/tests/architecture-guards.test.js",
+    "migration:smoke": "tsc -p tsconfig.json && node scripts/migration-smoke.mjs",
+    "verify": "node scripts/verify.mjs",
+    "verify:full": "node scripts/verify.mjs && node scripts/e2e-runner.mjs",
+    "test:e2e": "node scripts/e2e-runner.mjs",
+    "test:e2e:headed": "node scripts/e2e-runner.mjs --headed",
+    "test:e2e:ui": "node scripts/e2e-runner.mjs --ui",
+    "dev:open": "tsc -p tsconfig.json && node --watch dist/server/index.js"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.0.0",
     "typescript": "^5.8.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1"
   }
 }

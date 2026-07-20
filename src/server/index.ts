@@ -1,15 +1,20 @@
 import { createServer, type Server } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadConfig, type RosConfig } from "./app/config.js";
-import { openDatabase } from "./database/client.js";
-import { runMigrations } from "./database/migrate.js";
-import { route } from "./app/routes.js";
+import { loadConfig, type RosConfig } from "../config/runtime.js";
+import { createDatabase } from "../shared/database/database-provider.js";
+import { runMigrations } from "../shared/database/migrate.js";
+import { CatalogRepository, CatalogService } from "../domains/catalog/index.js";
+import { OperationsRepository, OperationsService, OrderRepository, OrderService } from "../domains/operations/index.js";
+import { createRoute } from "./app/routes.js";
 
 export function createRosServer(config: RosConfig = loadConfig()): Server {
-  const database = openDatabase(config.databasePath);
+  const database = createDatabase(config);
   runMigrations(database);
-  const server = createServer(route);
+  const catalog = new CatalogService(new CatalogRepository(database));
+  const operations = new OperationsService(new OperationsRepository(database));
+  const orders = new OrderService(new OrderRepository(database));
+  const server = createServer(createRoute({ catalog, operations, orders }));
   server.on("close", () => database.close());
   return server;
 }

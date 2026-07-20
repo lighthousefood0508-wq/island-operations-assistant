@@ -1,0 +1,81 @@
+import type { ProductContractV2 } from "../../../shared/contracts/product-contract.js";
+
+export const EVENT_STATUSES = ["draft", "open", "closed", "archived"] as const;
+export type EventStatus = (typeof EVENT_STATUSES)[number];
+
+export type OperationsEvent = Readonly<{
+  eventId: string;
+  eventCode: string;
+  displayName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: EventStatus;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
+export type SellableInventory = Readonly<{
+  eventId: string;
+  productId: string;
+  productVersionId: string;
+  plannedQuantity: number;
+  reservedQuantity: number;
+  soldQuantity: number;
+  remainingQuantity: number;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
+export type OperationsProductCopy = Readonly<ProductContractV2>;
+export type EventProduct = Readonly<ProductContractV2 & { remainingQuantity: number }>;
+
+export type PosOrderItemInput = Readonly<{
+  productId: string;
+  productVersionId: string;
+  quantity: number;
+  notes: string | null;
+}>;
+
+export type CreatePosOrderInput = Readonly<{
+  source: "pos";
+  eventId: string;
+  idempotencyKey: string;
+  items: readonly PosOrderItemInput[];
+  customerName: string | null;
+  notes: string | null;
+}>;
+
+export type OrderItem = Readonly<{
+  orderItemId: string;
+  productId: string;
+  productVersionId: string;
+  displayNameSnapshot: string;
+  posNameSnapshot: string;
+  displayCategoryNameSnapshot: string | null;
+  unitListPrice: number;
+  unitSellingPrice: number;
+  quantity: number;
+  lineDiscount: number;
+  lineTotal: number;
+  notes: string | null;
+  costStatus: "unavailable";
+}>;
+
+export type OperationsOrder = Readonly<{
+  orderId: string;
+  orderNumber: string;
+  eventId: string;
+  source: "pos";
+  orderStatus: "confirmed";
+  paymentStatus: "unpaid";
+  productionStatus: "not_started";
+  customerName: string | null;
+  notes: string | null;
+  subtotal: number;
+  discountTotal: number;
+  grandTotal: number;
+  createdAt: string;
+  confirmedAt: string;
+  items: readonly OrderItem[];
+}>;

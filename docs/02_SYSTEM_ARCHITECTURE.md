@@ -1,23 +1,19 @@
 # System Architecture
 
-ROS is a modular monolith: one Node.js service, one SQLite database, REST APIs for commands/queries, and SSE for server-to-device updates. It avoids a premature microservice split while keeping domains separated in source and data ownership.
+`CONSTITUTION.md` is the controlling document. ROS is one Node.js modular monolith and one SQLite database, divided logically into Operations and Cost. Catalog is a small Admin-owned published product master, not a third full business domain.
 
 ```mermaid
 flowchart LR
-  Admin[Admin] --> API[ROS REST API]
-  POS[POS] --> API
-  Order[Customer order] --> API
-  Kitchen[Kitchen] --> API
-  API --> DB[(SQLite)]
-  API --> SSE[SSE event stream]
-  SSE --> POS
-  SSE --> Kitchen
-  SSE --> Order
-  API -. async sync job .-> Sheets[Google Sheets reporting]
-  LINE[LINE official account] -. future webhook .-> API
-  n8n[n8n] -. future automation .-> API
+  Admin[Admin] --> Catalog[Catalog product master]
+  Catalog --> Product[Product Contract]
+  Product --> Operations[Operations tables]
+  Product --> Cost[Cost tables]
+  Operations --> Outbox[operations_sales_outbox]
+  Outbox -. daily batch .-> Imports[cost_sales_imports]
+  Cost --> Sheets[Future reporting export]
+  Operations --> SSE[SSE placeholder]
 ```
 
-Current code only implements the service shell, migration runner, `/health`, `/events`, and page placeholders. The diagram is a target architecture, not evidence that integrations work today.
+Operations and Cost do not query each other's tables. The only cross-domain contracts are Product Contract and Sales Contract. Current code implements only the service shell, migration runner, contract definitions, guard tests, `/health`, `/events`, and page placeholders.
 
-Deployment target: a low-cost Linux VPS after the operational APIs are stable. Local Windows remains the development environment; the legacy stack remains independent.
+Google Sheets remains a future reporting export only. Local Windows remains the development environment; the legacy stack remains independent.

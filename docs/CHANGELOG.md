@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-07-20 - Phase 1A Catalog Admin
+
+- Replaced the experimental SQLite runtime with `better-sqlite3` behind a Database Adapter.
+- Added Catalog categories, editable product drafts, immutable published versions, channels, audit records, public Product Contract API, minimal Admin, and read-only POS display.
+- Added adapter, Catalog, and publish-to-POS integration tests. No Operations or Cost behavior was implemented.
+
 ## 2026-07-20 - Phase 0.5 Constitution v2 alignment
 
 - Added the controlling `CONSTITUTION.md` and Architecture Owner approval rule.

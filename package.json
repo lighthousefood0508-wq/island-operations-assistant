@@ -15,14 +15,18 @@
     "migrate": "tsc -p tsconfig.json && node dist/shared/database/migrate.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "tsc --noEmit -p tsconfig.json",
-    "test": "tsc -p tsconfig.json && node --test dist/tests/health.test.js dist/tests/contracts.test.js dist/tests/architecture-guards.test.js",
+    "test": "tsc -p tsconfig.json && node --test dist/tests/health.test.js dist/tests/contracts.test.js dist/tests/architecture-guards.test.js dist/tests/catalog.test.js dist/tests/catalog-api.integration.test.js",
     "architecture:guard": "tsc -p tsconfig.json && node --test dist/tests/architecture-guards.test.js",
     "migration:smoke": "tsc -p tsconfig.json && node scripts/migration-smoke.mjs",
     "verify": "node scripts/verify.mjs",
     "dev:open": "tsc -p tsconfig.json && node --watch dist/server/index.js"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.0.0",
     "typescript": "^5.8.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1"
   }
 }

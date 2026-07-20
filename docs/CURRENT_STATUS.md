@@ -2,8 +2,8 @@
 
 Date: 2026-07-20
 
-Phase 0.5 aligns the isolated foundation with Architecture Constitution v2: one SQLite database with prefix-enforced Catalog/Operations/Cost ownership, frozen Product/Sales Contracts, guard tests, `/health`, SSE heartbeat, and four empty page shells.
+Phase 1A is complete after verification: Catalog Admin creates/edits categories and product drafts, publishes immutable product versions, validates Product Contract v1, and exposes published products to a read-only POS page. SQLite uses `better-sqlite3` through a thin adapter.
 
-Not implemented: authentication, Catalog UI/API, orders, payment behavior, Cost behavior, daily import execution, Google Sheets/n8n/LINE/OpenAI integration, receipt processing, Docker, VPS, legacy migration, and production monitoring.
+Not implemented: authentication, users/roles UI, Operations behavior, orders, payments, Kitchen, Cost/BOM/inventory behavior, Sales Contract execution, LINE/n8n/Google Sheets/OpenAI integration, receipt processing, Docker, VPS, legacy migration, and production monitoring.
 
-The legacy project remains read-only and unmodified. Phase 1 cannot begin without Architecture Owner approval.
+The Legacy project remains read-only and unmodified. The next phase requires Architecture Owner approval.

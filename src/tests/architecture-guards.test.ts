@@ -83,3 +83,13 @@ test("forbidden infrastructure guard keeps the Phase 0.5 runtime simple", () => 
   }
   assert.throws(() => assertNoTerms("kafka client", ["kafka"], "fixture"));
 });
+
+test("SQLite driver remains isolated in shared database infrastructure", () => {
+  const driverFiles = filesUnder(sourceRoot, [".ts"])
+    .filter((filename) => !filename.includes(`${path.sep}tests${path.sep}`))
+    .filter((filename) => readFileSync(filename, "utf8").includes("better-sqlite3"));
+  assert.deepEqual(driverFiles.map((filename) => path.relative(sourceRoot, filename).replaceAll("\\", "/")), ["shared/database/better-sqlite3-adapter.ts", "shared/database/database-provider.ts"]);
+  assert.equal(filesUnder(sourceRoot, [".ts"])
+    .filter((filename) => !filename.includes(`${path.sep}tests${path.sep}`))
+    .some((filename) => readFileSync(filename, "utf8").includes("node:sqlite")), false);
+});

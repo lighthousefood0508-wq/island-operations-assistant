@@ -25,6 +25,14 @@ The only cross-domain interfaces are `Product Contract v1` and `Sales Contract v
 - Cost never reads an Operations order table, and Operations never receives Cost's deduction result.
 - Before modifying any file under `src/shared/contracts/`, stop and obtain explicit approval from the Architecture Owner.
 
+## Jobs and batch coordination
+
+- Schedulers and batch coordinators live only under `src/server/jobs/`.
+- A job may trigger work, coordinate timing, call an application service, and record a job result.
+- A job must not execute SQL, access a repository, query a Domain table, contain business rules, or operate another Domain directly.
+- The allowed path is `server/jobs -> domain application service -> repository -> database`.
+- Any future daily Sales Contract batch follows this rule. Phase 1A creates no scheduled or batch job.
+
 ## Explicitly prohibited in this phase
 
 Kafka, RabbitMQ, message queues, CQRS, microservices, complex event buses, real-time Sales Contract delivery, additional business domains, Google Sheets as a source database, Legacy integration, and production credentials.

@@ -68,8 +68,9 @@ export type OperationsOrder = Readonly<{
   eventId: string;
   source: "pos";
   orderStatus: OrderStatus;
-  paymentStatus: "unpaid";
-  productionStatus: "not_started";
+  paymentStatus: PaymentStatus;
+  productionStatus: ProductionStatus;
+  cancellationReason: string | null;
   customerName: string | null;
   notes: string | null;
   subtotal: number;
@@ -80,8 +81,14 @@ export type OperationsOrder = Readonly<{
   items: readonly OrderItem[];
 }>;
 
-export const ORDER_STATUSES = ["pending", "cooking", "ready", "completed", "cancelled", "no_show"] as const;
+export const ORDER_STATUSES = ["draft", "submitted", "confirmed", "completed", "cancelled"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
+
+export const PAYMENT_STATUSES = ["unpaid", "pending", "paid", "failed", "partially_refunded", "refunded"] as const;
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+export const PRODUCTION_STATUSES = ["not_started", "queued", "preparing", "ready", "served", "cancelled"] as const;
+export type ProductionStatus = (typeof PRODUCTION_STATUSES)[number];
 
 export type DailyReport = Readonly<{
   event: Readonly<{ eventId: string; eventCode: string; displayName: string; date: string; startTime: string; endTime: string }>;

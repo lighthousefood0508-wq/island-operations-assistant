@@ -10,7 +10,7 @@ test("POS lifecycle UI marks no-show, double-confirms release, and closes the Ev
   await api(page, `/api/admin/events/${event.body.data.eventId}/sellable-inventory`, "PUT", { productVersionId: published.body.data.contract.productVersionId, plannedQuantity: 1 }); await api(page, `/api/admin/events/${event.body.data.eventId}/open`, "POST", {});
   await api(page, "/api/orders", "POST", { source: "pos", eventId: event.body.data.eventId, idempotencyKey: "lifecycle-ui", items: [{ productId: published.body.data.contract.productId, productVersionId: published.body.data.contract.productVersionId, quantity: 1, notes: null }], customerName: null, notes: null });
   await page.goto("/pos/lifecycle"); await expect(page.locator("#orders")).toContainText("LUI-001");
-  await page.locator('button[data-action="no-show"]').click(); await expect(page.locator("#orders")).toContainText("no_show");
+  await page.locator('button[data-action="no-show"]').click(); await expect(page.locator("#orders")).toContainText("cancelled"); await expect(page.locator("#orders")).toContainText("no_show");
   await page.locator('button[data-action="release"]').click(); await expect(page.locator('button[data-action="release"]')).toContainText("再次確認"); await page.locator('button[data-action="release"]').click(); await expect(page.locator("#notice")).toContainText("庫存已釋放");
   await page.locator("#close-event").click(); await expect(page.locator("#close-event")).toContainText("再次確認"); await page.locator("#close-event").click(); await expect(page.locator("#report")).toContainText("noShow");
 });

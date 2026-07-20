@@ -1,6 +1,6 @@
 # GI-001: Phase 1C-2 Governance Review
 
-Status: Open
+Status: Closed by DECISIONS #010
 
 Approval record: DECISIONS #008
 
@@ -42,10 +42,10 @@ The audit report must distinguish: accepted ADR policy, DECISIONS #007 scope app
 
 ## Review
 
-Architecture Owner review is required before the Phase 1C-2 branch is merged or amended. The review must decide the authoritative policy where DECISIONS #007 implementation scope and accepted ADR-014 documentation differ.
+Architecture Owner approved Phase 1C.2-R under DECISIONS #010. The remediation restores the ADR-014 three-track model, replaces the no-show Order status with a cancellation reason, and unifies the Event Close path. Acceptance of the remediation branch remains separate from this closed governance incident.
 
 ## Root Cause
 
-Unknown (awaiting Architecture Owner)
+Architecture Compliance Gate Missing
 
 No responsibility is assigned by this record.

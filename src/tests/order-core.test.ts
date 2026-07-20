@@ -31,7 +31,7 @@ test("POS order atomically creates frozen snapshots and decrements sellable quan
   const result = orders.createPosOrder(payload(event.eventId, "terminal-a-1"));
   assert.equal(result.replayed, false);
   assert.equal(result.order.orderNumber, "YONG-001");
-  assert.equal(result.order.orderStatus, "pending");
+  assert.equal(result.order.orderStatus, "confirmed");
   assert.equal(result.order.paymentStatus, "unpaid");
   assert.equal(result.order.productionStatus, "not_started");
   assert.equal(result.order.grandTotal, 180);

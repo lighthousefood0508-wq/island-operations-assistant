@@ -22,20 +22,20 @@ async function setup(quantity = 2) {
 }
 async function createOrder(baseUrl: string, eventId: string, product: any, key: string) { return request(baseUrl, "/api/orders", "POST", { source: "pos", eventId, idempotencyKey: key, items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }], customerName: null, notes: null }); }
 
-test("lifecycle permits only legal transitions and audits status changes", async () => {
+test("lifecycle keeps Order, Payment, and Production states separate", async () => {
   const { server, baseUrl, eventId, product } = await setup(); const created = await createOrder(baseUrl, eventId, product, "life-a"); const id = created.body.data.orderId;
-  assert.equal(created.body.data.orderStatus, "pending");
+  assert.equal(created.body.data.orderStatus, "confirmed"); assert.equal(created.body.data.paymentStatus, "unpaid"); assert.equal(created.body.data.productionStatus, "not_started");
   assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "ready" })).status, 409);
-  assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "cooking" })).body.data.orderStatus, "cooking");
-  assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "ready" })).body.data.orderStatus, "ready");
-  assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "completed" })).body.data.orderStatus, "completed");
-  const illegal = await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "cooking" }); assert.equal(illegal.status, 409); assert.equal(illegal.body.error.code, "ILLEGAL_STATUS_TRANSITION");
+  assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "preparing" })).body.data.productionStatus, "preparing");
+  assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "ready" })).body.data.productionStatus, "ready");
+  assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "served" })).body.data.productionStatus, "served");
+  const incomplete = await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "completed" }); assert.equal(incomplete.status, 409); assert.equal(incomplete.body.error.code, "ORDER_COMPLETION_REQUIREMENTS_NOT_MET");
   server.close(); await once(server, "close");
 });
 
 test("manual no-show release is confirmed, idempotent, and restores inventory once", async () => {
   const { server, baseUrl, eventId, product } = await setup(1); const order = await createOrder(baseUrl, eventId, product, "no-show"); const id = order.body.data.orderId;
-  assert.equal((await request(baseUrl, `/api/orders/${id}/no-show`, "POST", {})).body.data.orderStatus, "no_show");
+  const noShow = await request(baseUrl, `/api/orders/${id}/no-show`, "POST", {}); assert.equal(noShow.body.data.orderStatus, "cancelled"); assert.equal(noShow.body.data.cancellationReason, "no_show");
   assert.equal((await request(baseUrl, `/api/orders/${id}/release-inventory`, "POST", {})).status, 400);
   const [left, right] = await Promise.all([request(baseUrl, `/api/orders/${id}/release-inventory`, "POST", { confirmed: true }), request(baseUrl, `/api/orders/${id}/release-inventory`, "POST", { confirmed: true })]);
   assert.deepEqual([left.body.data.released, right.body.data.released].sort(), [false, true]);

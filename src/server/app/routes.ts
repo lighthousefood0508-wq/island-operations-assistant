@@ -118,7 +118,8 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "POST" && eventActionMatch?.[1] && eventActionMatch[2]) {
       const eventId = decodeURIComponent(eventActionMatch[1]);
       const action = eventActionMatch[2];
-      return success(response, 200, action === "open" ? services.operations.openEvent(eventId) : action === "close" ? services.operations.closeEvent(eventId) : services.operations.archiveEvent(eventId));
+      if (action === "close") return success(response, 200, services.lifecycle.closeEvent(eventId, await readJson(request)));
+      return success(response, 200, action === "open" ? services.operations.openEvent(eventId) : services.operations.archiveEvent(eventId));
     }
     const inventoryMatch = pathname.match(/^\/api\/admin\/events\/([^/]+)\/sellable-inventory$/);
     if (inventoryMatch?.[1] && request.method === "GET") return success(response, 200, services.operations.getInventory(decodeURIComponent(inventoryMatch[1])));

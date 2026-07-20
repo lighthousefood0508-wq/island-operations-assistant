@@ -32,5 +32,11 @@ Open [Admin](http://127.0.0.1:3090/admin) and [POS](http://127.0.0.1:3090/pos). 
 - `npm test`
 - `npm run verify`
 - `npm run migrate`
+- `npm run test:e2e`: isolated Chromium UI acceptance on port `3091`
+- `npm run test:e2e:headed`: same E2E test with a visible browser
+- `npm run test:e2e:ui`: Playwright UI mode
+- `npm run verify:full`: quick verification plus E2E acceptance
+
+E2E runs use only `data/e2e-test.sqlite`, start their own server on `127.0.0.1:3091`, and remove the test database when finished. The development database and the `3090` server are never reused. Open `playwright-report/index.html` after a run for the HTML report; failure artifacts are saved under `test-results/`. Both paths are ignored by Git.
 
 `better-sqlite3` is isolated behind `src/shared/database/`; it enables foreign keys, WAL, and a 5-second busy timeout. Contract files in `src/shared/contracts/` are frozen and require explicit Architecture Owner approval before modification.

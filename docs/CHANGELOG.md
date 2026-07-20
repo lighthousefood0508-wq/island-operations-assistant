@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-07-20 - Phase 1A E2E acceptance
+
+- Added isolated Playwright Chromium acceptance tests for Admin publish to read-only POS.
+- Added negative UI coverage for missing POS name, price, channels, inactive categories, unpublished products, and kiosk-only products.
+- Added `test:e2e`, `verify:full`, ignored HTML/failure artifacts, and the five-minute manual acceptance checklist.
+- Corrected draft saving so incomplete drafts can be stored and publication performs the required validation.
+
 ## 2026-07-20 - Phase 1A Catalog Admin
 
 - Replaced the experimental SQLite runtime with `better-sqlite3` behind a Database Adapter.

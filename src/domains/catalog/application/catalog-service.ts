@@ -39,6 +39,11 @@ function requireBoolean(value: unknown, field: string): boolean {
   if (typeof value !== "boolean") throw new HttpError(422, "validation_error", `${field} must be a boolean.`, { field });
   return value;
 }
+function draftText(value: unknown, field: string): string | null {
+  if (typeof value !== "string") throw new HttpError(422, "validation_error", `${field} must be a string.`, { field });
+  const normalized = value.trim();
+  return normalized === "" ? null : normalized;
+}
 function channelsFrom(value: readonly string[]): CatalogChannel[] {
   if (!Array.isArray(value) || value.length === 0) throw new HttpError(422, "validation_error", "At least one channel is required.", { field: "channels" });
   const unique = [...new Set(value)];
@@ -89,10 +94,7 @@ export class CatalogService {
     const draft: ProductDraft = { displayName: null, posName: null, sellingPrice: null, description: null, channels: [], updatedAt: timestamp };
     const product: Omit<CatalogProduct, "versions"> = { productId: createId("prod_"), internalName: requireText(input.internalName, "internalName"), categoryId: category.categoryId, status: "draft", createdAt: timestamp, updatedAt: timestamp, draft };
     this.repository.transaction(() => { this.repository.insertProduct(product); this.audit("product", product.productId, "product.created", product); });
-    if (input.displayName !== undefined || input.posName !== undefined || input.sellingPrice !== undefined || input.description !== undefined || input.channels !== undefined) {
-      return this.updateProduct(product.productId, input);
-    }
-    return this.getProduct(product.productId);
+    return this.updateProduct(product.productId, input);
   }
 
   updateProduct(productId: string, input: UpdateProductInput): CatalogProduct {
@@ -104,10 +106,10 @@ export class CatalogService {
     const status: ProductStatus = input.status === undefined ? existing.status : input.status;
     const channels = input.channels === undefined ? [...existing.draft.channels] : validateChannels(input.channels);
     const draft: ProductDraft = {
-      displayName: input.displayName === undefined ? existing.draft.displayName : requireText(input.displayName, "displayName"),
-      posName: input.posName === undefined ? existing.draft.posName : requireText(input.posName, "posName"),
+      displayName: input.displayName === undefined ? existing.draft.displayName : draftText(input.displayName, "displayName"),
+      posName: input.posName === undefined ? existing.draft.posName : draftText(input.posName, "posName"),
       sellingPrice: input.sellingPrice === undefined ? existing.draft.sellingPrice : requireNonNegativeInteger(input.sellingPrice, "sellingPrice"),
-      description: input.description === undefined ? existing.draft.description : input.description,
+      description: input.description === undefined ? existing.draft.description : input.description === null ? null : draftText(input.description, "description"),
       channels,
       updatedAt: now()
     };

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-07-20 - Phase 1C-Design Order Domain
+
+- Added a documentation-only Order Domain design package and Proposed ADR-014 through ADR-018.
+- Defined the candidate Operations Order model, independent state machines, Event quantity lifecycle, immutable snapshots, idempotency, and future integration boundaries.
+- Added Architecture Owner open questions; no Order implementation, schema, API, UI, or external integration was added.
+
 ## 2026-07-20 - Phase 1B.1 Governance and Event Snapshot Freeze
 
 - Recorded Architecture Owner approval for the completed Phase 1B scope.

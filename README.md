@@ -10,6 +10,10 @@ Catalog Admin is available at `/admin`. It creates categories, product drafts, c
 
 An OPEN Event freezes its selected Product Contract v2 snapshot. Republishing a Catalog product never changes the live Event; the new product version can be selected only for a new draft Event. New phases, scope expansion, and contract changes require explicit Architecture Owner approval before implementation starts. See [ADR-013](docs/adr/ADR-013-open-event-product-snapshot-policy.md) and the [Architecture Timeline](docs/ARCHITECTURE_TIMELINE.md).
 
+## Phase 1C Design Review Package
+
+The Order Domain design is documentation only. It defines a single Operations-owned order model, separated Order/Payment/Production state machines, Event quantity reservations, immutable item snapshots, idempotency, and integration boundaries. It does not implement Orders. Start at [ORDER_DOMAIN.md](docs/order/ORDER_DOMAIN.md) and review the unresolved business choices in [ORDER_OPEN_QUESTIONS.md](docs/order/ORDER_OPEN_QUESTIONS.md).
+
 ## Install and start
 
 Requires Node.js 24 or later.

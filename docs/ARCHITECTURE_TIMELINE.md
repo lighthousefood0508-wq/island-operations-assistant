@@ -6,5 +6,6 @@
 | Phase 1A | Complete | 2026-07-20 | Catalog Admin, immutable product versions, Product Contract v1, POS proof |
 | Phase 1B | Complete | 2026-07-20 | Product Contract v2, Event, Sellable Inventory, Event-scoped POS |
 | Phase 1B.1 | Complete | 2026-07-20 | Governance record and OPEN Event snapshot freeze |
+| Phase 1C-Design | Complete (design only) | 2026-07-20 | Order Domain design package; implementation remains unapproved |
 
 No future phase starts automatically. A new phase, scope expansion, or contract change requires explicit Architecture Owner approval before implementation begins.

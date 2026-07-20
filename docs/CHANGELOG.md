@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-07-20 - Phase 1C.2-R ADR-014 Remediation
+
+- Restored separate Order, Payment, and Production state models. New POS Orders are confirmed/unpaid/not_started; production changes no longer mutate Order status.
+- Replaced `no_show` Order status with cancelled Orders carrying `cancellationReason=no_show` and append-only `order.no_show` audit records.
+- Reworked lifecycle migration behavior: `005` no longer rewrites confirmed Orders, and repeatable `006_restore_adr014_state_separation.sql` translates databases that ran the former lifecycle state model.
+- Routed the legacy Admin Event Close endpoint through the same confirmed, idempotent lifecycle close service; no second close implementation remains.
+- Added the Constitution Compatibility Gate and closed GI-001 with root cause `Architecture Compliance Gate Missing`.
+
+## 2026-07-20 - Phase 1C-2 Order Lifecycle
+
+- Added Operations-owned `pending`, `cooking`, `ready`, `completed`, `cancelled`, and manual `no_show` lifecycle with backend transition enforcement.
+- Added one-time, manually confirmed no-show inventory release, immutable audit records, idempotent Event Close, Event lock, and persisted daily-report snapshots.
+- Added lifecycle APIs and `/pos/lifecycle` staff console; added unit/integration and Playwright coverage for lifecycle, illegal transition, release replay/concurrency, Event Close lock/idempotence, and UI confirmation flow.
+- Added `005_order_lifecycle.sql` and ROS v0.5 Draft documentation. No Payment, Kitchen, Kiosk, Preorder, Cost, Sales Contract, LINE, Google Sheets, or Legacy behavior was added.
+
 ## 2026-07-20 - Phase 1C.1 POS Minimal UI
 
 - Added a responsive POS shopping cart driven only by the Current Event and POS Order APIs.

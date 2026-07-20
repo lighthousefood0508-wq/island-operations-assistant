@@ -67,9 +67,10 @@ export type OperationsOrder = Readonly<{
   orderNumber: string;
   eventId: string;
   source: "pos";
-  orderStatus: "confirmed";
-  paymentStatus: "unpaid";
-  productionStatus: "not_started";
+  orderStatus: OrderStatus;
+  paymentStatus: PaymentStatus;
+  productionStatus: ProductionStatus;
+  cancellationReason: string | null;
   customerName: string | null;
   notes: string | null;
   subtotal: number;
@@ -78,4 +79,21 @@ export type OperationsOrder = Readonly<{
   createdAt: string;
   confirmedAt: string;
   items: readonly OrderItem[];
+}>;
+
+export const ORDER_STATUSES = ["draft", "submitted", "confirmed", "completed", "cancelled"] as const;
+export type OrderStatus = (typeof ORDER_STATUSES)[number];
+
+export const PAYMENT_STATUSES = ["unpaid", "pending", "paid", "failed", "partially_refunded", "refunded"] as const;
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+export const PRODUCTION_STATUSES = ["not_started", "queued", "preparing", "ready", "served", "cancelled"] as const;
+export type ProductionStatus = (typeof PRODUCTION_STATUSES)[number];
+
+export type DailyReport = Readonly<{
+  event: Readonly<{ eventId: string; eventCode: string; displayName: string; date: string; startTime: string; endTime: string }>;
+  orders: Readonly<{ total: number; completed: number; cancelled: number; noShow: number }>;
+  products: readonly Readonly<{ productId: string; posName: string; quantity: number; revenue: number }>[];
+  payments: Readonly<{ cash: number; linePay: number; other: number }>;
+  closedAt: string;
 }>;

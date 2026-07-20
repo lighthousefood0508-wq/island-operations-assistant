@@ -7,6 +7,8 @@
 - Kiosk reserves for 10 minutes, needs no manual acceptance, and pays to confirm/queue.
 - Preorder automatically confirms, directly allocates sold quantity, and is manually queued by POS.
 - Cancellation after production begins never restores sold quantity.
+- No-show is `orderStatus=cancelled` with `cancellationReason=no_show`; it never occurs automatically. Inventory release is separately confirmed, one-time, audited, and permitted only before production starts.
+- Event Close blocks every non-terminal Order, never bulk-completes or bulk-cancels an Order, persists one idempotent daily-report snapshot, and locks the Event.
 
 ## Still requiring Architecture Owner decision
 
@@ -18,7 +20,4 @@
 6. Can a Preorder customer modify or cancel, and what cutoff policy applies?
 7. What minimum customer contact data and retention period are permitted?
 8. What idempotency-key retention period satisfies operational and privacy needs?
-9. What is the Event-level no-show policy for an unpaid Preorder or a reservation that remains unclaimed after service? Define the status, quantity treatment, audit fields, and whether any customer contact is retained.
-10. What must Event Close batch-finalize? Define the blocking/exception policy for unpaid, unserved, preparing, ready, reserved, timed-out, or no-show Orders; no implicit bulk state transition is permitted.
-
-No Phase 1C implementation may choose these implicitly.
+No future implementation may choose the remaining questions implicitly.

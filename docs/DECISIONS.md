@@ -8,6 +8,9 @@
 - **DECISIONS #004**: Phase 1C Order Core approval on 2026-07-20 for POS-only Order create/read APIs, snapshots, Event numbers, idempotency, atomic sellable quantity handling, audit logging, and additive Operations migration.
 - **DECISIONS #005**: Governance follow-up on 2026-07-20 requiring every implementation completion report to cite its approval record first.
 - **DECISIONS #006**: Release v0.4 and Phase 1C.1 approval on 2026-07-20 by Architecture Owner Miles / Lin Zi-Mao for release documentation and a POS-only minimal shopping cart UI. Payment, Kitchen, Kiosk, Preorder, Sales Contract, Cost, LINE, n8n, and Google Sheets remain excluded.
+- **DECISIONS #007**: Phase 1C-2 Order Lifecycle approval on 2026-07-20 by Architecture Owner Miles / Lin Zi-Mao for Operations-only status lifecycle, manual no-show, one-time manual inventory release, Event Close, daily-report snapshot, audit, and minimal lifecycle UI. No Payment, Kitchen, Kiosk, Preorder, Sales Contract, Cost, LINE, n8n, Google Sheets, or Legacy scope is approved.
+- **DECISIONS #008**: Governance Audit approval on 2026-07-20 by Architecture Owner Miles / Lin Zi-Mao. This is a non-functional review of Phase 1C-2 alignment only. No business logic, API, UI, migration, database, or operating setting change is approved.
+- **DECISIONS #010**: Phase 1C.2-R Remediation approval on 2026-07-20 by Architecture Owner Miles / Lin Zi-Mao. Restore ADR-014 state separation, recover prior data through an idempotent migration, represent no-show as cancelled with `cancellationReason=no_show`, unify Event Close, and add the Constitution Compatibility Gate. No new business scope is approved.
 
 - ROS is a new repository, not a refactor of the legacy food truck system.
 - Operations and Cost are the only major business domains. Catalog is a deliberately small Admin-owned master.

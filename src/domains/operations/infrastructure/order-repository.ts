@@ -1,5 +1,5 @@
 import type { DatabaseAdapter } from "../../../shared/database/database-adapter.js";
-import type { OperationsOrder, OrderItem, PosOrderItemInput } from "../domain/types.js";
+import type { OperationsOrder, OrderItem, OrderStatus, PaymentStatus, PosOrderItemInput, ProductionStatus } from "../domain/types.js";
 
 type EventRow = { event_id: string; event_code: string; status: string };
 type EventProductRow = {
@@ -8,8 +8,8 @@ type EventProductRow = {
 };
 type IdempotencyRow = { request_fingerprint: string; order_id: string };
 type OrderRow = {
-  order_id: string; order_number: string; event_id: string; source: "pos"; order_status: "confirmed"; payment_status: "unpaid";
-  production_status: "not_started"; customer_name: string | null; notes: string | null; subtotal: number; discount_total: number;
+  order_id: string; order_number: string; event_id: string; source: "pos"; order_status: OrderStatus; payment_status: PaymentStatus;
+  production_status: ProductionStatus; cancellation_reason: string | null; customer_name: string | null; notes: string | null; subtotal: number; discount_total: number;
   grand_total: number; created_at: string; confirmed_at: string;
 };
 type OrderItemRow = {
@@ -30,7 +30,7 @@ export type OrderProductSnapshot = Readonly<{
 function mapOrder(row: OrderRow, items: readonly OrderItem[]): OperationsOrder {
   return {
     orderId: row.order_id, orderNumber: row.order_number, eventId: row.event_id, source: row.source,
-    orderStatus: row.order_status, paymentStatus: row.payment_status, productionStatus: row.production_status,
+    orderStatus: row.order_status, paymentStatus: row.payment_status, productionStatus: row.production_status, cancellationReason: row.cancellation_reason,
     customerName: row.customer_name, notes: row.notes, subtotal: row.subtotal, discountTotal: row.discount_total,
     grandTotal: row.grand_total, createdAt: row.created_at, confirmedAt: row.confirmed_at, items
   };
@@ -117,11 +117,11 @@ export class OrderRepository {
 
   insertAudit(orderId: string, eventId: string, orderNumber: string, itemCount: number, grandTotal: number, occurredAt: string): void {
     const metadata = JSON.stringify({ actor: "local-pos", source: "pos", eventId, orderNumber, itemCount, grandTotal });
-    this.database.execute("INSERT INTO audit_logs (audit_log_id, actor_user_id, entity_type, entity_id, action, before_json, after_json, occurred_at) VALUES (?, NULL, 'order', ?, 'order.created', NULL, ?, ?)", [`audit_${orderId}`, orderId, metadata, occurredAt]);
+    this.database.execute("INSERT INTO audit_logs (audit_log_id, actor_user_id, entity_type, entity_id, action, before_json, after_json, occurred_at) VALUES (?, NULL, 'order', ?, 'order_created', NULL, ?, ?)", [`audit_${orderId}`, orderId, metadata, occurredAt]);
   }
 
   getOrder(orderId: string): OperationsOrder | undefined {
-    const order = this.database.queryOne<OrderRow>(`SELECT order_id, order_number, event_id, source, order_status, payment_status, production_status, customer_name, notes,
+    const order = this.database.queryOne<OrderRow>(`SELECT order_id, order_number, event_id, source, order_status, payment_status, production_status, cancellation_reason, customer_name, notes,
       subtotal, discount_total, grand_total, created_at, confirmed_at FROM operations_orders WHERE order_id = ?`, [orderId]);
     if (!order) return undefined;
     const items = this.database.queryMany<OrderItemRow>(`SELECT order_item_id, product_id, product_version_id, display_name_snapshot, pos_name_snapshot, display_category_name_snapshot,

@@ -24,7 +24,7 @@ test("current event API returns only open event products and empties after close
   await request(baseUrl, `/api/admin/events/${event.body.data.eventId}/open`, "POST", {});
   const current = await request(baseUrl, "/api/events/current"); assert.equal(current.body.data.eventCode, "20260720-night");
   const products = await request(baseUrl, "/api/events/current/products"); assert.deepEqual(products.body.data[0].remainingQuantity, 20); assert.equal(products.body.data[0].displayCategoryName, "飯類");
-  await request(baseUrl, `/api/admin/events/${event.body.data.eventId}/close`, "POST", {});
+  await request(baseUrl, `/api/events/${event.body.data.eventId}/close`, "POST", { confirmed: true });
   assert.deepEqual((await request(baseUrl, "/api/events/current/products")).body.data, []);
   server.close(); await once(server, "close");
 });
@@ -46,7 +46,7 @@ test("OPEN Event keeps its Product Contract v2 snapshot after Catalog republishe
   assert.equal(liveFirstEvent.body.data[0].sellingPrice, 180);
   assert.equal(liveFirstEvent.body.data[0].productVersionId, firstPublish.body.data.contract.productVersionId);
 
-  await request(baseUrl, `/api/admin/events/${firstEvent.body.data.eventId}/close`, "POST", {});
+  await request(baseUrl, `/api/events/${firstEvent.body.data.eventId}/close`, "POST", { confirmed: true });
   const secondEvent = await request(baseUrl, "/api/admin/events", "POST", { eventCode: "second", displayName: "第二場", date: "2026-07-20", startTime: "17:00", endTime: "22:00" });
   await request(baseUrl, `/api/admin/events/${secondEvent.body.data.eventId}/sellable-inventory`, "PUT", { productVersionId: secondPublish.body.data.contract.productVersionId, plannedQuantity: 20 });
   await request(baseUrl, `/api/admin/events/${secondEvent.body.data.eventId}/open`, "POST", {});

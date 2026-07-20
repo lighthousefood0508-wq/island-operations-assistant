@@ -4,6 +4,14 @@ Desert Island Restaurant Operating System (ROS) is an isolated restaurant founda
 
 Current stable release: [ROS v0.4](docs/releases/RELEASE_v0.4.md), tagged locally as `v0.4-order-core`.
 
+## 2026-07-26 Shadow Run
+
+The Shadow Run work is on `feature/20260726-shadow-run-mvp` under **DECISIONS #013** and is not merged into `main`. Legacy remains the primary operating system. ROS is a parallel validation system: POS, Kitchen, and closeout read and write only the central SQLite database through REST APIs. SSE announces changes; every screen reloads its data from the API after a notification. See [the on-site checklist](docs/acceptance/SHADOW_RUN_20260726.md).
+
+For a local-network rehearsal, start ROS on the Windows host with `ROS_HOST=0.0.0.0` and `ROS_PORT=3090`, then allow inbound TCP 3090 in Windows Firewall on the private network. Find the host IPv4 address with `ipconfig`; on each iPad or Android device open `http://HOST-IP:3090/pos` or `http://HOST-IP:3090/kitchen`. Confirm every device returns the same `http://HOST-IP:3090/health` response before taking orders. `http://HOST-IP:3090/pos/statistics` is the owner-only closeout page. Do not use ngrok as the 7/26 production path.
+
+If ROS becomes unavailable, stop entering orders into ROS, continue in Legacy only, and record the time, device, order number, and screenshot. Do not repair code during service. Restart the Windows ROS process only after the current Legacy transaction is safe.
+
 ## Phase 1C.1: POS Minimal UI
 
 Catalog Admin is available at `/admin`. It creates categories, product drafts, channels, and immutable published product versions. Event Admin is available at `/admin/events`: create a draft Event, choose published products, enter planned sellable quantities, then open the Event. `/pos` reads only `GET /api/events/current/products`, and displays active `pos` products with `remainingQuantity > 0` from the one OPEN Event.

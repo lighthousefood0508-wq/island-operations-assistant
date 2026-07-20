@@ -2,6 +2,10 @@
 
 Date: 2026-07-20
 
+Phase 1C.2-R was merged to `main` as `7424bf8` after its full verification. Migration `006_restore_adr014_state_separation.sql` has been applied to the development database. The current Shadow Run MVP is on `feature/20260726-shadow-run-mvp` under **DECISIONS #013** and remains unmerged. It adds central-SQLite Kitchen workflow, REST/SSE multi-device refresh, POS central order list, and central closeout reconciliation. `007_event_closeout_reconciliation.sql` is additive. All formal order data remains central; browser storage is used only for an unsent cart in browser memory.
+
+The Shadow Run validates POS A, POS B, and Kitchen C against one Node.js service. Kitchen can change only `productionStatus` (`not_started/queued -> preparing -> ready -> served`); it cannot modify the Order, payment, price, quantity, or Event. `paymentStatus` remains `unpaid`, therefore ADR-014 correctly prevents formal Order completion until an approved Payment phase exists. This is an intentional 7/26 Shadow Run blocker for order completion only, not a reason to bypass Payment or fake a paid state. Formal Event Close still blocks confirmed Orders.
+
 ROS v0.4 is released locally at `v0.4-order-core`; see `docs/releases/RELEASE_v0.4.md`. Phase 1C.1 POS Minimal UI is complete under **DECISIONS #006**. It consumes only the existing Current Event and Order APIs to provide grouped products, a local cart, quantity controls, submit-state protection, success order number, refreshed remaining quantities, and explicit Order error messaging.
 
 Phase 1C.2-R Remediation is complete on `remediation/phase-1c2-adr014-recovery` under **DECISIONS #010**, awaiting Architecture Owner acceptance. POS Orders are `confirmed` / `unpaid` / `not_started`. Production progresses independently as `not_started -> queued -> preparing -> ready -> served`; an Order can complete only when payment is paid and production is served. No-show is `cancelled` with `cancellationReason=no_show` and append-only `order.no_show` audit. Migration `006_restore_adr014_state_separation.sql` recovers databases that ran the original lifecycle migration. Formal Event Close remains idempotent, blocks every non-terminal Order, persists a daily-report snapshot, and is the only Event Close service path.
@@ -10,7 +14,7 @@ Phase 1C Order Core is complete after verification. It implements POS-only Order
 
 Phase 1B and Phase 1B.1 are complete after verification. Phase 1B added Catalog Product Contract v2 display snapshots plus Operations Event and Sellable Inventory. Phase 1B.1 records Architecture Owner approval and freezes the OPEN Event Product Snapshot Policy: an OPEN Event reads only its Operations-owned Product Contract v2 snapshot, while a Catalog republish is selectable only by a new Event. Phase 1C-Design is complete as a documentation-only Architecture Review package; Phase 1C implementation is not approved or started. POS reads only the current Event API. SQLite uses `better-sqlite3` through a thin adapter. Playwright E2E acceptance verifies the UI catalog-to-event-to-POS flow on an isolated database.
 
-Not implemented: payments, Kitchen, Customer/Kiosk, preorder, cancellation/refund, Cost/BOM/inventory behavior, Sales Contract execution, authentication, users/roles UI, LINE/n8n/Google Sheets/OpenAI integration, receipt processing, Docker, VPS, legacy migration, and production monitoring.
+Not implemented: payments, Customer/Kiosk, preorder, cancellation/refund, Cost/BOM/inventory behavior, Sales Contract execution, authentication, users/roles UI, LINE/n8n/Google Sheets/OpenAI integration, receipt processing, Docker, VPS, legacy migration, and production monitoring. Kitchen is implemented only for the DECISIONS #013 Shadow Run branch.
 
 The Legacy project remains read-only and unmodified. Any new phase, scope expansion, or contract change requires explicit Architecture Owner approval before work begins.
 

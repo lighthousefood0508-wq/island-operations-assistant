@@ -23,7 +23,14 @@ async function setupOpenEvent(page: Page, eventCode: string, products: readonly 
 }
 
 async function closeEvent(page: Page, eventId: string) {
-  await api(page, `/api/admin/events/${eventId}/close`, "POST", {});
+  const orders = await api(page, `/api/events/${eventId}/orders`);
+  for (const order of orders.body.data) {
+    if (order.orderStatus === "confirmed") {
+      await api(page, `/api/orders/${order.orderId}/no-show`, "POST", {});
+      await api(page, `/api/orders/${order.orderId}/release-inventory`, "POST", { confirmed: true });
+    }
+  }
+  await api(page, `/api/events/${eventId}/close`, "POST", { confirmed: true });
 }
 
 async function addToCart(page: Page, productId: string) {

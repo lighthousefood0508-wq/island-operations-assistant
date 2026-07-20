@@ -89,4 +89,14 @@ export class LifecycleService {
     });
   }
   getDailyReport(eventId: string): DailyReport { const report = this.repository.findClosure(eventId); if (!report) throw new HttpError(404, "DAILY_REPORT_NOT_FOUND", "Daily report is available after Event Close."); return report; }
+  getStatistics(eventId: string): Record<string, unknown> { const result = this.repository.getStatistics(eventId); if (!Object.keys(result).length) throw new HttpError(404, "EVENT_NOT_FOUND", "Event was not found."); return result; }
+  saveCloseout(eventId: string, input: unknown): Record<string, unknown> {
+    const value = input as Record<string, unknown>; const amount = (key: string) => Number.isSafeInteger(value?.[key]) && (value[key] as number) >= 0 ? value[key] as number : null;
+    const cashReceived = amount("cashReceived"), linePayReceived = amount("linePayReceived"), otherReceived = amount("otherReceived"), wasteAmount = amount("wasteAmount");
+    if (cashReceived === null || linePayReceived === null || otherReceived === null || wasteAmount === null) throw new HttpError(400, "VALIDATION_ERROR", "Closeout amounts must be non-negative integers.");
+    const event = this.repository.findEvent(eventId); if (!event) throw new HttpError(404, "EVENT_NOT_FOUND", "Event was not found.");
+    const timestamp = now(); const actor = operator(value?.operator); const auditLogId = createId("audit_"); const notes = typeof value?.notes === "string" ? value.notes.slice(0, 1000) : "";
+    this.repository.transactionImmediate(() => { this.repository.saveCloseout(eventId, { cashReceived, linePayReceived, otherReceived, wasteAmount, notes, updatedAt: timestamp, operator: actor, auditLogId }); this.repository.insertAudit({ auditLogId, entityType: "event", entityId: eventId, action: "closeout_updated", metadata: { operator: actor, eventId }, occurredAt: timestamp }); });
+    return this.getStatistics(eventId);
+  }
 }

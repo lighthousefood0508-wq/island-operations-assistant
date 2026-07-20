@@ -8,8 +8,9 @@
 6. Phase 1C.1: POS Minimal UI - complete under DECISIONS #006; shopping cart and Order API submission only.
 7. Phase 1C-2: Order Lifecycle - superseded by Phase 1C.2-R after GI-001 review.
 8. Phase 1C.2-R: ADR-014 recovery - complete under DECISIONS #010, awaiting Architecture Owner acceptance.
-9. Phase 2: Customer preorder only after Architecture Owner approval.
-10. Phase 3: POS and Kitchen pilot from the same REST/SSE source.
-11. Phase 4: Cost ledger and daily Sales Contract import, then Google Sheets reporting export.
+9. 2026-07-26 Shadow Run MVP: central POS/Kitchen/closeout pilot on one local network - complete on an unmerged DECISIONS #013 branch, awaiting Architecture Owner acceptance.
+10. Phase 2: Customer preorder only after Architecture Owner approval.
+11. Phase 3: POS and Kitchen pilot from the same REST/SSE source.
+12. Phase 4: Cost ledger and daily Sales Contract import, then Google Sheets reporting export.
 
 Each phase requires its own acceptance test and rollback plan before advancing.

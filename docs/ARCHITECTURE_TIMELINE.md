@@ -12,5 +12,6 @@
 | Phase 1C.1 | Complete | 2026-07-20 | POS minimal shopping cart UI, existing Order API submission, refresh, and UI race acceptance; DECISIONS #006 |
 | Phase 1C-2 | Superseded by remediation | 2026-07-20 | Original lifecycle implementation reviewed under GI-001; DECISIONS #007 |
 | Phase 1C.2-R | Complete, awaiting acceptance | 2026-07-20 | ADR-014 state separation recovery, idempotent data recovery migration, no-show cancellation reason, unified Event Close, and compatibility gate; DECISIONS #010 |
+| 2026-07-26 Shadow Run MVP | Complete, unmerged, awaiting acceptance | 2026-07-20 | Central SQLite POS/Kitchen synchronization, SSE refresh, production-only Kitchen, and minimal closeout reconciliation; DECISIONS #013 |
 
 No future phase starts automatically. A new phase, scope expansion, or contract change requires explicit Architecture Owner approval before implementation begins.

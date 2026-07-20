@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-07-20 - 2026-07-26 Shadow Run MVP (DECISIONS #013, unmerged)
+
+- Added central SQLite Kitchen work queues at `/kitchen`; Kitchen changes only the independent production state.
+- Added REST/SSE change notifications and central refresh for POS, Kitchen, and closeout views. No browser storage is a formal Order source.
+- Added owner-only `/pos/statistics`, additive Event closeout persistence, append-only closeout audit, and central totals for orders, quantities, remaining portions, ledger total, unresolved Orders, cancellations, and no-shows.
+- Added Playwright acceptance for POS A, POS B, Kitchen C, final-portion concurrency, reconnect reload, and closeout persistence.
+- Did not add Payment, Customer, Preorder, LINE, n8n, Cost, Google Sheets, Voice, VPS, or Legacy changes.
+
 ## 2026-07-20 - Phase 1C.2-R ADR-014 Remediation
 
 - Restored separate Order, Payment, and Production state models. New POS Orders are confirmed/unpaid/not_started; production changes no longer mutate Order status.

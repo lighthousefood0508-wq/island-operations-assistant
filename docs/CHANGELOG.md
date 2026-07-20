@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-07-20 - Governance and Phase 1B acceptance follow-up
+
+- Required all future implementation completion reports to begin with their `DECISIONS` approval record.
+- Added explicit Architecture Owner questions for no-show handling and Event Close batch finalization; no behavior changed.
+- Added a repeatable five-minute Phase 1B Event/Sellable Inventory acceptance checklist.
+
 ## 2026-07-20 - Phase 1C POS Order Core
 
 - Added additive `004_order_core.sql` Operations schema for order fields, item snapshots, Event sequences, and Event-scoped idempotency records.

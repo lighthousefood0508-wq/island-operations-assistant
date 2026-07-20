@@ -14,6 +14,7 @@ Read `CONSTITUTION.md` before modifying code. Then read `README.md`, `docs/02_SY
 - Do not connect LINE, n8n, Google Sheets, or production credentials during Phase 1A.
 - Phase 1C is explicitly approved for POS Order Core only: POS create/read Order APIs, immutable Order Item snapshots, Event order numbers, idempotency, atomic sellable quantity handling, audit logging, and additive Operations migrations. Do not implement payment, Kitchen, Customer/Kiosk, preorder, cancellation, refund, Sales Contract execution, Cost, jobs, or external integrations.
 - Run architecture guard tests before reporting completion.
+- Every implementation completion report must begin with `Approval record: DECISIONS #<identifier>` and name the corresponding Architecture Owner approval. If no identifier exists, stop and record the approval in `docs/DECISIONS.md` before reporting completion.
 
 Keep changes small, use SQL migrations for schema changes, and update `docs/CURRENT_STATUS.md`, `docs/ROADMAP.md`, `docs/DECISIONS.md`, and `docs/CHANGELOG.md` when architecture or implementation changes.
 

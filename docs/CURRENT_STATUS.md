@@ -9,3 +9,5 @@ Phase 1B and Phase 1B.1 are complete after verification. Phase 1B added Catalog 
 Not implemented: POS cart/submit UI, payments, Kitchen, Customer/Kiosk, preorder, cancellation/refund, Cost/BOM/inventory behavior, Sales Contract execution, authentication, users/roles UI, LINE/n8n/Google Sheets/OpenAI integration, receipt processing, Docker, VPS, legacy migration, and production monitoring.
 
 The Legacy project remains read-only and unmodified. Any new phase, scope expansion, or contract change requires explicit Architecture Owner approval before work begins.
+
+Governance follow-up: completion reports now cite their `DECISIONS #XX` approval record first; the Phase 1C implementation record is **DECISIONS #004**. `ORDER_OPEN_QUESTIONS.md` explicitly retains no-show and Event Close batch-finalization policies for Architecture Owner decision; neither is implemented. Phase 1B's repeatable five-minute acceptance checklist is in `docs/acceptance/PHASE_1B_MANUAL_ACCEPTANCE.md`.

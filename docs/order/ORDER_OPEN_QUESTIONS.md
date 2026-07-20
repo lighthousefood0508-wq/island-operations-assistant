@@ -18,5 +18,7 @@
 6. Can a Preorder customer modify or cancel, and what cutoff policy applies?
 7. What minimum customer contact data and retention period are permitted?
 8. What idempotency-key retention period satisfies operational and privacy needs?
+9. What is the Event-level no-show policy for an unpaid Preorder or a reservation that remains unclaimed after service? Define the status, quantity treatment, audit fields, and whether any customer contact is retained.
+10. What must Event Close batch-finalize? Define the blocking/exception policy for unpaid, unserved, preparing, ready, reserved, timed-out, or no-show Orders; no implicit bulk state transition is permitted.
 
 No Phase 1C implementation may choose these implicitly.

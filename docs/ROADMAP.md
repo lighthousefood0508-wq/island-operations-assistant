@@ -9,8 +9,9 @@
 7. Phase 1C-2: Order Lifecycle - superseded by Phase 1C.2-R after GI-001 review.
 8. Phase 1C.2-R: ADR-014 recovery - complete under DECISIONS #010, awaiting Architecture Owner acceptance.
 9. 2026-07-26 Shadow Run MVP: central POS/Kitchen/closeout pilot on one local network - complete on an unmerged DECISIONS #013 branch, awaiting Architecture Owner acceptance.
-10. Phase 2: Customer preorder only after Architecture Owner approval.
-11. Phase 3: POS and Kitchen pilot from the same REST/SSE source.
-12. Phase 4: Cost ledger and daily Sales Contract import, then Google Sheets reporting export.
+10. 2026-07-26 External Shadow Run: protected, temporary external access to the existing Shadow Run branch - prepared on an unmerged DECISIONS #014 branch; blocked until a separate protected tunnel can be allocated without changing Legacy.
+11. Phase 2: Customer preorder only after Architecture Owner approval.
+12. Phase 3: POS and Kitchen pilot from the same REST/SSE source.
+13. Phase 4: Cost ledger and daily Sales Contract import, then Google Sheets reporting export.
 
 Each phase requires its own acceptance test and rollback plan before advancing.

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-07-20 - External Shadow Run (DECISIONS #014, unmerged)
+
+- Added SSE anti-buffering and a three-second reconnect hint for temporary tunnel transport.
+- Added minimal POS and Kitchen connectivity states: connected, reconnecting, and offline/unreachable. Network failures explicitly say the mutation was not delivered; no offline queue was added.
+- Added ngrok Basic Authentication environment placeholder and external device operating instructions. No URL, credential, business rule, Contract, or domain behavior is committed.
+- External endpoint verification is blocked by the existing Legacy ngrok endpoint. Pooling is deliberately rejected because it would mix Legacy and ROS upstreams.
+
 ## 2026-07-20 - 2026-07-26 Shadow Run MVP (DECISIONS #013, unmerged)
 
 - Added central SQLite Kitchen work queues at `/kitchen`; Kitchen changes only the independent production state.

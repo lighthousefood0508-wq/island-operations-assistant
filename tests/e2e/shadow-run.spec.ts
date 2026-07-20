@@ -14,6 +14,8 @@ test("shadow run syncs POS A, POS B, Kitchen, inventory, and closeout through ce
   const contextA = await browser.newContext(), contextB = await browser.newContext(), contextC = await browser.newContext();
   const posA = await contextA.newPage(), posB = await contextB.newPage(), kitchen = await contextC.newPage();
   await Promise.all([posA.goto("/pos"), posB.goto("/pos"), kitchen.goto("/kitchen")]);
+  await expect(posA.locator("#connection-status")).toContainText("已連線");
+  await expect(kitchen.locator("#connection-status")).toContainText("已連線");
   await posA.locator(`[data-add="${published.body.data.contract.productId}"]`).click(); await posA.locator('#create-order').click();
   await expect(posA.locator('#notice')).toContainText("SHADOW-001");
   await expect(posB.locator('#orders')).toContainText("SHADOW-001");

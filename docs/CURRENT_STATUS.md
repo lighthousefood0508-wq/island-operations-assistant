@@ -2,6 +2,8 @@
 
 Date: 2026-07-20
 
+External Shadow Run work is on `feature/20260726-external-shadow-run` under **DECISIONS #014**. It prepares a protected temporary deployment layer only: ngrok Basic Authentication is supplied through an environment variable, pages/API/SSE remain same-origin and relative, and no URL or credential is written into ROS source. POS and Kitchen display central connectivity state. External verification is currently blocked because the configured ngrok account has its sole endpoint assigned to the running Legacy tunnel; ROS must not pool with or replace that tunnel without Architecture Owner direction.
+
 Phase 1C.2-R was merged to `main` as `7424bf8` after its full verification. Migration `006_restore_adr014_state_separation.sql` has been applied to the development database. The current Shadow Run MVP is on `feature/20260726-shadow-run-mvp` under **DECISIONS #013** and remains unmerged. It adds central-SQLite Kitchen workflow, REST/SSE multi-device refresh, POS central order list, and central closeout reconciliation. `007_event_closeout_reconciliation.sql` is additive. All formal order data remains central; browser storage is used only for an unsent cart in browser memory.
 
 The Shadow Run validates POS A, POS B, and Kitchen C against one Node.js service. Kitchen can change only `productionStatus` (`not_started/queued -> preparing -> ready -> served`); it cannot modify the Order, payment, price, quantity, or Event. `paymentStatus` remains `unpaid`, therefore ADR-014 correctly prevents formal Order completion until an approved Payment phase exists. This is an intentional 7/26 Shadow Run blocker for order completion only, not a reason to bypass Payment or fake a paid state. Formal Event Close still blocks confirmed Orders.

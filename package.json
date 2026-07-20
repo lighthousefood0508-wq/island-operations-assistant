@@ -1,0 +1,23 @@
+{
+  "name": "desert-island-ros",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desert Island Restaurant Operating System foundation",
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json && node --watch dist/server/index.js",
+    "start": "node dist/server/index.js",
+    "db:migrate": "tsc -p tsconfig.json && node dist/server/database/migrate.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "test": "tsc -p tsconfig.json && node --test dist/tests/health.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.0"
+  }
+}

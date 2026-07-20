@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-07-20 - Phase 1C-2 Order Lifecycle
+
+- Added Operations-owned `pending`, `cooking`, `ready`, `completed`, `cancelled`, and manual `no_show` lifecycle with backend transition enforcement.
+- Added one-time, manually confirmed no-show inventory release, immutable audit records, idempotent Event Close, Event lock, and persisted daily-report snapshots.
+- Added lifecycle APIs and `/pos/lifecycle` staff console; added unit/integration and Playwright coverage for lifecycle, illegal transition, release replay/concurrency, Event Close lock/idempotence, and UI confirmation flow.
+- Added `005_order_lifecycle.sql` and ROS v0.5 Draft documentation. No Payment, Kitchen, Kiosk, Preorder, Cost, Sales Contract, LINE, Google Sheets, or Legacy behavior was added.
+
 ## 2026-07-20 - Phase 1C.1 POS Minimal UI
 
 - Added a responsive POS shopping cart driven only by the Current Event and POS Order APIs.

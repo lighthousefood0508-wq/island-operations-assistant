@@ -31,13 +31,13 @@ test("POS order atomically creates frozen snapshots and decrements sellable quan
   const result = orders.createPosOrder(payload(event.eventId, "terminal-a-1"));
   assert.equal(result.replayed, false);
   assert.equal(result.order.orderNumber, "YONG-001");
-  assert.equal(result.order.orderStatus, "confirmed");
+  assert.equal(result.order.orderStatus, "pending");
   assert.equal(result.order.paymentStatus, "unpaid");
   assert.equal(result.order.productionStatus, "not_started");
   assert.equal(result.order.grandTotal, 180);
   assert.deepEqual(result.order.items[0], { orderItemId: result.order.items[0]?.orderItemId, productId: product.productId, productVersionId: product.productVersionId, displayNameSnapshot: "Braised Rice", posNameSnapshot: "Rice", displayCategoryNameSnapshot: "Rice", unitListPrice: 180, unitSellingPrice: 180, quantity: 1, lineDiscount: 0, lineTotal: 180, notes: "less sauce", costStatus: "unavailable" });
   assert.deepEqual(inventory.getInventoryState(event.eventId, product.productVersionId), { soldQuantity: 1, remainingQuantity: 1 });
-  assert.equal(database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM audit_logs WHERE action = 'order.created' AND entity_id = ?", [result.order.orderId])?.count, 1);
+  assert.equal(database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM audit_logs WHERE action = 'order_created' AND entity_id = ?", [result.order.orderId])?.count, 1);
   database.close();
 });
 
@@ -48,7 +48,7 @@ test("idempotent replay returns the original order without a second deduction or
   assert.equal(replay.replayed, true);
   assert.equal(replay.order.orderId, first.order.orderId);
   assert.deepEqual(inventory.getInventoryState(event.eventId, product.productVersionId), { soldQuantity: 1, remainingQuantity: 1 });
-  assert.equal(database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM audit_logs WHERE action = 'order.created'")?.count, 1);
+  assert.equal(database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM audit_logs WHERE action = 'order_created'")?.count, 1);
   assert.throws(() => orders.createPosOrder(payload(event.eventId, "terminal-a-1", 2)), (error: unknown) => (error as { code?: string }).code === "IDEMPOTENCY_CONFLICT");
   database.close();
 });

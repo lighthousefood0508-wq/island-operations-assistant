@@ -16,6 +16,8 @@ An OPEN Event freezes its selected Product Contract v2 snapshot. Republishing a 
 
 `/pos` now groups the open Event's POS products by frozen display category, shows POS short name, price, and remaining quantity, and provides a local shopping cart with quantity controls. **建立中央訂單** submits only to the existing Order API, shows the returned order number, then refreshes remaining quantity. It contains no payment, Kitchen, cancellation, discount, member, or promotion controls.
 
+`/pos/lifecycle` is the Operations-only staff console for status changes, manual no-show, separately confirmed one-time inventory release, formal Event Close, and the stored daily report. It does not process payments or send Orders to Kitchen.
+
 ## Install and start
 
 Requires Node.js 24 or later.

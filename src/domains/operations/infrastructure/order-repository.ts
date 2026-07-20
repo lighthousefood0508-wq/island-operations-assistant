@@ -1,5 +1,5 @@
 import type { DatabaseAdapter } from "../../../shared/database/database-adapter.js";
-import type { OperationsOrder, OrderItem, PosOrderItemInput } from "../domain/types.js";
+import type { OperationsOrder, OrderItem, OrderStatus, PosOrderItemInput } from "../domain/types.js";
 
 type EventRow = { event_id: string; event_code: string; status: string };
 type EventProductRow = {
@@ -8,7 +8,7 @@ type EventProductRow = {
 };
 type IdempotencyRow = { request_fingerprint: string; order_id: string };
 type OrderRow = {
-  order_id: string; order_number: string; event_id: string; source: "pos"; order_status: "confirmed"; payment_status: "unpaid";
+  order_id: string; order_number: string; event_id: string; source: "pos"; order_status: OrderStatus; payment_status: "unpaid";
   production_status: "not_started"; customer_name: string | null; notes: string | null; subtotal: number; discount_total: number;
   grand_total: number; created_at: string; confirmed_at: string;
 };
@@ -98,7 +98,7 @@ export class OrderRepository {
   insertOrder(input: { orderId: string; eventId: string; orderNumber: string; idempotencyKey: string; fingerprint: string; customerName: string | null; notes: string | null; subtotal: number; createdAt: string }): void {
     this.database.execute(`INSERT INTO operations_orders (order_id, event_id, channel, status, subtotal, discount_total, grand_total, paid_total, idempotency_key, created_at,
       order_number, source, order_status, payment_status, production_status, customer_name, notes, request_fingerprint, confirmed_at)
-      VALUES (?, ?, 'pos', 'confirmed', ?, 0, ?, 0, ?, ?, ?, 'pos', 'confirmed', 'unpaid', 'not_started', ?, ?, ?, ?)`,
+      VALUES (?, ?, 'pos', 'pending', ?, 0, ?, 0, ?, ?, ?, 'pos', 'pending', 'unpaid', 'not_started', ?, ?, ?, ?)`,
       [input.orderId, input.eventId, input.subtotal, input.subtotal, `${input.eventId}:pos:${input.idempotencyKey}`, input.createdAt, input.orderNumber, input.customerName, input.notes, input.fingerprint, input.createdAt]);
   }
 
@@ -117,7 +117,7 @@ export class OrderRepository {
 
   insertAudit(orderId: string, eventId: string, orderNumber: string, itemCount: number, grandTotal: number, occurredAt: string): void {
     const metadata = JSON.stringify({ actor: "local-pos", source: "pos", eventId, orderNumber, itemCount, grandTotal });
-    this.database.execute("INSERT INTO audit_logs (audit_log_id, actor_user_id, entity_type, entity_id, action, before_json, after_json, occurred_at) VALUES (?, NULL, 'order', ?, 'order.created', NULL, ?, ?)", [`audit_${orderId}`, orderId, metadata, occurredAt]);
+    this.database.execute("INSERT INTO audit_logs (audit_log_id, actor_user_id, entity_type, entity_id, action, before_json, after_json, occurred_at) VALUES (?, NULL, 'order', ?, 'order_created', NULL, ?, ?)", [`audit_${orderId}`, orderId, metadata, occurredAt]);
   }
 
   getOrder(orderId: string): OperationsOrder | undefined {

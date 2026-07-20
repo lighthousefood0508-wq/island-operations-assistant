@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { CatalogService } from "../../domains/catalog/index.js";
-import { OperationsService, OrderService } from "../../domains/operations/index.js";
+import { LifecycleService, OperationsService, OrderService } from "../../domains/operations/index.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { openSseStream, writeHeartbeat } from "../events/sse.js";
 import { renderAdmin } from "../../web/admin/page.js";
@@ -8,8 +8,9 @@ import { renderEventsAdmin } from "../../web/events/page.js";
 import { renderKitchen } from "../../web/kitchen/page.js";
 import { renderOrdering } from "../../web/ordering/page.js";
 import { renderPos } from "../../web/pos/page.js";
+import { renderLifecycle } from "../../web/lifecycle/page.js";
 
-type Services = Readonly<{ catalog: CatalogService; operations: OperationsService; orders: OrderService }>;
+type Services = Readonly<{ catalog: CatalogService; operations: OperationsService; orders: OrderService; lifecycle: LifecycleService }>;
 
 function sendJson(response: ServerResponse, status: number, payload: unknown): void {
   response.writeHead(status, { "content-type": "application/json; charset=utf-8" });
@@ -70,6 +71,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "GET" && pathname === "/admin") return sendHtml(response, renderAdmin());
     if (request.method === "GET" && pathname === "/admin/events") return sendHtml(response, renderEventsAdmin());
     if (request.method === "GET" && pathname === "/pos") return sendHtml(response, renderPos());
+    if (request.method === "GET" && pathname === "/pos/lifecycle") return sendHtml(response, renderLifecycle());
     if (request.method === "GET" && pathname === "/order") return sendHtml(response, renderOrdering());
     if (request.method === "GET" && pathname === "/kitchen") return sendHtml(response, renderKitchen());
 
@@ -95,6 +97,18 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     }
     const orderMatch = pathname.match(/^\/api\/orders\/([^/]+)$/);
     if (request.method === "GET" && orderMatch?.[1]) return success(response, 200, services.orders.getOrder(decodeURIComponent(orderMatch[1])));
+    const statusMatch = pathname.match(/^\/api\/orders\/([^/]+)\/status$/);
+    if (request.method === "PATCH" && statusMatch?.[1]) return success(response, 200, services.lifecycle.changeStatus(decodeURIComponent(statusMatch[1]), await readJson(request)));
+    const noShowMatch = pathname.match(/^\/api\/orders\/([^/]+)\/no-show$/);
+    if (request.method === "POST" && noShowMatch?.[1]) return success(response, 200, services.lifecycle.markNoShow(decodeURIComponent(noShowMatch[1]), await readJson(request)));
+    const releaseMatch = pathname.match(/^\/api\/orders\/([^/]+)\/release-inventory$/);
+    if (request.method === "POST" && releaseMatch?.[1]) return success(response, 200, services.lifecycle.releaseInventory(decodeURIComponent(releaseMatch[1]), await readJson(request)));
+    const currentOrdersMatch = pathname.match(/^\/api\/events\/([^/]+)\/orders$/);
+    if (request.method === "GET" && currentOrdersMatch?.[1]) return success(response, 200, services.lifecycle.listEventOrders(decodeURIComponent(currentOrdersMatch[1])));
+    const closeMatch = pathname.match(/^\/api\/events\/([^/]+)\/close$/);
+    if (request.method === "POST" && closeMatch?.[1]) return success(response, 200, services.lifecycle.closeEvent(decodeURIComponent(closeMatch[1]), await readJson(request)));
+    const reportMatch = pathname.match(/^\/api\/events\/([^/]+)\/daily-report$/);
+    if (request.method === "GET" && reportMatch?.[1]) return success(response, 200, services.lifecycle.getDailyReport(decodeURIComponent(reportMatch[1])));
 
     if (request.method === "GET" && pathname === "/api/admin/events") return success(response, 200, services.operations.listEvents());
     if (request.method === "POST" && pathname === "/api/admin/events") return success(response, 201, services.operations.createEvent(await readJson(request) as never));

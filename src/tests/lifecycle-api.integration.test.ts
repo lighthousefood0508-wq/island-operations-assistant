@@ -1,0 +1,55 @@
+import assert from "node:assert/strict";
+import { once } from "node:events";
+import { randomUUID } from "node:crypto";
+import path from "node:path";
+import test from "node:test";
+import { createRosServer } from "../server/index.js";
+
+async function request(baseUrl: string, pathName: string, method = "GET", body?: unknown): Promise<{ status: number; body: any }> {
+  const response = await fetch(`${baseUrl}${pathName}`, { method, headers: body ? { "content-type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
+  return { status: response.status, body: await response.json() };
+}
+async function setup(quantity = 2) {
+  const server = createRosServer({ host: "127.0.0.1", port: 0, databasePath: path.resolve("data", `lifecycle-${randomUUID()}.sqlite`) }); server.listen(0, "127.0.0.1"); await once(server, "listening");
+  const address = server.address(); assert.ok(address && typeof address !== "string"); const baseUrl = `http://127.0.0.1:${address.port}`;
+  const category = await request(baseUrl, "/api/admin/categories", "POST", { code: "meal", displayName: "Meal", sortOrder: 1 });
+  const product = await request(baseUrl, "/api/admin/products", "POST", { internalName: "Meal", categoryId: category.body.data.categoryId, displayName: "Meal", posName: "Meal", sellingPrice: 100, channels: ["pos"] });
+  const published = await request(baseUrl, `/api/admin/products/${product.body.data.productId}/publish`, "POST", {});
+  const event = await request(baseUrl, "/api/admin/events", "POST", { eventCode: "LIFE", displayName: "Lifecycle", date: "2026-07-20", startTime: "17:00", endTime: "22:00" });
+  await request(baseUrl, `/api/admin/events/${event.body.data.eventId}/sellable-inventory`, "PUT", { productVersionId: published.body.data.contract.productVersionId, plannedQuantity: quantity });
+  await request(baseUrl, `/api/admin/events/${event.body.data.eventId}/open`, "POST", {});
+  return { server, baseUrl, eventId: event.body.data.eventId, product: published.body.data.contract };
+}
+async function createOrder(baseUrl: string, eventId: string, product: any, key: string) { return request(baseUrl, "/api/orders", "POST", { source: "pos", eventId, idempotencyKey: key, items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }], customerName: null, notes: null }); }
+
+test("lifecycle permits only legal transitions and audits status changes", async () => {
+  const { server, baseUrl, eventId, product } = await setup(); const created = await createOrder(baseUrl, eventId, product, "life-a"); const id = created.body.data.orderId;
+  assert.equal(created.body.data.orderStatus, "pending");
+  assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "ready" })).status, 409);
+  assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "cooking" })).body.data.orderStatus, "cooking");
+  assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "ready" })).body.data.orderStatus, "ready");
+  assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "completed" })).body.data.orderStatus, "completed");
+  const illegal = await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "cooking" }); assert.equal(illegal.status, 409); assert.equal(illegal.body.error.code, "ILLEGAL_STATUS_TRANSITION");
+  server.close(); await once(server, "close");
+});
+
+test("manual no-show release is confirmed, idempotent, and restores inventory once", async () => {
+  const { server, baseUrl, eventId, product } = await setup(1); const order = await createOrder(baseUrl, eventId, product, "no-show"); const id = order.body.data.orderId;
+  assert.equal((await request(baseUrl, `/api/orders/${id}/no-show`, "POST", {})).body.data.orderStatus, "no_show");
+  assert.equal((await request(baseUrl, `/api/orders/${id}/release-inventory`, "POST", {})).status, 400);
+  const [left, right] = await Promise.all([request(baseUrl, `/api/orders/${id}/release-inventory`, "POST", { confirmed: true }), request(baseUrl, `/api/orders/${id}/release-inventory`, "POST", { confirmed: true })]);
+  assert.deepEqual([left.body.data.released, right.body.data.released].sort(), [false, true]);
+  const products = await request(baseUrl, "/api/events/current/products"); assert.equal(products.body.data[0].remainingQuantity, 1);
+  server.close(); await once(server, "close");
+});
+
+test("Event Close blocks unresolved orders, creates an idempotent daily report, and locks Event", async () => {
+  const { server, baseUrl, eventId, product } = await setup(); const order = await createOrder(baseUrl, eventId, product, "close"); const id = order.body.data.orderId;
+  const blocked = await request(baseUrl, `/api/events/${eventId}/close`, "POST", { confirmed: true }); assert.equal(blocked.status, 409); assert.equal(blocked.body.error.code, "EVENT_CLOSE_BLOCKED");
+  await request(baseUrl, `/api/orders/${id}/no-show`, "POST", {});
+  const [left, right] = await Promise.all([request(baseUrl, `/api/events/${eventId}/close`, "POST", { confirmed: true }), request(baseUrl, `/api/events/${eventId}/close`, "POST", { confirmed: true })]);
+  assert.equal(left.status, 200); assert.equal(right.status, 200); assert.deepEqual(left.body.data.report, right.body.data.report);
+  const report = await request(baseUrl, `/api/events/${eventId}/daily-report`); assert.equal(report.body.data.orders.noShow, 1);
+  const locked = await createOrder(baseUrl, eventId, product, "after-close"); assert.equal(locked.status, 409); assert.equal(locked.body.error.code, "EVENT_NOT_OPEN");
+  server.close(); await once(server, "close");
+});

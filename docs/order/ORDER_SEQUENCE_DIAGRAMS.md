@@ -1,86 +1,63 @@
-# Order Sequence Diagrams
+# Frozen Order Policy Diagrams
 
-## POS onsite order
-
-```mermaid
-sequenceDiagram
-  participant Staff as POS staff
-  participant API as Operations Order service
-  participant Event as Event sellable snapshot
-  Staff->>API: create POS order + idempotency key
-  API->>Event: guarded reserve quantity
-  API->>Event: convert reserve to sold allocation
-  API-->>Staff: confirmed, unpaid order + order number
-```
-
-## Kiosk order
-
-```mermaid
-sequenceDiagram
-  participant Guest as Kiosk guest
-  participant API as Operations Order service
-  participant Event as Event sellable snapshot
-  Guest->>API: submit order + retained idempotency key
-  API->>Event: guarded increase reserved quantity
-  API-->>Guest: submitted order result
-  Note over API,Event: Retry with same key returns same Order; no second reserve
-```
-
-## Preorder order
-
-```mermaid
-sequenceDiagram
-  participant Line as LINE preorder adapter
-  participant API as Operations Order service
-  participant Event as Event sellable snapshot
-  Line->>API: submit preorder + webhook-derived key
-  API->>API: validate Event deadline and future quota policy
-  API->>Event: guarded increase reserved quantity
-  API-->>Line: submitted reservation result
-```
-
-## Payment and quantity conversion
+## POS direct sale allocation
 
 ```mermaid
 sequenceDiagram
   participant POS
   participant Order as Operations Order service
   participant Event as Sellable Inventory
-  POS->>Order: confirm submitted order
-  Order->>Event: reservedQuantity - quantity
-  Order->>Event: soldQuantity + quantity
-  Order-->>POS: confirmed
-  POS->>Order: future payment result
-  Order-->>POS: paymentStatus updated only
+  POS->>Order: create POS Order plus idempotency key
+  Order->>Event: guarded soldQuantity plus quantity
+  Order-->>POS: confirmed, unpaid, not_started, shared order number
+  POS->>Order: record payment paid
+  POS->>Order: queue for Kitchen
 ```
 
-## Cancel and release
+## Kiosk ten-minute reservation
 
 ```mermaid
 sequenceDiagram
-  participant Actor as Customer or staff
+  participant Kiosk
   participant Order as Operations Order service
   participant Event as Sellable Inventory
-  Actor->>Order: cancel with reason
-  alt submitted / not started
-    Order->>Event: reservedQuantity - quantity
-  else confirmed / not started
-    Order->>Event: soldQuantity - quantity
-  else preparing, ready, or served
-    Note over Order,Event: no automatic restoration
+  Kiosk->>Order: submit plus retained idempotency key
+  Order->>Event: guarded reservedQuantity plus quantity
+  Order-->>Kiosk: submitted, unpaid, not_started
+  alt paid within ten minutes
+    Order->>Event: reserved minus quantity; sold plus quantity
+    Order-->>Kiosk: confirmed, paid, queued
+  else timeout
+    Order->>Event: reserved minus quantity
+    Order-->>Kiosk: cancelled with timeout reason
   end
-  Order-->>Actor: audited cancellation result
 ```
 
-## Kitchen production states
+## Preorder automatic confirmation
 
 ```mermaid
 sequenceDiagram
-  participant Kitchen
+  participant Adapter as Preorder adapter
   participant Order as Operations Order service
-  Kitchen->>Order: queued -> preparing
-  Kitchen->>Order: preparing -> ready
-  Order-->>Kitchen: idempotent production snapshot
+  participant Event as Event policy and inventory
+  Adapter->>Order: submit stable webhook key
+  Order->>Event: validate OPEN Event, deadline, quota, remaining
+  Order->>Event: guarded soldQuantity plus quantity
+  Order-->>Adapter: confirmed, unpaid, not_started
   participant POS
-  POS->>Order: ready -> served and commercial completion
+  POS->>Order: manual send to Kitchen
+  Order-->>POS: production queued
+```
+
+## Completed to Sales Contract
+
+```mermaid
+sequenceDiagram
+  participant POS
+  participant Order as Operations Order service
+  participant Outbox as Future Sales Contract outbox
+  POS->>Order: mark completed after paid and served
+  Order->>Outbox: emit once for orderId
+  Order-->>POS: completed
+  Note over Outbox: cancelled Orders never emit
 ```

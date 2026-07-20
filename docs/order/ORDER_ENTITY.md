@@ -1,52 +1,30 @@
-# Order Entity and Snapshots
+# Order Entity and Immutable Item Snapshot
 
-Status: Proposed design. Field names are implementation guidance, not a migration.
+Status: Frozen design policy, not a migration.
 
-## Order
-
-| Field | Required | Sources | Purpose / Phase 1C implementation note |
-| --- | --- | --- | --- |
-| `orderId` | Yes | all | Immutable UUID-style Operations primary key. |
-| `orderNumber` | Yes | all | Event-scoped human queue number; assigned server-side. |
-| `eventId` | Yes | all | Must identify the one OPEN Event at creation. |
-| `source` | Yes | all | `pos`, `kiosk`, or `preorder`. |
-| `orderStatus` | Yes | all | Lifecycle only; never stores payment or Kitchen state. |
-| `paymentStatus` | Yes | all | Starts `unpaid` unless a future POS payment is atomically recorded. |
-| `productionStatus` | Yes | all | Starts `not_started`; no Kitchen implementation in this phase. |
-| `customerName` | Optional | kiosk, preorder | POS may optionally collect it for pickup. |
-| `customerContact` | Optional | preorder | Store only the minimum contact reference needed for pickup communication; define retention before implementation. |
-| `pickupTime` | Optional | preorder | Requested pickup time, not a Kitchen promise. |
-| `notes` | Optional | all | Customer/staff preparation note, not a product master change. |
-| `subtotal` | Yes | all | Sum of item list prices before item discounts. |
-| `discountTotal` | Yes | all | Starts `0`; discount rules are out of scope. |
-| `grandTotal` | Yes | all | `subtotal - discountTotal`; non-negative integer money. |
-| `idempotencyKey` | Yes | all | Immutable request key and payload fingerprint pairing. |
-| `createdAt` | Yes | all | Server timestamp. |
-| `confirmedAt` | Optional | all | Set only at `confirmed`. |
-| `completedAt` | Optional | all | Set only when the customer handoff is complete. |
-| `cancelledAt` | Optional | all | Set only at cancellation. |
-| `cancellationReason` | Optional | all | Required for staff cancellation; customer reason policy remains open. |
-
-Do **not** add tax, invoice number, loyalty, promotion engine, delivery address, Cost fields, or generic JSON extension fields in the first implementation. They either have no approved behavior or belong elsewhere.
-
-## Order item snapshot
-
-Every `OrderItem` is immutable after confirmation except narrowly defined cancellation/accounting annotations. It must be copied from the Event's Operations-owned snapshot, never from a later Catalog query.
-
-| Field | Required now | Purpose |
+| Field | Required | Notes |
 | --- | --- | --- |
-| `orderItemId`, `orderId` | Yes | Immutable identity and parent. |
-| `productId`, `productVersionId` | Yes | Product identity and frozen published version. |
-| `displayNameSnapshot`, `posNameSnapshot` | Yes | Historical display names. |
-| `displayCategoryNameSnapshot` | Yes | Historical category display snapshot. |
-| `unitListPrice`, `unitSellingPrice` | Yes | Money in integer minor unit; initially equal unless discount is approved. |
-| `quantity`, `lineDiscount`, `lineTotal` | Yes | Financial snapshot. |
-| `notes` | Optional | Line-specific preparation note. |
-| `costStatus` | No, reserve only | Future Cost integration must not be designed as an Order write. |
-| `unitCostSnapshot`, `bomVersionSnapshot` | No, nullable future fields only after Cost approval | Must remain absent from the first Order implementation. |
+| `orderId` | Yes | Immutable Operations primary key. |
+| `orderNumber` | Yes | `{eventCode}-{sequence}`; all sources share one Event sequence; never reused. |
+| `eventId`, `source` | Yes | `source` is `pos`, `kiosk`, or `preorder`; it never changes number format. |
+| `orderStatus`, `paymentStatus`, `productionStatus` | Yes | Separate frozen state fields. |
+| `customerName`, `customerContact`, `pickupTime`, `notes` | Optional | Contact retention and preorder cancellation remain open policy questions. |
+| `subtotal`, `discountTotal`, `grandTotal` | Yes | Integer money snapshots; discounts remain out of first implementation scope. |
+| `idempotencyKey`, `payloadFingerprint` | Yes | Required to make retry behavior deterministic. |
+| `createdAt`, `confirmedAt`, `completedAt`, `cancelledAt` | As applicable | Server times. |
+| `cancelledBy`, `cancellationReason` | Required on cancellation | Required especially after production begins; always audited. |
 
-Catalog rename, price change, channel change, unpublish, or category edit must never mutate historical Order or OrderItem snapshots.
+Do not add invoice, tax, loyalty, delivery, Cost, BOM, generic JSON, or promotion fields in the first implementation.
 
-## Human-readable number
+## Item snapshot
 
-Recommended format: `{eventCode}-{sequence}` such as `20260720-night-001`. The server allocates a monotonically increasing sequence inside the same transaction as Order creation. Sequence resets for each Event; cancelled numbers remain consumed and are never reused. A future implementation should use a dedicated Operations sequence record, not `MAX(order_number)`, to remain correct under concurrent requests.
+| Field | Required | Purpose |
+| --- | --- | --- |
+| `orderItemId`, `orderId` | Yes | Immutable item identity and parent. |
+| `productId`, `productVersionId` | Yes | Event snapshot identity. |
+| `displayNameSnapshot`, `posNameSnapshot`, `displayCategoryNameSnapshot` | Yes | History survives Catalog changes. |
+| `unitListPrice`, `unitSellingPrice`, `quantity`, `lineDiscount`, `lineTotal` | Yes | Integer monetary and quantity snapshot. |
+| `notes` | Optional | Per-item preparation note. |
+| `costStatus`, `unitCostSnapshot`, `bomVersionSnapshot` | No | Not part of first Order implementation; Cost remains separate. |
+
+Catalog rename, price update, unpublish, category edit, or later product version must never change an Order Item snapshot.

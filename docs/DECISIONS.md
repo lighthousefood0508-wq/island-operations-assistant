@@ -13,5 +13,8 @@
 - Phase 1B was explicitly approved by Architecture Owner Miles / 林子茂 on 2026-07-20. Approved scope: Event, Sellable Inventory, Product Contract v2, and POS Current Event read-only display.
 - OPEN Event Product Snapshot Policy: an Event retains the Product Contract v2 snapshot selected while it was draft. Catalog republishing creates a version for a future Event only; it never changes an OPEN Event.
 - New phases, scope expansion, and contract changes require a new explicit Architecture Owner approval. Completion reports and roadmap entries are not approval.
+- Phase 1C-Design Finalization was explicitly approved by Architecture Owner Miles / 林子茂 on 2026-07-20. Approved scope: Order Policy Freeze and acceptance of ADR-014 through ADR-018. It does not approve Phase 1C implementation.
+- Frozen Order policies: all sources share one Event order number sequence; POS directly sells; Kiosk reserves for 10 minutes then payment confirms/sells/queues; Preorder directly confirms/sells and POS manually queues it; Sales Contract emits once only at completed.
+- Accepted known gap: production-stage cancellation does not restore sold quantity and does not reach Cost in first version. A future independent Waste Contract/reporting flow may address it; none is approved now.
 
 Detailed rationale is in `docs/adr/`.

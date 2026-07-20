@@ -1,50 +1,67 @@
-# Separate Order, Payment, and Production States
+# Frozen Three-track State Model
 
-## Why three states
-
-`orderStatus` answers whether the commercial request exists and is accepted. `paymentStatus` answers money collection. `productionStatus` answers preparation. None implies either of the other two.
-
-## Order state
+`orderStatus`, `paymentStatus`, and `productionStatus` must never be merged. A transition in one does not implicitly transition either of the others unless an explicit Operations command defines both changes.
 
 ```mermaid
 stateDiagram-v2
-  [*] --> draft
-  draft --> submitted: customer or staff sends valid request
-  submitted --> confirmed: staff or approved automatic rule accepts
-  submitted --> cancelled: reject, expiry, or customer cancel
-  confirmed --> completed: handed to customer / terminal business close
-  confirmed --> cancelled: allowed cancellation path
-  completed --> [*]
-  cancelled --> [*]
+  state "Order" as O {
+    [*] --> draft
+    draft --> submitted
+    submitted --> confirmed: kiosk payment success
+    submitted --> cancelled: kiosk timeout or cancellation
+    confirmed --> completed: POS marks completed after paid and served
+    confirmed --> cancelled
+  }
+  state "Payment" as P {
+    [*] --> unpaid
+    unpaid --> pending
+    pending --> paid
+    pending --> failed
+    paid --> partially_refunded
+    paid --> refunded
+  }
+  state "Production" as R {
+    [*] --> not_started
+    not_started --> queued
+    queued --> preparing
+    preparing --> ready
+    ready --> served
+    not_started --> cancelled
+    queued --> cancelled
+    preparing --> cancelled
+  }
 ```
 
-`draft` is server-side composition only and must not reserve quantity. `submitted` has passed validation and may hold a reservation. `confirmed` is a firm Event allocation. `completed` means the commercial handoff is complete, not merely paid or cooked.
+## `orderStatus`
 
-## Payment state
+| State | Allowed actor / transition |
+| --- | --- |
+| `draft` | Server-side composition only; no quantity effect. |
+| `submitted` | Kiosk creates it; Kiosk timeout or authorised cancellation moves it to `cancelled`. |
+| `confirmed` | POS creates directly; Kiosk payment success confirms; Preorder creates directly. |
+| `completed` | POS/staff only, after **both** `paymentStatus = paid` and `productionStatus = served`. |
+| `cancelled` | Kiosk timeout, authorised customer policy, POS/Admin cancellation. |
 
-| State | Meaning | Does not imply |
-| --- | --- | --- |
-| `unpaid` | No accepted payment | cancellation, Kitchen completion |
-| `pending` | Future electronic payment awaiting result | confirmed order |
-| `paid` | Payment recorded | served/completed order |
-| `partially_refunded` | Some paid amount returned | order cancellation |
-| `refunded` | Paid amount fully returned | quantity restoration |
-| `failed` | Attempt failed | automatic order cancellation |
+## `paymentStatus`
 
-## Production state
+First-version values: `unpaid`, `pending`, `paid`, `failed`, `partially_refunded`, `refunded`. Payment does not complete the Order and does not itself change production state.
 
-```mermaid
-stateDiagram-v2
-  [*] --> not_started
-  not_started --> queued: confirmed order is eligible for Kitchen
-  queued --> preparing: Kitchen starts work
-  preparing --> ready: Kitchen marks ready
-  ready --> served: POS/staff hands off
-  not_started --> cancelled
-  queued --> cancelled
-  preparing --> cancelled: staff records exception
-  served --> [*]
-  cancelled --> [*]
-```
+| Payment transition | Allowed actor |
+| --- | --- |
+| unpaid to pending | POS or approved payment adapter. |
+| pending to paid / failed | Approved payment adapter, or POS records approved cash. |
+| paid to partially_refunded / refunded | Admin or authorised POS role with audit and payment reference. |
 
-Kitchen may update only production state through an Operations application service. Kitchen cannot change item, price, payment, order lifecycle, or availability quantities.
+## `productionStatus`
+
+First-version values: `not_started`, `queued`, `preparing`, `ready`, `served`, `cancelled`.
+
+| Production transition | Allowed actor |
+| --- | --- |
+| not_started to queued | POS only: after POS/Kiosk payment is paid, or manual Preorder release. |
+| queued to preparing | Kitchen only. |
+| preparing to ready | Kitchen only. |
+| ready to served | POS/staff only. |
+| not_started / queued / preparing to cancelled | Authorised POS/Admin; Kitchen may only record an approved production exception through Operations. |
+
+Kitchen must not modify Order, payment, prices, item data, or quantities.

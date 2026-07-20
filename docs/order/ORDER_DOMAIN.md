@@ -1,41 +1,36 @@
-# Order Domain Design
+# Order Domain Policy
 
-Status: Design only. Proposed for Architecture Review. No schema, API, UI, or service is implemented by this document.
+Status: Frozen design policy. Architecture Owner approved 2026-07-20. This document does not implement schema, API, UI, service, payment, Kitchen, scheduler, or integration.
 
-## Ownership and boundary
-
-Orders belong to the existing **Operations** domain. Catalog remains the product publisher; Cost remains separate. An Order consumes only the Event's Operations-owned Product Contract v2 snapshot. It never reads `catalog_*`, `cost_*`, BOM, or ingredient data.
+Orders belong to the existing **Operations** domain. POS, Kiosk, and Preorder create the same central `Order` and immutable `OrderItem` snapshots. Every item uses the selected Event's Operations-owned Product Contract v2 snapshot; Orders never read Catalog or Cost internals.
 
 ```mermaid
 flowchart LR
   POS --> Order[Operations Order]
   Kiosk --> Order
-  Preorder[LINE preorder adapter] --> Order
-  Event[OPEN Event + sellable snapshot] --> Order
+  Preorder[Preorder adapter] --> Order
+  Event[OPEN Event sellable snapshot] --> Order
   Order --> Payment[Future Operations Payment]
-  Order --> Kitchen[Future Kitchen production update]
-  Order --> Outbox[Future Sales Contract outbox]
+  Order --> Kitchen[Future Kitchen status only]
+  Order --> Sales[Future Sales Contract after completed]
 ```
 
-## One entity, source-specific rules
+## Frozen source policies
 
-All sources create the same `Order` and `OrderItem` model. `source` is `pos`, `kiosk`, or `preorder`; it changes creation authority and reservation timing, not the data model.
+| Source | Initial state | Quantity at creation | Kitchen entry |
+| --- | --- | --- | --- |
+| POS | `confirmed`, `unpaid`, `not_started` | directly increase `soldQuantity`; never uses reserved | only after payment is `paid`, then queue |
+| Kiosk | `submitted`, `unpaid`, `not_started` | increase `reservedQuantity` for 10 minutes | payment success confirms, converts reserved to sold, and queues |
+| Preorder | `confirmed`, `unpaid`, `not_started` | directly increase `soldQuantity`; never uses reserved | POS manually sends it to Kitchen |
 
-| Source | Creator | Initial Order state | Quantity action | Notes |
-| --- | --- | --- | --- | --- |
-| POS | Staff | `confirmed` | reserve then immediately convert to `sold` in one transaction | Staff acceptance is the business confirmation; payment remains independent. |
-| Kiosk | Customer | `submitted` | increase `reservedQuantity` | Awaiting staff/payment policy; first version must set an expiry. |
-| Preorder | LINE adapter | `submitted` | increase `reservedQuantity` | Must pass Event preorder deadline and future preorder quota checks. |
+All sources share one Event-scoped sequence: `{eventCode}-{sequence}`, beginning at `001`. Cancellation never reuses a number. `orderId` remains the immutable system key; `source` remains a separate field.
 
-The server validates an OPEN Event, the matching Event snapshot product version, positive quantity, and available quantity. Browser state, LINE payloads, and Google Sheets are never order authorities.
+## Frozen invariants
 
-## Design invariants
-
-1. `orderId` is immutable and machine-facing; `orderNumber` is human-facing and never reused.
-2. Each item points to the selected Event snapshot `productVersionId`; later Catalog edits never alter history.
-3. Order, payment, and production state are independent state machines.
-4. Reservation changes and order creation must occur in one Operations database transaction.
-5. One idempotency key represents one normalized create-order request only.
-6. `soldQuantity` means firm Event allocation after confirmation. It is not proof that payment happened and does not emit a Sales Contract by itself.
-
-See [ORDER_ENTITY.md](ORDER_ENTITY.md), [ORDER_STATE_MACHINE.md](ORDER_STATE_MACHINE.md), and [ORDER_QUANTITY_LIFECYCLE.md](ORDER_QUANTITY_LIFECYCLE.md).
+1. Order, payment, and production state are three independent state machines.
+2. Every creation, idempotency decision, number allocation, and quantity update occurs in one Operations transaction.
+3. `remainingQuantity` must never fall below zero.
+4. A same-key same-payload retry returns the original Order; a same-key different-payload retry returns `409` and changes nothing.
+5. `soldQuantity` is Event allocation, not proof of payment and not Sales Contract emission.
+6. Sales Contract emits once only when `orderStatus` becomes `completed`; cancelled Orders never emit it.
+7. After `preparing`, `ready`, or `served`, cancellation never restores `soldQuantity`; the accepted Cost/Waste gap is documented separately.

@@ -1,23 +1,26 @@
-# Order Integration Points
+# Frozen Integration Points
 
-## Interface permissions
-
-| Interface | May do | Must not do |
+| Interface | Allowed actions | Forbidden actions |
 | --- | --- | --- |
-| Admin | Read all, authorised cancellation/manual correction | Edit historical item snapshots or bypass audit. |
-| POS | Create onsite Order, confirm, initiate future payment, cancel within policy | Edit Catalog, BOM, Cost, or Kitchen state directly. |
-| Kiosk | Submit one customer Order, read its submitted result | Set payment/production/order terminal state. |
-| Preorder adapter | Submit reservation before Event deadline/quota | Change Event availability without Order service. |
-| Kitchen | Read eligible confirmed Orders; set production transitions | Change price, items, payment, source, or availability. |
+| Admin | Read Orders; authorised cancellation/refund/manual correction with audit | Edit snapshots or bypass lifecycle/audit. |
+| POS | Create direct-confirmed onsite Order; record future payment; queue paid POS/Kiosk; manually queue Preorder; mark served/completed | Edit Catalog, Cost, BOM, or Kitchen-owned transitions. |
+| Kiosk | Submit Order and read its own result | Confirm, set payment, queue Kitchen, alter quantity. |
+| Preorder adapter | Validate Event/deadline/quota/sellable availability then create confirmed preorder | Queue Kitchen automatically or change availability outside Order service. |
+| Kitchen | `queued -> preparing -> ready`; allowed production cancellation exception | Change order/payment state, price, items, quantity, or availability. |
 
-## Kitchen design
+## Kitchen entry
 
-Confirmed eligible Orders enter `queued`; Kitchen changes `queued -> preparing -> ready`. POS/staff handles handoff `ready -> served`, then the Operations Order service marks commercial `completed` when pickup is complete. On reconnect, Kitchen reloads Operations orders whose production state is `queued`, `preparing`, or `ready`, then sends idempotent state-transition requests. No SSE behavior is designed here.
+```mermaid
+flowchart LR
+  POSPaid[POS confirmed plus paid] --> Queue[productionStatus queued]
+  KioskPaid[Kiosk payment success] --> Queue
+  Preorder[Preorder confirmed unpaid] --> Manual[POS manual send to Kitchen]
+  Manual --> Queue
+  Queue --> Kitchen[Kitchen can see Order]
+```
 
-## Payment design
+Preorder is intentionally not auto-queued and no scheduler or advance-preparation design is allowed in this phase.
 
-Payment is an Operations-internal record with independent state. Cash staff confirmation may record a `paid` payment in a later implementation; an unpaid confirmed POS order remains possible. A failed electronic payment does not automatically release a reservation or cancel an Order; the POS/Admin applies the defined cancellation policy.
+## Sales Contract
 
-## Sales Contract design
-
-Recommended emission point: **Order `completed`**, because the Constitution defines Sales Contract after completed Order and this is the point after customer handoff. `paid` is too early (refund/cancellation remains possible); `served` is production/handoff evidence but may not represent final commercial closure. A unique `operations_sales_outbox.order_id` prevents duplicate emission. This phase does not implement the outbox, batch, or Cost import.
+When and only when a POS/staff action sets `orderStatus = completed` after `paymentStatus = paid` and `productionStatus = served`, Operations will later write exactly one Sales Contract for that `orderId`. Payment, confirmation, Kitchen queue, preparing, ready, served, and any cancelled Order never emit it.

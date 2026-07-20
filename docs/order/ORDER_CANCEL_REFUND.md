@@ -1,13 +1,29 @@
-# Cancellation, Refund, and Availability
+# Cancellation, Refund, and Accepted Waste Gap
 
-Cancellation changes the Order lifecycle. Refund changes money. Payment void changes a payment attempt. Availability restoration changes Event counters. They are related but never synonymous.
+Cancellation, refund, payment void, and quantity restoration are separate actions.
 
-| Situation | Order | Payment | Production | Quantity | Authority / audit |
-| --- | --- | --- | --- | --- | --- |
-| Unpaid submitted cancellation | `cancelled` | remains `unpaid` | `cancelled` | release reserved | Kiosk customer within policy, POS, Admin; reason + actor + timestamp. |
-| Paid, not started cancellation | `cancelled` | refund/void recorded separately | `cancelled` | reverse sold allocation | POS/Admin; payment reference, refund amount, reason. |
-| Preparing/ready cancellation | `cancelled` or exception outcome | refund policy separate | `cancelled` with production note | do not restore by default | Admin/POS; reason, actor, time, preparation stage. |
-| Served/completed partial refund | normally remains `completed` | `partially_refunded` | `served` | never restore | Admin only; amount and reason. |
-| Full refund after completed | normally remains `completed` | `refunded` | `served` | never restore | Admin only; refund reference and reason. |
+| Situation | Quantity | Payment / order effect | Required audit |
+| --- | --- | --- | --- |
+| Kiosk timeout before payment | release reserved | `submitted -> cancelled`, payment remains `unpaid` | reason `timeout`, time, system actor. |
+| Submitted cancellation before production | release reserved | cancel Order | actor, reason, time. |
+| Confirmed cancellation before `preparing` | reverse sold | cancel Order; future paid refund/void is separate | actor, reason, time, payment reference if present. |
+| Cancellation at `preparing`, `ready`, or `served` | do not restore sold | cancel Order; refund remains separate policy | `cancelledBy`, `cancelledAt`, mandatory reason, production stage, audit. |
+| Partial/full refund after completion | never restore quantity | payment becomes refunded state; Order normally remains completed | authorised actor, amount, reason, payment reference. |
 
-The first implementation should support only the first two rows unless Architecture Owner approves exception handling. Every state-changing action must append an Operations audit event with before/after states, actor, reason, timestamp, and payment reference when applicable.
+## Accepted known gap
+
+A production-stage cancellation has consumed food but does not create a Sales Contract because the Order is cancelled. Cost will therefore not learn of this consumption in first version. This is an accepted known gap. A future independent Waste Contract/reporting flow will address it; no Waste Contract or Cost change is designed or implemented now.
+
+~~~mermaid
+flowchart LR
+  Cancel[Cancel before preparing] --> Release[Release reserved or reverse sold]
+  Release --> Remaining[remainingQuantity increases]
+  Remaining --> Audit[Write cancellation audit]
+~~~
+
+~~~mermaid
+flowchart LR
+  Cancel[Cancel at preparing ready or served] --> Keep[Do not restore soldQuantity]
+  Keep --> Required[Require cancelledBy cancelledAt reason and audit]
+  Required --> Gap[Future Waste reporting source]
+~~~

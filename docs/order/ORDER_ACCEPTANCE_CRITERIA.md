@@ -1,16 +1,18 @@
-# Order Domain Design Acceptance Criteria
+# Frozen Order Policy Acceptance Criteria
 
-Architecture Review should confirm all of the following before Phase 1C Implementation is considered:
+Future implementation must demonstrate all of these without changing this policy:
 
-1. Orders are Operations-owned; no fourth domain is introduced.
-2. POS, Kiosk, and Preorder use one Order model with explicit source-specific creation rules.
-3. Order, Payment, and Production states are separate.
-4. Event Product Contract v2 snapshots provide all item name/category/price data; Catalog cannot rewrite history.
-5. Quantity changes are atomic and guarded against oversell.
-6. `submitted` reservation, `confirmed` sold allocation, cancellation, timeout, and post-production policies are explicit.
-7. Idempotency handles double tap, webhook retry, and client retry with same-key replay and different-payload conflict behavior.
-8. Human-readable number allocation is Event-scoped, concurrent-safe, and never reused after cancellation.
-9. Kitchen can change only production state through Operations.
-10. Payment and refund never imply Order completion or quantity restoration automatically.
-11. Sales Contract emits once at the approved completed-order point, not during payment or Kitchen state changes.
-12. All unresolved business policy choices appear in [ORDER_OPEN_QUESTIONS.md](ORDER_OPEN_QUESTIONS.md).
+1. POS creates `confirmed` and directly increases sold quantity.
+2. Kiosk creates `submitted` and reserves for exactly 10 minutes.
+3. Kiosk timeout releases reserved quantity, records `timeout`, and does not reuse the number.
+4. Kiosk payment converts reserved to sold, confirms, pays, and queues.
+5. Preorder validates Event, deadline, preorder quota, and sellable quantity; success is immediately confirmed and sold.
+6. Unpaid Preorder never auto-enters Kitchen; POS can manually queue it.
+7. All sources consume the one Event `{eventCode}-{sequence}` sequence.
+8. Cancellation before `preparing` restores the applicable allocation.
+9. Cancellation at `preparing`, `ready`, or `served` does not restore sold and requires actor/time/reason/audit.
+10. `completed` requires paid plus served and only then emits one Sales Contract.
+11. Cancelled Orders never emit Sales Contract.
+12. Same idempotency key and same payload never duplicate Order or quantity; same key and differing payload returns `409`.
+13. Every quantity transaction preserves `remainingQuantity >= 0` and rejects oversell.
+14. Kitchen changes production state only; it cannot modify Order, payment, price, items, or quantity.

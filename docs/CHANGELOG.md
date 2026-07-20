@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-07-20 - Phase 1C Design Finalization
+
+- Frozen Architecture Owner policies for POS direct sold allocation, ten-minute Kiosk reservation, Preorder direct confirmation, Kitchen entry, and completed-only Sales Contract emission.
+- Changed ADR-014 through ADR-018 from Proposed to Accepted, including the accepted production-stage cancellation/Waste reporting gap.
+- Kept unresolved data-model, scheduler, refund, privacy, and customer-cancellation choices as explicit Architecture Owner questions. No implementation was added.
+
 ## 2026-07-20 - Phase 1C-Design Order Domain
 
 - Added a documentation-only Order Domain design package and Proposed ADR-014 through ADR-018.

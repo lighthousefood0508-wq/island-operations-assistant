@@ -5,7 +5,7 @@ import { loadConfig, type RosConfig } from "../config/runtime.js";
 import { createDatabase } from "../shared/database/database-provider.js";
 import { runMigrations } from "../shared/database/migrate.js";
 import { CatalogRepository, CatalogService } from "../domains/catalog/index.js";
-import { OperationsRepository, OperationsService } from "../domains/operations/index.js";
+import { OperationsRepository, OperationsService, OrderRepository, OrderService } from "../domains/operations/index.js";
 import { createRoute } from "./app/routes.js";
 
 export function createRosServer(config: RosConfig = loadConfig()): Server {
@@ -13,7 +13,8 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
   runMigrations(database);
   const catalog = new CatalogService(new CatalogRepository(database));
   const operations = new OperationsService(new OperationsRepository(database));
-  const server = createServer(createRoute({ catalog, operations }));
+  const orders = new OrderService(new OrderRepository(database));
+  const server = createServer(createRoute({ catalog, operations, orders }));
   server.on("close", () => database.close());
   return server;
 }

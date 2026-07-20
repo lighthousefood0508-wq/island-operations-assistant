@@ -9,7 +9,9 @@ const sourceDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)
 const compiledDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../migrations");
 
 function migrationDirectory(): string {
-  return existsSync(compiledDirectory) ? compiledDirectory : sourceDirectory;
+  return existsSync(compiledDirectory) && readdirSync(compiledDirectory).some((name) => name.endsWith(".sql"))
+    ? compiledDirectory
+    : sourceDirectory;
 }
 
 export function runMigrations(database: DatabaseAdapter): string[] {

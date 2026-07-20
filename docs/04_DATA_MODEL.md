@@ -10,3 +10,11 @@ IDs are immutable prefixed random UUIDs, timestamps are UTC ISO-8601 text, and m
 | Shared/System | `schema_migrations`, `users`, `roles`, `user_roles`, `audit_logs`, `system_settings` | migration/audit infrastructure |
 
 `catalog_categories.code` is unique; renaming never changes `category_id`. Products own editable draft data, while published rows in `catalog_product_versions` are immutable by trigger and application rule. Published channel rows belong to the version. Product Contract exposes only approved published data, never the draft description, BOM, cost, stock, or purchase data.
+
+## Phase 1C Operations Order Core
+
+`004_order_core.sql` adds fields to the existing Operations order skeleton only. `operations_orders` now stores the Event-local `order_number`, POS source, independent order/payment/production states, optional customer/name notes, idempotency key, canonical request fingerprint, and confirmation timestamps. POS creates only `confirmed` / `unpaid` / `not_started` rows with zero discount.
+
+`operations_order_items` keeps immutable Event Product Snapshot fields: product/version IDs, display/POS/category names, list and selling prices, quantity, discount, line total, item notes, and the deliberately unavailable Cost placeholders. The Order Core never reads Cost or BOM data.
+
+`operations_event_order_sequences` is one row per Event and allocates the next shared order number inside the same transaction. `operations_order_idempotency` stores the Event + source + idempotency key, fingerprint, and order ID for durable retry handling. Both are Operations-owned data.

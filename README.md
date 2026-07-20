@@ -2,7 +2,7 @@
 
 Desert Island Restaurant Operating System (ROS) is an isolated restaurant foundation. Read [CONSTITUTION.md](CONSTITUTION.md) before changing code. The Legacy food truck project is not imported or modified.
 
-## Phase 1B
+## Phase 1C: POS Order Core
 
 Catalog Admin is available at `/admin`. It creates categories, product drafts, channels, and immutable published product versions. Event Admin is available at `/admin/events`: create a draft Event, choose published products, enter planned sellable quantities, then open the Event. `/pos` reads only `GET /api/events/current/products`, and displays active `pos` products with `remainingQuantity > 0` from the one OPEN Event.
 
@@ -10,9 +10,7 @@ Catalog Admin is available at `/admin`. It creates categories, product drafts, c
 
 An OPEN Event freezes its selected Product Contract v2 snapshot. Republishing a Catalog product never changes the live Event; the new product version can be selected only for a new draft Event. New phases, scope expansion, and contract changes require explicit Architecture Owner approval before implementation starts. See [ADR-013](docs/adr/ADR-013-open-event-product-snapshot-policy.md) and the [Architecture Timeline](docs/ARCHITECTURE_TIMELINE.md).
 
-## Phase 1C Design Review Package
-
-The Order Domain design is documentation only. It defines a single Operations-owned order model, separated Order/Payment/Production state machines, Event quantity reservations, immutable item snapshots, idempotency, and integration boundaries. It does not implement Orders. Start at [ORDER_DOMAIN.md](docs/order/ORDER_DOMAIN.md) and review the unresolved business choices in [ORDER_OPEN_QUESTIONS.md](docs/order/ORDER_OPEN_QUESTIONS.md).
+`POST /api/orders` creates a POS-only, confirmed/unpaid/not-started Order against the one OPEN Event. It atomically decrements Event sellable quantity, stores immutable item snapshots, assigns an Event-local number such as `YONG-001`, records `order.created`, and supports idempotent retry. `GET /api/orders/:orderId` returns only public Order fields and snapshots. This phase has no POS cart UI, payment, Kitchen, Kiosk, preorder, cancellation, refund, Sales Contract, or Cost behavior.
 
 ## Install and start
 
@@ -33,6 +31,21 @@ Open [Catalog Admin](http://127.0.0.1:3090/admin), [Event Admin](http://127.0.0.
 3. Save the draft, then select **發布新版本**.
 4. Create a draft Event in `/admin/events`, assign a positive planned quantity to published products, and open it.
 5. Open `/pos`; only `pos` products with remaining quantity in the OPEN Event appear.
+
+## POS Order API smoke check
+
+Create a POS order with an Event ID and product/version IDs from `GET /api/events/current/products`. The client must generate and retain a unique `idempotencyKey` per submit attempt.
+
+```json
+{
+  "source": "pos",
+  "eventId": "event_xxx",
+  "idempotencyKey": "pos-terminal-1-request-001",
+  "items": [{ "productId": "prod_xxx", "productVersionId": "pver_xxx", "quantity": 1, "notes": null }],
+  "customerName": null,
+  "notes": null
+}
+```
 
 ## Verification
 

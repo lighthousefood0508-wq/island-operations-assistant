@@ -47,6 +47,10 @@ export class BetterSqlite3Adapter implements DatabaseAdapter {
     return this.database.transaction(work)();
   }
 
+  transactionImmediate<T>(work: () => T): T {
+    return this.database.transaction(work).immediate();
+  }
+
   close(): void {
     this.database.close();
   }

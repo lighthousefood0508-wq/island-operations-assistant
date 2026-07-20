@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-07-20 - Phase 1C POS Order Core
+
+- Added additive `004_order_core.sql` Operations schema for order fields, item snapshots, Event sequences, and Event-scoped idempotency records.
+- Added POS-only `POST /api/orders` and `GET /api/orders/:orderId` with immutable snapshots, Event-local human-readable order numbers, safe public responses, and one `order.created` audit record.
+- Used SQLite IMMEDIATE transactions and conditional quantity updates to prevent oversell; a failed multi-item Order rolls back all quantities and does not consume a sequence number.
+- Added service/API coverage for rollback, idempotency replay/conflict, validation, snapshots, and concurrent final-portion requests. Payment, Kitchen, Kiosk, preorder, cancellation, Sales Contract, and Cost behavior remain unimplemented.
+
 ## 2026-07-20 - Phase 1C Design Finalization
 
 - Frozen Architecture Owner policies for POS direct sold allocation, ten-minute Kiosk reservation, Preorder direct confirmation, Kitchen entry, and completed-only Sales Contract emission.

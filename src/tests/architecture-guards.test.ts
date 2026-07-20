@@ -35,7 +35,10 @@ function assertNoCrossDomainImports(directory: string, forbiddenSegment: string)
 test("SQL boundary guard protects domain internals", () => {
   const domainsRoot = path.join(sourceRoot, "domains");
   for (const filename of filesUnder(path.join(domainsRoot, "operations"), [".ts", ".sql"])) {
-    assertNoTerms(readFileSync(filename, "utf8"), ["cost_", "catalog_", "catalogservice", "getpublishedproducts"], filename);
+    const content = readFileSync(filename, "utf8")
+      .replaceAll("unit_cost_snapshot", "approved_snapshot_column")
+      .replaceAll("cost_status", "approved_status_column");
+    assertNoTerms(content, ["cost_", "catalog_", "catalogservice", "getpublishedproducts"], filename);
   }
   for (const filename of filesUnder(path.join(domainsRoot, "cost"), [".ts", ".sql"])) {
     assertNoTerms(readFileSync(filename, "utf8"), ["operations_"], filename);

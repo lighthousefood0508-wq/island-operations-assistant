@@ -10,5 +10,6 @@ export interface DatabaseAdapter {
   queryOne<T>(sql: string, parameters?: SqlParameters): T | undefined;
   queryMany<T>(sql: string, parameters?: SqlParameters): T[];
   transaction<T>(work: () => T): T;
+  transactionImmediate<T>(work: () => T): T;
   close(): void;
 }

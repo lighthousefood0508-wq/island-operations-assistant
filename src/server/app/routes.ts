@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { CatalogService } from "../../domains/catalog/index.js";
-import { OperationsService } from "../../domains/operations/index.js";
+import { OperationsService, OrderService } from "../../domains/operations/index.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { openSseStream, writeHeartbeat } from "../events/sse.js";
 import { renderAdmin } from "../../web/admin/page.js";
@@ -9,7 +9,7 @@ import { renderKitchen } from "../../web/kitchen/page.js";
 import { renderOrdering } from "../../web/ordering/page.js";
 import { renderPos } from "../../web/pos/page.js";
 
-type Services = Readonly<{ catalog: CatalogService; operations: OperationsService }>;
+type Services = Readonly<{ catalog: CatalogService; operations: OperationsService; orders: OrderService }>;
 
 function sendJson(response: ServerResponse, status: number, payload: unknown): void {
   response.writeHead(status, { "content-type": "application/json; charset=utf-8" });
@@ -89,6 +89,12 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "GET" && pathname === "/api/catalog/products/published") return success(response, 200, services.catalog.getPublishedProducts(url.searchParams.get("channel") || undefined));
     if (request.method === "GET" && pathname === "/api/events/current") return success(response, 200, services.operations.getCurrentEvent());
     if (request.method === "GET" && pathname === "/api/events/current/products") return success(response, 200, services.operations.getCurrentProducts());
+    if (request.method === "POST" && pathname === "/api/orders") {
+      const result = services.orders.createPosOrder(await readJson(request));
+      return success(response, result.replayed ? 200 : 201, result.order);
+    }
+    const orderMatch = pathname.match(/^\/api\/orders\/([^/]+)$/);
+    if (request.method === "GET" && orderMatch?.[1]) return success(response, 200, services.orders.getOrder(decodeURIComponent(orderMatch[1])));
 
     if (request.method === "GET" && pathname === "/api/admin/events") return success(response, 200, services.operations.listEvents());
     if (request.method === "POST" && pathname === "/api/admin/events") return success(response, 201, services.operations.createEvent(await readJson(request) as never));

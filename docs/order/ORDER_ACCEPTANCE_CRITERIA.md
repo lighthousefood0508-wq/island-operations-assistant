@@ -1,5 +1,9 @@
 # Frozen Order Policy Acceptance Criteria
 
+## Phase 1C implemented subset
+
+Phase 1C verifies POS-only direct sale creation: OPEN Event validation, Event Product snapshot/version/channel validation, immutable Order Item snapshots, `confirmed`/`unpaid`/`not_started` state, Event-local `YONG-001` numbering, atomic `soldQuantity` increment, `remainingQuantity >= 0`, rollback, durable idempotency, public GET response, and one `order.created` audit record. Kiosk, preorder, payment, Kitchen, cancellation, refund, completion, Sales Contract, and Cost behavior remain future policy only.
+
 Future implementation must demonstrate all of these without changing this policy:
 
 1. POS creates `confirmed` and directly increases sold quantity.

@@ -1,6 +1,8 @@
 # Current Status
 
-Date: 2026-07-20
+Date: 2026-07-21
+
+Realtime Synchronization Hardening is complete on `feature/realtime-hardening` under **DECISIONS #016**, awaiting Architecture Owner acceptance. POS, Kitchen, and Statistics now expose central connection state, a query-string Device identity, optional debug diagnostics, SSE reconnect refresh, 10-second REST polling fallback, and browser-resume refresh. SQLite remains the only source of truth; SSE remains notification-only. No Order, Payment, Production, Event, Catalog, Cost, Contract, or Legacy behavior changed.
 
 External Shadow Run work is on `feature/20260726-external-shadow-run` under **DECISIONS #014**. It prepares a protected temporary deployment layer only: ngrok Basic Authentication is supplied through an environment variable, pages/API/SSE remain same-origin and relative, and no URL or credential is written into ROS source. POS and Kitchen display central connectivity state. External verification is currently blocked because the configured ngrok account has its sole endpoint assigned to the running Legacy tunnel; ROS must not pool with or replace that tunnel without Architecture Owner direction.
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-07-21 - DECISIONS #016 Realtime Synchronization Hardening
+
+- Added shared POS, Kitchen, and Statistics connection telemetry: device identity, Connected/Reconnecting/Offline state, current Event, last event, last sync, reconnect count, server time, SQLite state, and an opt-in Debug Mode panel.
+- Hardened recovery behavior around SSE reconnect, 10-second REST polling fallback, online/offline transitions, and browser focus/visibility resume. Every refresh reads central SQLite through existing APIs.
+- Added four-context Playwright coverage for POS-A, POS-B, Kitchen-A, and Statistics status propagation without page reload, plus the Windows manual checklist at `docs/acceptance/SYNC_TEST.md`.
+- No business model, contract, Event, Order Lifecycle, Payment, Cost, or Legacy change.
+
 ## 2026-07-20 - External Shadow Run (DECISIONS #014, unmerged)
 
 - Added SSE anti-buffering and a three-second reconnect hint for temporary tunnel transport.

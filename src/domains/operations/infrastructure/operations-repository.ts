@@ -56,7 +56,7 @@ export class OperationsRepository {
     const rows = this.database.queryMany<ProductRow & InventoryRow>(`SELECT i.event_id, i.product_id, i.product_version_id, i.planned_quantity, i.reserved_quantity, i.sold_quantity, i.created_at, i.updated_at,
       p.category_id, p.display_category_name, p.display_category_sort_order, p.display_name, p.pos_name, p.selling_price, p.channels_json, p.is_active, p.published_at, p.contract_version
       FROM operations_sellable_inventory i JOIN operations_product_copies p ON p.product_version_id = i.product_version_id
-      WHERE i.event_id = ? AND (i.planned_quantity - i.reserved_quantity - i.sold_quantity) > 0 AND p.is_active = 1
+      WHERE i.event_id = ? AND p.is_active = 1
       ORDER BY p.display_category_sort_order, p.display_name`, [eventId]);
     return rows.map((row) => ({ contractVersion: row.contract_version as "2", productId: row.product_id, productVersionId: row.product_version_id, categoryId: row.category_id, displayCategoryName: row.display_category_name, displayCategorySortOrder: row.display_category_sort_order, displayName: row.display_name, posName: row.pos_name, sellingPrice: row.selling_price, channels: JSON.parse(row.channels_json) as string[], isActive: row.is_active === 1, publishedAt: row.published_at, remainingQuantity: row.planned_quantity - row.reserved_quantity - row.sold_quantity }));
   }

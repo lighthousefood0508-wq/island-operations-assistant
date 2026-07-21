@@ -27,6 +27,16 @@ test("an event opens with sellable inventory and exposes remaining product snaps
   database.close();
 });
 
+test("an OPEN Event retains an active published product snapshot when it is sold out", () => {
+  const { database, service } = fixture();
+  const event = service.createEvent({ eventCode: "sold-out", displayName: "售完測試", date: "2026-07-20", startTime: "17:00", endTime: "22:00" });
+  service.setSellableInventory(event.eventId, product, { plannedQuantity: 1 });
+  service.setSellableInventory(event.eventId, { ...product, productId: "prod_sold", productVersionId: "pver_sold", displayName: "售完商品", posName: "售完" }, { plannedQuantity: 0 });
+  service.openEvent(event.eventId);
+  assert.deepEqual(service.getCurrentProducts().map((item) => ({ productId: item.productId, remainingQuantity: item.remainingQuantity })), [{ productId: "prod_sold", remainingQuantity: 0 }, { productId: "prod_1", remainingQuantity: 1 }]);
+  database.close();
+});
+
 test("only one event can be open and an empty event cannot open", () => {
   const { database, service } = fixture();
   const first = service.createEvent({ eventCode: "first", displayName: "第一場", date: "2026-07-20", startTime: "11:00", endTime: "14:00" });

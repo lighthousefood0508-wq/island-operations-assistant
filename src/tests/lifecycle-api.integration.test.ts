@@ -20,11 +20,12 @@ async function setup(quantity = 2) {
   await request(baseUrl, `/api/admin/events/${event.body.data.eventId}/open`, "POST", {});
   return { server, baseUrl, eventId: event.body.data.eventId, product: published.body.data.contract };
 }
-async function createOrder(baseUrl: string, eventId: string, product: any, key: string) { return request(baseUrl, "/api/orders", "POST", { source: "pos", eventId, idempotencyKey: key, items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }], customerName: null, notes: null }); }
+async function createOrder(baseUrl: string, eventId: string, product: any, key: string, customerName: string | null = null) { return request(baseUrl, "/api/orders", "POST", { source: "pos", eventId, idempotencyKey: key, items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }], customerName, notes: null }); }
 
 test("lifecycle keeps Order, Payment, and Production states separate", async () => {
-  const { server, baseUrl, eventId, product } = await setup(); const created = await createOrder(baseUrl, eventId, product, "life-a"); const id = created.body.data.orderId;
+  const { server, baseUrl, eventId, product } = await setup(); const created = await createOrder(baseUrl, eventId, product, "life-a", "Miles"); const id = created.body.data.orderId;
   assert.equal(created.body.data.orderStatus, "confirmed"); assert.equal(created.body.data.paymentStatus, "unpaid"); assert.equal(created.body.data.productionStatus, "not_started");
+  assert.equal((await request(baseUrl, `/api/events/${eventId}/orders`)).body.data[0].customerName, "Miles");
   assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "ready" })).status, 409);
   assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "preparing" })).body.data.productionStatus, "preparing");
   assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "ready" })).body.data.productionStatus, "ready");

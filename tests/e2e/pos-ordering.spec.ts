@@ -67,18 +67,30 @@ test("two POS browser contexts race for the final portion and only one creates a
   const secondContext: BrowserContext = await browser.newContext();
   const first = await firstContext.newPage();
   const second = await secondContext.newPage();
-  await Promise.all([first.goto("/pos"), second.goto("/pos")]);
-  await Promise.all([addToCart(first, contracts[0]?.productId as string), addToCart(second, contracts[0]?.productId as string)]);
-  await Promise.all([first.locator("#create-order").click(), second.locator("#create-order").click()]);
-  await expect.poll(async () => [await first.locator("#notice").textContent(), await second.locator("#notice").textContent()]).toEqual(expect.arrayContaining([expect.stringContaining("RACEUI-001"), expect.stringContaining("數量不足")]));
-  const notices = [await first.locator("#notice").textContent(), await second.locator("#notice").textContent()];
-  const failedPage = notices[0]?.includes("RACEUI-001") ? second : first;
-  await expect(failedPage.locator("#notice")).toContainText("????");
-  await failedPage.locator("[data-dismiss-notice]").click();
-  await expect(failedPage.locator("#notice")).toBeEmpty();
-  const orders = await api(page, `/api/events/current/products`);
-  expect(orders.body.data).toEqual([]);
-  await firstContext.close();
-  await secondContext.close();
-  await closeEvent(page, eventId);
+  try {
+    await Promise.all([first.goto("/pos"), second.goto("/pos")]);
+    await Promise.all([addToCart(first, contracts[0]?.productId as string), addToCart(second, contracts[0]?.productId as string)]);
+    const firstSubmit = first.locator("#create-order");
+    const secondSubmit = second.locator("#create-order");
+    await Promise.all([expect(firstSubmit).toBeVisible(), expect(secondSubmit).toBeVisible()]);
+    await Promise.all([expect(firstSubmit).toBeEnabled(), expect(secondSubmit).toBeEnabled()]);
+    await Promise.all([firstSubmit.dispatchEvent("click"), secondSubmit.dispatchEvent("click")]);
+    await expect.poll(async () => [await first.locator("#notice").textContent(), await second.locator("#notice").textContent()]).toEqual(expect.arrayContaining([expect.stringContaining("RACEUI-001"), expect.stringContaining("數量不足")]));
+    const notices = [await first.locator("#notice").textContent(), await second.locator("#notice").textContent()];
+    const failedPage = notices[0]?.includes("RACEUI-001") ? second : first;
+    await expect(failedPage.locator("#notice")).toContainText("數量不足");
+    await failedPage.locator("[data-dismiss-notice]").click();
+    await expect(failedPage.locator("#notice")).toBeEmpty();
+    const products = await api(page, `/api/events/current/products`);
+    expect(products.body.data).toEqual([]);
+    const orders = await api(page, `/api/events/${eventId}/orders`);
+    expect(orders.body.data).toHaveLength(1);
+    expect(orders.body.data[0]?.orderNumber).toBe("RACEUI-001");
+  } finally {
+    await Promise.all([firstContext.close(), secondContext.close()]);
+    await closeEvent(page, eventId);
+    const current = await api(page, "/api/events/current");
+    expect(current.status).toBe(200);
+    expect(current.body.data).toBeNull();
+  }
 });

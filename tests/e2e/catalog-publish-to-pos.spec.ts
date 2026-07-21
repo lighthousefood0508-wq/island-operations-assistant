@@ -61,6 +61,41 @@ test("Admin publication flows through Event inventory to the POS short-name disp
   await expect(page.locator("#empty")).not.toBeEmpty();
 });
 
+test("Catalog Admin keeps the selected product, draft, and published version in sync", async ({ page }) => {
+  await createCategory(page, "catalog-sync", "Catalog Sync");
+  await expect(page.locator("#product-id")).toHaveValue("");
+  await page.locator("#internal-name").fill("Sync meal");
+  await page.locator("#product-category").selectOption({ label: "Catalog Sync" });
+  await page.locator("#display-name").fill("Sync meal");
+  await page.locator("#pos-name").fill("Sync");
+  await page.locator("#selling-price").fill("180");
+  await page.locator('.channels input[value="pos"]').check();
+  await page.locator("#product-status").selectOption("published");
+  await page.locator("#product-form button[type=submit]").click();
+  await expect(page.locator("#product-id")).not.toHaveValue("");
+  const productId = await page.locator("#product-id").inputValue();
+  await expect(page.locator("#publication-status")).toContainText("尚未發布");
+  await expect(page.locator("#notice")).toContainText("草稿已儲存");
+  let products = (await (await page.request.get("/api/admin/products")).json()).data;
+  expect(products.find((product: any) => product.productId === productId)).toMatchObject({ status: "draft", versions: [] });
+
+  await publish(page);
+  await expect(page.locator("#products")).toContainText("published");
+  await expect(page.locator("#products")).toContainText("v1");
+  await page.reload();
+  await page.locator(`[data-product="${productId}"]`).click();
+  await expect(page.locator("#product-id")).toHaveValue(productId);
+  await expect(page.locator("#publication-status")).toContainText("已發布 v1");
+  await page.locator("#selling-price").fill("190");
+  await page.locator("#product-form button[type=submit]").click();
+  await expect(page.locator("#notice")).toContainText("商品草稿已儲存");
+  await publish(page);
+  await expect(page.locator("#products")).toContainText("v2");
+  await expect(page.locator("#notice")).toContainText("已發布 v2");
+  products = (await (await page.request.get("/api/admin/products")).json()).data;
+  expect(products.find((product: any) => product.productId === productId)?.versions).toHaveLength(2);
+});
+
 test("publish rejects a draft without POS short name", async ({ page }) => {
   await createCategory(page, "missing-pos", "Missing POS");
   await createDraft(page, { internalName: "No short name", categoryName: "Missing POS", displayName: "No short name", price: "180", channels: ["pos"] });

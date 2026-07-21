@@ -1,22 +1,24 @@
 import type { DatabaseAdapter } from "../../../shared/database/database-adapter.js";
 import type { DailyReport, OrderStatus, PaymentStatus, ProductionStatus } from "../domain/types.js";
 
-type OrderRow = { order_id: string; order_number: string; event_id: string; order_status: OrderStatus; payment_status: PaymentStatus; production_status: ProductionStatus; cancellation_reason: string | null; grand_total: number };
+type OrderRow = { order_id: string; order_number: string; event_id: string; source: string; created_at: string; notes: string | null; order_status: OrderStatus; payment_status: PaymentStatus; production_status: ProductionStatus; cancellation_reason: string | null; grand_total: number };
 type EventRow = { event_id: string; event_code: string; display_name: string; date: string; start_time: string; end_time: string; status: string };
 type ClosureRow = { daily_report_json: string };
+type CloseoutRow = { cash_received: number; line_pay_received: number; other_received: number; waste_amount: number; notes: string; updated_at: string };
 
-export type LifecycleOrder = Readonly<{ orderId: string; orderNumber: string; eventId: string; orderStatus: OrderStatus; paymentStatus: PaymentStatus; productionStatus: ProductionStatus; cancellationReason: string | null; grandTotal: number }>;
+export type LifecycleOrder = Readonly<{ orderId: string; orderNumber: string; eventId: string; source: string; createdAt: string; notes: string | null; orderStatus: OrderStatus; paymentStatus: PaymentStatus; productionStatus: ProductionStatus; cancellationReason: string | null; grandTotal: number; items: readonly Readonly<{ posName: string; quantity: number; notes: string | null }>[] }>;
 
 export class LifecycleRepository {
   constructor(private readonly database: DatabaseAdapter) {}
   transactionImmediate<T>(work: () => T): T { return this.database.transactionImmediate(work); }
   findOrder(orderId: string): LifecycleOrder | undefined {
-    const row = this.database.queryOne<OrderRow>("SELECT order_id, order_number, event_id, order_status, payment_status, production_status, cancellation_reason, grand_total FROM operations_orders WHERE order_id = ?", [orderId]);
-    return row && { orderId: row.order_id, orderNumber: row.order_number, eventId: row.event_id, orderStatus: row.order_status, paymentStatus: row.payment_status, productionStatus: row.production_status, cancellationReason: row.cancellation_reason, grandTotal: row.grand_total };
+    const row = this.database.queryOne<OrderRow>("SELECT order_id, order_number, event_id, source, created_at, notes, order_status, payment_status, production_status, cancellation_reason, grand_total FROM operations_orders WHERE order_id = ?", [orderId]);
+    return row && this.mapOrder(row);
   }
   listEventOrders(eventId: string): LifecycleOrder[] {
-    return this.database.queryMany<OrderRow>("SELECT order_id, order_number, event_id, order_status, payment_status, production_status, cancellation_reason, grand_total FROM operations_orders WHERE event_id = ? ORDER BY created_at, order_number", [eventId]).map((row) => ({ orderId: row.order_id, orderNumber: row.order_number, eventId: row.event_id, orderStatus: row.order_status, paymentStatus: row.payment_status, productionStatus: row.production_status, cancellationReason: row.cancellation_reason, grandTotal: row.grand_total }));
+    return this.database.queryMany<OrderRow>("SELECT order_id, order_number, event_id, source, created_at, notes, order_status, payment_status, production_status, cancellation_reason, grand_total FROM operations_orders WHERE event_id = ? ORDER BY created_at, order_number", [eventId]).map((row) => this.mapOrder(row));
   }
+  private mapOrder(row: OrderRow): LifecycleOrder { return { orderId: row.order_id, orderNumber: row.order_number, eventId: row.event_id, source: row.source, createdAt: row.created_at, notes: row.notes, orderStatus: row.order_status, paymentStatus: row.payment_status, productionStatus: row.production_status, cancellationReason: row.cancellation_reason, grandTotal: row.grand_total, items: this.database.queryMany<{ pos_name_snapshot: string; quantity: number; notes: string | null }>("SELECT pos_name_snapshot, quantity, notes FROM operations_order_items WHERE order_id = ? ORDER BY rowid", [row.order_id]).map((item) => ({ posName: item.pos_name_snapshot, quantity: item.quantity, notes: item.notes })) }; }
   updateProductionStatus(orderId: string, from: ProductionStatus, to: ProductionStatus): boolean { return this.database.execute("UPDATE operations_orders SET production_status = ? WHERE order_id = ? AND production_status = ?", [to, orderId, from]).changes === 1; }
   completeOrder(orderId: string, timestamp: string): boolean { return this.database.execute("UPDATE operations_orders SET order_status = 'completed', status = 'completed', completed_at = ? WHERE order_id = ? AND order_status = 'confirmed' AND payment_status = 'paid' AND production_status = 'served'", [timestamp, orderId]).changes === 1; }
   cancelOrder(orderId: string, from: OrderStatus, reason: string | null, timestamp: string): boolean { return this.database.execute("UPDATE operations_orders SET order_status = 'cancelled', status = 'cancelled', cancellation_reason = ?, cancelled_at = ? WHERE order_id = ? AND order_status = ?", [reason, timestamp, orderId, from]).changes === 1; }
@@ -35,6 +37,17 @@ export class LifecycleRepository {
   }
   findEvent(eventId: string): EventRow | undefined { return this.database.queryOne<EventRow>("SELECT event_id, event_code, display_name, date, start_time, end_time, status FROM operations_events WHERE event_id = ?", [eventId]); }
   findClosure(eventId: string): DailyReport | undefined { const row = this.database.queryOne<ClosureRow>("SELECT daily_report_json FROM operations_event_closures WHERE event_id = ?", [eventId]); return row ? JSON.parse(row.daily_report_json) as DailyReport : undefined; }
+  getStatistics(eventId: string): Record<string, unknown> {
+    const event = this.findEvent(eventId); if (!event) return {};
+    const totals = this.database.queryOne<{ orders: number; amount: number; unresolved: number; cancelled: number; no_show: number }>(`SELECT COUNT(*) AS orders, COALESCE(SUM(CASE WHEN order_status != 'cancelled' THEN grand_total ELSE 0 END), 0) AS amount, SUM(CASE WHEN order_status NOT IN ('completed','cancelled') THEN 1 ELSE 0 END) AS unresolved, SUM(CASE WHEN order_status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled, SUM(CASE WHEN cancellation_reason = 'no_show' THEN 1 ELSE 0 END) AS no_show FROM operations_orders WHERE event_id = ?`, [eventId]) ?? { orders: 0, amount: 0, unresolved: 0, cancelled: 0, no_show: 0 };
+    const products = this.database.queryMany<{ product_id: string; pos_name_snapshot: string; quantity: number }>(`SELECT i.product_id, i.pos_name_snapshot, SUM(i.quantity) AS quantity FROM operations_order_items i JOIN operations_orders o ON o.order_id = i.order_id WHERE o.event_id = ? AND o.order_status != 'cancelled' GROUP BY i.product_id, i.pos_name_snapshot ORDER BY i.pos_name_snapshot`, [eventId]);
+    const inventory = this.database.queryMany<{ product_id: string; remaining: number }>("SELECT product_id, planned_quantity - reserved_quantity - sold_quantity AS remaining FROM operations_sellable_inventory WHERE event_id = ?", [eventId]);
+    const closeout = this.database.queryOne<CloseoutRow>("SELECT cash_received, line_pay_received, other_received, waste_amount, notes, updated_at FROM operations_event_closeouts WHERE event_id = ?", [eventId]);
+    return { event, orderCount: totals.orders, ledgerAmount: totals.amount, unresolvedCount: totals.unresolved, cancelledCount: totals.cancelled, noShowCount: totals.no_show, products, inventory, closeout: closeout ? { cashReceived: closeout.cash_received, linePayReceived: closeout.line_pay_received, otherReceived: closeout.other_received, wasteAmount: closeout.waste_amount, notes: closeout.notes, updatedAt: closeout.updated_at } : null };
+  }
+  saveCloseout(eventId: string, input: { cashReceived: number; linePayReceived: number; otherReceived: number; wasteAmount: number; notes: string; updatedAt: string; operator: string; auditLogId: string }): void {
+    this.database.execute(`INSERT INTO operations_event_closeouts (event_id, cash_received, line_pay_received, other_received, waste_amount, notes, updated_at, updated_by, audit_log_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(event_id) DO UPDATE SET cash_received=excluded.cash_received, line_pay_received=excluded.line_pay_received, other_received=excluded.other_received, waste_amount=excluded.waste_amount, notes=excluded.notes, updated_at=excluded.updated_at, updated_by=excluded.updated_by, audit_log_id=excluded.audit_log_id`, [eventId, input.cashReceived, input.linePayReceived, input.otherReceived, input.wasteAmount, input.notes, input.updatedAt, input.operator, input.auditLogId]);
+  }
   unresolvedCount(eventId: string): number { return this.database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_orders WHERE event_id = ? AND order_status NOT IN ('completed', 'cancelled')", [eventId])?.count ?? 0; }
   buildReport(event: EventRow, closedAt: string): DailyReport {
     const counts = this.database.queryOne<{ total: number; completed: number; cancelled: number; no_show: number }>(`SELECT COUNT(*) AS total,

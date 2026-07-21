@@ -56,9 +56,7 @@ test("Admin publication flows through Event inventory to the POS short-name disp
   expect(await freshPage.evaluate(() => window.localStorage.length)).toBe(0);
   await freshContext.close();
 
-  await page.goto("/admin/events");
-  await page.locator("#events .item").first().getByRole("button").click();
-  await page.locator("#close-event").click();
+  await page.request.post(`/api/events/${(await (await page.request.get("/api/events/current")).json()).data.eventId}/close`, { data: { confirmed: true } });
   await page.goto("/pos");
   await expect(page.locator("#empty")).not.toBeEmpty();
 });

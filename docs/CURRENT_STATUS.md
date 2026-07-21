@@ -1,6 +1,18 @@
 # Current Status
 
-Date: 2026-07-20
+Date: 2026-07-21
+
+Quick Tunnel external verification is active under **DECISIONS #018**. ROS runs locally on `127.0.0.1:3092` against central SQLite and is exposed only through a temporary accountless `trycloudflare.com` URL. The public URL is intentionally not committed because it changes whenever Quick Tunnel restarts. No named Tunnel, Zone, DNS, Cloudflare service, Legacy, or business behavior was changed.
+
+Cloudflare Tunnel Deployment Preparation is complete on `feature/cloudflare-tunnel-preparation` under **DECISIONS #017**, awaiting Architecture Owner authorization. `cloudflared` is installed locally; credential-free configuration, readiness reporting, ROS-only start/stop/service templates, documentation, and the excluded-data deployment ZIP are prepared. Owner login and named-Tunnel authorization remain manual; no actual Tunnel, Cloudflare service, credential, public hostname, or Legacy integration has been created.
+
+Realtime Synchronization Hardening is complete on `feature/realtime-hardening` under **DECISIONS #016**, awaiting Architecture Owner acceptance. POS, Kitchen, and Statistics now expose central connection state, a query-string Device identity, optional debug diagnostics, SSE reconnect refresh, 10-second REST polling fallback, and browser-resume refresh. SQLite remains the only source of truth; SSE remains notification-only. No Order, Payment, Production, Event, Catalog, Cost, Contract, or Legacy behavior changed.
+
+External Shadow Run work is on `feature/20260726-external-shadow-run` under **DECISIONS #014**. It prepares a protected temporary deployment layer only: ngrok Basic Authentication is supplied through an environment variable, pages/API/SSE remain same-origin and relative, and no URL or credential is written into ROS source. POS and Kitchen display central connectivity state. External verification is currently blocked because the configured ngrok account has its sole endpoint assigned to the running Legacy tunnel; ROS must not pool with or replace that tunnel without Architecture Owner direction.
+
+Phase 1C.2-R was merged to `main` as `7424bf8` after its full verification. Migration `006_restore_adr014_state_separation.sql` has been applied to the development database. The current Shadow Run MVP is on `feature/20260726-shadow-run-mvp` under **DECISIONS #013** and remains unmerged. It adds central-SQLite Kitchen workflow, REST/SSE multi-device refresh, POS central order list, and central closeout reconciliation. `007_event_closeout_reconciliation.sql` is additive. All formal order data remains central; browser storage is used only for an unsent cart in browser memory.
+
+The Shadow Run validates POS A, POS B, and Kitchen C against one Node.js service. Kitchen can change only `productionStatus` (`not_started/queued -> preparing -> ready -> served`); it cannot modify the Order, payment, price, quantity, or Event. `paymentStatus` remains `unpaid`, therefore ADR-014 correctly prevents formal Order completion until an approved Payment phase exists. This is an intentional 7/26 Shadow Run blocker for order completion only, not a reason to bypass Payment or fake a paid state. Formal Event Close still blocks confirmed Orders.
 
 ROS v0.4 is released locally at `v0.4-order-core`; see `docs/releases/RELEASE_v0.4.md`. Phase 1C.1 POS Minimal UI is complete under **DECISIONS #006**. It consumes only the existing Current Event and Order APIs to provide grouped products, a local cart, quantity controls, submit-state protection, success order number, refreshed remaining quantities, and explicit Order error messaging.
 
@@ -10,7 +22,7 @@ Phase 1C Order Core is complete after verification. It implements POS-only Order
 
 Phase 1B and Phase 1B.1 are complete after verification. Phase 1B added Catalog Product Contract v2 display snapshots plus Operations Event and Sellable Inventory. Phase 1B.1 records Architecture Owner approval and freezes the OPEN Event Product Snapshot Policy: an OPEN Event reads only its Operations-owned Product Contract v2 snapshot, while a Catalog republish is selectable only by a new Event. Phase 1C-Design is complete as a documentation-only Architecture Review package; Phase 1C implementation is not approved or started. POS reads only the current Event API. SQLite uses `better-sqlite3` through a thin adapter. Playwright E2E acceptance verifies the UI catalog-to-event-to-POS flow on an isolated database.
 
-Not implemented: payments, Kitchen, Customer/Kiosk, preorder, cancellation/refund, Cost/BOM/inventory behavior, Sales Contract execution, authentication, users/roles UI, LINE/n8n/Google Sheets/OpenAI integration, receipt processing, Docker, VPS, legacy migration, and production monitoring.
+Not implemented: payments, Customer/Kiosk, preorder, cancellation/refund, Cost/BOM/inventory behavior, Sales Contract execution, authentication, users/roles UI, LINE/n8n/Google Sheets/OpenAI integration, receipt processing, Docker, VPS, legacy migration, and production monitoring. Kitchen is implemented only for the DECISIONS #013 Shadow Run branch.
 
 The Legacy project remains read-only and unmodified. Any new phase, scope expansion, or contract change requires explicit Architecture Owner approval before work begins.
 

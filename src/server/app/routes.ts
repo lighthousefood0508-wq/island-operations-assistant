@@ -2,13 +2,14 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { CatalogService } from "../../domains/catalog/index.js";
 import { LifecycleService, OperationsService, OrderService } from "../../domains/operations/index.js";
 import { HttpError } from "../../shared/errors/http-error.js";
-import { openSseStream, writeHeartbeat } from "../events/sse.js";
+import { SseHub } from "../events/sse.js";
 import { renderAdmin } from "../../web/admin/page.js";
 import { renderEventsAdmin } from "../../web/events/page.js";
 import { renderKitchen } from "../../web/kitchen/page.js";
 import { renderOrdering } from "../../web/ordering/page.js";
 import { renderPos } from "../../web/pos/page.js";
 import { renderLifecycle } from "../../web/lifecycle/page.js";
+import { renderStatistics } from "../../web/statistics/page.js";
 
 type Services = Readonly<{ catalog: CatalogService; operations: OperationsService; orders: OrderService; lifecycle: LifecycleService }>;
 
@@ -53,25 +54,26 @@ async function readJson(request: IncomingMessage): Promise<Record<string, unknow
   }
 }
 
-export function createRoute(services: Services): (request: IncomingMessage, response: ServerResponse) => void {
-  return (request, response) => { void route(request, response, services); };
+export function createRoute(services: Services, events: SseHub): (request: IncomingMessage, response: ServerResponse) => void {
+  return (request, response) => { void route(request, response, services, events); };
 }
 
-async function route(request: IncomingMessage, response: ServerResponse, services: Services): Promise<void> {
+async function route(request: IncomingMessage, response: ServerResponse, services: Services, events: SseHub): Promise<void> {
   const url = new URL(request.url || "/", "http://localhost");
   const { pathname } = url;
   try {
     if (request.method === "GET" && pathname === "/health") return success(response, 200, { status: "ok", service: "desert-island-ros", database: "ready", now: new Date().toISOString() });
     if (request.method === "GET" && pathname === "/events") {
-      openSseStream(response);
-      const interval = setInterval(() => writeHeartbeat(response), 15_000);
-      request.on("close", () => clearInterval(interval));
+      events.connect(response);
+      const interval = setInterval(() => events.heartbeat(), 15_000);
+      request.on("close", () => { clearInterval(interval); events.disconnect(response); });
       return;
     }
     if (request.method === "GET" && pathname === "/admin") return sendHtml(response, renderAdmin());
     if (request.method === "GET" && pathname === "/admin/events") return sendHtml(response, renderEventsAdmin());
     if (request.method === "GET" && pathname === "/pos") return sendHtml(response, renderPos());
     if (request.method === "GET" && pathname === "/pos/lifecycle") return sendHtml(response, renderLifecycle());
+    if (request.method === "GET" && pathname === "/pos/statistics") return sendHtml(response, renderStatistics());
     if (request.method === "GET" && pathname === "/order") return sendHtml(response, renderOrdering());
     if (request.method === "GET" && pathname === "/kitchen") return sendHtml(response, renderKitchen());
 
@@ -93,22 +95,27 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "GET" && pathname === "/api/events/current/products") return success(response, 200, services.operations.getCurrentProducts());
     if (request.method === "POST" && pathname === "/api/orders") {
       const result = services.orders.createPosOrder(await readJson(request));
+      events.publish("order.created", result.order.eventId); events.publish("inventory.changed", result.order.eventId);
       return success(response, result.replayed ? 200 : 201, result.order);
     }
     const orderMatch = pathname.match(/^\/api\/orders\/([^/]+)$/);
     if (request.method === "GET" && orderMatch?.[1]) return success(response, 200, services.orders.getOrder(decodeURIComponent(orderMatch[1])));
     const statusMatch = pathname.match(/^\/api\/orders\/([^/]+)\/status$/);
-    if (request.method === "PATCH" && statusMatch?.[1]) return success(response, 200, services.lifecycle.changeStatus(decodeURIComponent(statusMatch[1]), await readJson(request)));
+    if (request.method === "PATCH" && statusMatch?.[1]) { const order = services.lifecycle.changeStatus(decodeURIComponent(statusMatch[1]), await readJson(request)); events.publish(order.orderStatus === "completed" ? "order.completed" : "order.production_changed", order.eventId); return success(response, 200, order); }
     const noShowMatch = pathname.match(/^\/api\/orders\/([^/]+)\/no-show$/);
-    if (request.method === "POST" && noShowMatch?.[1]) return success(response, 200, services.lifecycle.markNoShow(decodeURIComponent(noShowMatch[1]), await readJson(request)));
+    if (request.method === "POST" && noShowMatch?.[1]) { const order = services.lifecycle.markNoShow(decodeURIComponent(noShowMatch[1]), await readJson(request)); events.publish("order.production_changed", order.eventId); return success(response, 200, order); }
     const releaseMatch = pathname.match(/^\/api\/orders\/([^/]+)\/release-inventory$/);
-    if (request.method === "POST" && releaseMatch?.[1]) return success(response, 200, services.lifecycle.releaseInventory(decodeURIComponent(releaseMatch[1]), await readJson(request)));
+    if (request.method === "POST" && releaseMatch?.[1]) { const result = services.lifecycle.releaseInventory(decodeURIComponent(releaseMatch[1]), await readJson(request)); events.publish("inventory.changed", result.order.eventId); return success(response, 200, result); }
     const currentOrdersMatch = pathname.match(/^\/api\/events\/([^/]+)\/orders$/);
     if (request.method === "GET" && currentOrdersMatch?.[1]) return success(response, 200, services.lifecycle.listEventOrders(decodeURIComponent(currentOrdersMatch[1])));
     const closeMatch = pathname.match(/^\/api\/events\/([^/]+)\/close$/);
-    if (request.method === "POST" && closeMatch?.[1]) return success(response, 200, services.lifecycle.closeEvent(decodeURIComponent(closeMatch[1]), await readJson(request)));
+    if (request.method === "POST" && closeMatch?.[1]) { const result = services.lifecycle.closeEvent(decodeURIComponent(closeMatch[1]), await readJson(request)); events.publish("event.closed", decodeURIComponent(closeMatch[1])); return success(response, 200, result); }
     const reportMatch = pathname.match(/^\/api\/events\/([^/]+)\/daily-report$/);
     if (request.method === "GET" && reportMatch?.[1]) return success(response, 200, services.lifecycle.getDailyReport(decodeURIComponent(reportMatch[1])));
+    const statisticsMatch = pathname.match(/^\/api\/events\/([^/]+)\/statistics$/);
+    if (request.method === "GET" && statisticsMatch?.[1]) return success(response, 200, services.lifecycle.getStatistics(decodeURIComponent(statisticsMatch[1])));
+    const closeoutMatch = pathname.match(/^\/api\/events\/([^/]+)\/closeout$/);
+    if (request.method === "PUT" && closeoutMatch?.[1]) { const eventId = decodeURIComponent(closeoutMatch[1]); const result = services.lifecycle.saveCloseout(eventId, await readJson(request)); events.publish("closeout.updated", eventId); return success(response, 200, result); }
 
     if (request.method === "GET" && pathname === "/api/admin/events") return success(response, 200, services.operations.listEvents());
     if (request.method === "POST" && pathname === "/api/admin/events") return success(response, 201, services.operations.createEvent(await readJson(request) as never));
@@ -118,7 +125,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "POST" && eventActionMatch?.[1] && eventActionMatch[2]) {
       const eventId = decodeURIComponent(eventActionMatch[1]);
       const action = eventActionMatch[2];
-      if (action === "close") return success(response, 200, services.lifecycle.closeEvent(eventId, await readJson(request)));
+      if (action === "close") { const result = services.lifecycle.closeEvent(eventId, await readJson(request)); events.publish("event.closed", eventId); return success(response, 200, result); }
       return success(response, 200, action === "open" ? services.operations.openEvent(eventId) : services.operations.archiveEvent(eventId));
     }
     const inventoryMatch = pathname.match(/^\/api\/admin\/events\/([^/]+)\/sellable-inventory$/);

@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026-07-21 - DECISIONS #018 Quick Tunnel External Verification
+
+- Added ROS-only Quick Tunnel start/stop helpers for the no-Zone Shadow Run fallback on local port 3092.
+- Verified the temporary external health, POS, Kitchen, and Statistics endpoints.
+- No named Tunnel, Zone, DNS, Cloudflare service, Legacy, ngrok, n8n, or business behavior change.
+
+## 2026-07-21 - DECISIONS #017 Cloudflare Tunnel Deployment Preparation
+
+- Added credential-free Cloudflare Tunnel configuration and Windows start/stop/readiness/service templates for a ROS-only Shadow Run endpoint.
+- Added Owner-only authorization, safe rollback, health, and Legacy-isolation instructions.
+- No Cloudflare login, Tunnel creation, Windows service installation, business behavior, or Legacy change.
+
+## 2026-07-21 - DECISIONS #016 Realtime Synchronization Hardening
+
+- Added shared POS, Kitchen, and Statistics connection telemetry: device identity, Connected/Reconnecting/Offline state, current Event, last event, last sync, reconnect count, server time, SQLite state, and an opt-in Debug Mode panel.
+- Hardened recovery behavior around SSE reconnect, 10-second REST polling fallback, online/offline transitions, and browser focus/visibility resume. Every refresh reads central SQLite through existing APIs.
+- Added four-context Playwright coverage for POS-A, POS-B, Kitchen-A, and Statistics status propagation without page reload, plus the Windows manual checklist at `docs/acceptance/SYNC_TEST.md`.
+- No business model, contract, Event, Order Lifecycle, Payment, Cost, or Legacy change.
+
+## 2026-07-20 - External Shadow Run (DECISIONS #014, unmerged)
+
+- Added SSE anti-buffering and a three-second reconnect hint for temporary tunnel transport.
+- Added minimal POS and Kitchen connectivity states: connected, reconnecting, and offline/unreachable. Network failures explicitly say the mutation was not delivered; no offline queue was added.
+- Added ngrok Basic Authentication environment placeholder and external device operating instructions. No URL, credential, business rule, Contract, or domain behavior is committed.
+- External endpoint verification is blocked by the existing Legacy ngrok endpoint. Pooling is deliberately rejected because it would mix Legacy and ROS upstreams.
+
+## 2026-07-20 - 2026-07-26 Shadow Run MVP (DECISIONS #013, unmerged)
+
+- Added central SQLite Kitchen work queues at `/kitchen`; Kitchen changes only the independent production state.
+- Added REST/SSE change notifications and central refresh for POS, Kitchen, and closeout views. No browser storage is a formal Order source.
+- Added owner-only `/pos/statistics`, additive Event closeout persistence, append-only closeout audit, and central totals for orders, quantities, remaining portions, ledger total, unresolved Orders, cancellations, and no-shows.
+- Added Playwright acceptance for POS A, POS B, Kitchen C, final-portion concurrency, reconnect reload, and closeout persistence.
+- Did not add Payment, Customer, Preorder, LINE, n8n, Cost, Google Sheets, Voice, VPS, or Legacy changes.
+
 ## 2026-07-20 - Phase 1C.2-R ADR-014 Remediation
 
 - Restored separate Order, Payment, and Production state models. New POS Orders are confirmed/unpaid/not_started; production changes no longer mutate Order status.

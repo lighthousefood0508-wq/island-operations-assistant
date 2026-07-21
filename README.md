@@ -4,6 +4,27 @@ Desert Island Restaurant Operating System (ROS) is an isolated restaurant founda
 
 Current stable release: [ROS v0.4](docs/releases/RELEASE_v0.4.md), tagged locally as `v0.4-order-core`.
 
+## 2026-07-26 Shadow Run
+
+The Shadow Run work is on `feature/20260726-shadow-run-mvp` under **DECISIONS #013** and is not merged into `main`. Legacy remains the primary operating system. ROS is a parallel validation system: POS, Kitchen, and closeout read and write only the central SQLite database through REST APIs. SSE announces changes; every screen reloads its data from the API after a notification. See [the on-site checklist](docs/acceptance/SHADOW_RUN_20260726.md).
+
+The DECISIONS #016 hardening branch adds a small connection indicator and optional diagnostics to `/pos`, `/kitchen`, and `/pos/statistics`. Add `?device=POS-A&debug=1`, `?device=Kitchen-A&debug=1`, or `?device=Statistics&debug=1` when testing devices. The debug panel shows connection state, SSE state, polling fallback, last sync/event, reconnect count, server time, and central SQLite status. See [the realtime test checklist](docs/acceptance/SYNC_TEST.md).
+
+## Cloudflare Deployment Preparation
+
+DECISIONS #017 prepares a dedicated ROS-only Cloudflare Tunnel without changing Legacy or creating a live Tunnel. The Windows host has non-secret start, stop, and readiness scripts; they refuse to start without an Owner-provided environment-only connector token and healthy ROS SQLite. The only remaining Owner actions are Cloudflare login and named-Tunnel authorization. See [Cloudflare Tunnel setup](docs/deployment/CLOUDFLARE_TUNNEL_SETUP.md).
+
+### Architecture Owner Checklist
+
+1. Log in to Cloudflare and authorize one dedicated ROS Shadow Run Tunnel.
+2. Configure its ROS-only hostname and securely provide the connector token to the Windows host for the current session.
+
+For temporary testing without a Cloudflare Zone, DECISIONS #018 uses a public Quick Tunnel on port 3092. It prints a changing `trycloudflare.com` address and does not modify ROS URLs, Legacy, or ngrok. See [Cloudflare Tunnel setup](docs/deployment/CLOUDFLARE_TUNNEL_SETUP.md).
+
+For a local-network rehearsal, start ROS on the Windows host with `ROS_HOST=0.0.0.0` and `ROS_PORT=3090`, then allow inbound TCP 3090 in Windows Firewall on the private network. Find the host IPv4 address with `ipconfig`; on each iPad or Android device open `http://HOST-IP:3090/pos` or `http://HOST-IP:3090/kitchen`. Confirm every device returns the same `http://HOST-IP:3090/health` response before taking orders. `http://HOST-IP:3090/pos/statistics` is the owner-only closeout page. Do not use ngrok as the 7/26 production path.
+
+If ROS becomes unavailable, stop entering orders into ROS, continue in Legacy only, and record the time, device, order number, and screenshot. Do not repair code during service. Restart the Windows ROS process only after the current Legacy transaction is safe.
+
 ## Phase 1C.1: POS Minimal UI
 
 Catalog Admin is available at `/admin`. It creates categories, product drafts, channels, and immutable published product versions. Event Admin is available at `/admin/events`: create a draft Event, choose published products, enter planned sellable quantities, then open the Event. `/pos` reads only `GET /api/events/current/products`, and displays active `pos` products with `remainingQuantity > 0` from the one OPEN Event.

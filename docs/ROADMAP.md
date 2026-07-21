@@ -8,8 +8,13 @@
 6. Phase 1C.1: POS Minimal UI - complete under DECISIONS #006; shopping cart and Order API submission only.
 7. Phase 1C-2: Order Lifecycle - superseded by Phase 1C.2-R after GI-001 review.
 8. Phase 1C.2-R: ADR-014 recovery - complete under DECISIONS #010, awaiting Architecture Owner acceptance.
-9. Phase 2: Customer preorder only after Architecture Owner approval.
-10. Phase 3: POS and Kitchen pilot from the same REST/SSE source.
-11. Phase 4: Cost ledger and daily Sales Contract import, then Google Sheets reporting export.
+9. 2026-07-26 Shadow Run MVP: central POS/Kitchen/closeout pilot on one local network - complete on an unmerged DECISIONS #013 branch, awaiting Architecture Owner acceptance.
+10. 2026-07-26 External Shadow Run: protected, temporary external access to the existing Shadow Run branch - prepared on an unmerged DECISIONS #014 branch; blocked until a separate protected tunnel can be allocated without changing Legacy.
+11. Realtime Synchronization Hardening: POS, Kitchen, and Statistics reconnection, polling fallback, debug visibility, and cross-device acceptance - complete on `feature/realtime-hardening` under DECISIONS #016, awaiting Architecture Owner acceptance.
+12. Cloudflare Tunnel Deployment Preparation: local tooling, readiness report, non-secret templates, Owner-only authorization steps, and a credential-free Shadow Run package - complete on `feature/cloudflare-tunnel-preparation` under DECISIONS #017, awaiting Owner authorization.
+13. Quick Tunnel External Verification: temporary no-Zone `trycloudflare.com` access for ROS on port 3092 - active under DECISIONS #018 for Shadow Run testing only.
+14. Phase 2: Customer preorder only after Architecture Owner approval.
+15. Phase 3: POS and Kitchen pilot from the same REST/SSE source.
+16. Phase 4: Cost ledger and daily Sales Contract import, then Google Sheets reporting export.
 
 Each phase requires its own acceptance test and rollback plan before advancing.

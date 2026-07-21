@@ -8,125 +8,66 @@ export function renderPos(): string {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ROS POS</title>
   <style>
-    body{font:16px Arial;margin:0;background:#f3f6f4;color:#173238}
-    main{max-width:1280px;margin:auto;padding:16px}
-    .stats,.layout{display:grid;gap:10px}.stats{grid-template-columns:repeat(3,1fr)}.layout{grid-template-columns:1fr 360px}
-    .panel,.product{background:#fff;border:1px solid #cad6d1;padding:12px}.products{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
-    .product button,button{margin-top:6px;padding:8px;border:0;background:#165b59;color:#fff}.cart{position:sticky;top:10px}.line{display:flex;justify-content:space-between;gap:8px}
-    .order{border-bottom:1px solid #dce5e1;padding:8px 0}input,textarea{width:100%;box-sizing:border-box;padding:7px;margin-top:4px}
-    #notice{min-height:22px;color:#a52e1b}#notice button{margin-left:8px;background:#617477}
-    @media(max-width:800px){.layout,.stats{grid-template-columns:1fr}.cart{position:static}}
+    :root{font-family:Arial,sans-serif;color:#163237;background:#f3f6f4}*{box-sizing:border-box}body{margin:0}main{max-width:1440px;margin:auto;padding:16px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid #cbd8d4;padding-bottom:12px}.topbar h1{font-size:25px;margin:0}.event{margin:4px 0 0;color:#587075;font-size:14px}.tabs{display:flex;gap:6px;overflow-x:auto;padding:14px 0 10px}.tab{white-space:nowrap;background:#e4ece8;color:#294b50;border:1px solid #c6d4cf;border-radius:4px;padding:9px 12px;font:inherit;cursor:pointer}.tab[aria-selected="true"]{background:#165b59;border-color:#165b59;color:#fff}.pane[hidden],#sync-debug[hidden]{display:none}.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}.stat,.panel,.product,.order{background:#fff;border:1px solid #cad6d1;border-radius:5px}.stat{padding:13px}.stat span{display:block;color:#587075;font-size:13px}.stat strong{display:block;font-size:24px;margin-top:4px}.layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:12px}.panel{padding:14px}.panel h2,.panel h3{margin:0 0 10px}.panel h2{font-size:19px}.panel h3{font-size:16px}.category-tabs{display:flex;gap:7px;overflow-x:auto;margin-bottom:12px}.category-tab{background:#edf3f0;border:1px solid #cad6d1;color:#294b50;border-radius:4px;padding:7px 10px;font:inherit;white-space:nowrap;cursor:pointer}.category-tab[aria-pressed="true"]{background:#d7ebe5;border-color:#165b59;color:#123c3a}.products{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}.product{padding:12px;min-height:164px;display:flex;flex-direction:column}.product.sold-out{background:#eef1ef;border-color:#d5dcda;color:#71817e}.product-name{font-weight:700;font-size:17px}.product-meta{color:#587075;font-size:13px;margin-top:3px}.product-price{font-weight:700;margin:10px 0 3px}.product button{margin-top:auto}.soldout{color:#a52e1b;font-weight:700}.cart{position:sticky;top:10px;align-self:start}.cart-items{display:grid;gap:8px;max-height:38vh;overflow:auto}.cart-line{border-bottom:1px solid #dce5e1;padding-bottom:9px}.cart-main{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:7px;align-items:center}.line-total{font-weight:700}.quantity{display:flex;align-items:center;gap:4px}.quantity button,.icon-button{min-width:30px;padding:5px 7px}.field{display:block;margin-top:10px;color:#3e5d61;font-size:14px}.field input,.field textarea{display:block;width:100%;font:inherit;border:1px solid #b9cbc4;border-radius:4px;padding:8px;margin-top:4px;background:#fff}.field textarea{min-height:58px;resize:vertical}.cart-footer{border-top:1px solid #cad6d1;margin-top:12px;padding-top:12px}.total-row{display:flex;align-items:center;justify-content:space-between;font-size:19px;font-weight:700;margin:10px 0}.primary,button{font:inherit;border:0;border-radius:4px;background:#165b59;color:#fff;padding:9px 12px;cursor:pointer}.primary{width:100%;font-size:16px}.secondary{background:#617477}.danger{background:#a52e1b}button:disabled{cursor:not-allowed;opacity:.52}.link-list{display:flex;gap:10px;flex-wrap:wrap}.link-list a{color:#0e5a57}.notice{min-height:26px;margin:10px 0 0;color:#a52e1b;display:flex;gap:8px;align-items:center}.notice button{padding:4px 8px;background:#617477}.order-list{display:grid;gap:8px}.order{padding:11px}.order-top{display:flex;justify-content:space-between;gap:10px}.order-number{font-weight:700}.order-meta,.order-items{font-size:13px;color:#587075;margin-top:5px}.status-list{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}.status{font-size:12px;padding:3px 6px;border-radius:999px;background:#edf3f0;color:#36575b}.empty{color:#587075;padding:12px 0}.unavailable{max-width:640px;color:#587075}@media(max-width:900px){main{padding:12px}.layout{grid-template-columns:1fr}.cart{position:static}.products{grid-template-columns:repeat(auto-fill,minmax(145px,1fr))}}@media(max-width:620px){.topbar{align-items:flex-start;flex-direction:column}.stats{grid-template-columns:1fr}.cart-main{grid-template-columns:minmax(0,1fr) auto auto}.line-total{grid-column:1/-1}.tabs{margin-inline:-2px}.product{min-height:152px}}
   </style>
 </head>
 <body>
   <main>
-    <header>
-      <h1>POS</h1>
+    <header class="topbar">
+      <div><h1>荒島餐車 POS</h1><p id="event" class="event">讀取場次中...</p></div>
       ${renderRealtimeDebug("POS")}
-      <p id="event">Loading...</p>
-      <p><a href="/pos/statistics">今日統計／收攤核對</a></p>
     </header>
-    <section class="stats">
-      <div class="panel">剩餘主餐<br><strong id="remaining">0</strong></div>
-      <div class="panel">待出餐<br><strong id="pending">0</strong></div>
-      <div class="panel">預約出餐<br><strong>尚未啟用</strong></div>
-    </section>
-    <div class="layout">
-      <section>
-        <h2>商品</h2><div id="empty"></div><div id="products"></div>
-        <h2>目前 Event 訂單</h2><div id="orders" class="panel"></div>
+    <nav class="tabs" aria-label="POS 功能分頁">
+      <button class="tab" data-tab="onsite" aria-selected="true">現場點餐</button>
+      <button class="tab" data-tab="pending" aria-selected="false">待出餐</button>
+      <button class="tab" data-tab="preorder" aria-selected="false">預約單</button>
+      <button class="tab" data-tab="customer" aria-selected="false">客人訂單</button>
+      <button class="tab" data-tab="stock" aria-selected="false">備貨／商品</button>
+      <button class="tab" data-tab="statistics" aria-selected="false">今日統計</button>
+    </nav>
+
+    <section class="pane" data-pane="onsite">
+      <section class="stats" aria-label="場次摘要">
+        <article class="stat"><span>剩餘主餐</span><strong id="remaining">0</strong></article>
+        <article class="stat"><span>待出餐</span><strong id="pending">0</strong></article>
+        <article class="stat"><span>預約出餐</span><strong>尚未啟用</strong></article>
       </section>
-      <aside class="panel cart">
-        <h2>購物車</h2><div id="cart-items"></div>
-        <label>訂單備註<textarea id="order-notes"></textarea></label>
-        <strong id="total">NT$0</strong><button id="create-order">建立中央訂單</button>
-        <p id="notice" role="status" aria-live="polite"></p>
-      </aside>
-    </div>
+      <div class="layout">
+        <section class="panel"><h2>現場點餐</h2><div id="empty" class="empty"></div><div id="category-tabs" class="category-tabs" aria-label="商品分類"></div><div id="products" class="products"></div></section>
+        <aside class="panel cart"><h2>購物車</h2><div id="cart-items" class="cart-items"></div><label class="field">客人姓名<input id="customer-name" maxlength="80" autocomplete="off" placeholder="選填"></label><label class="field">訂單備註<textarea id="order-notes" maxlength="500" placeholder="選填"></textarea></label><div class="cart-footer"><button class="secondary" id="clear-cart" type="button">清空購物車</button><div class="total-row"><span>總計</span><strong id="total">NT$0</strong></div><button id="create-order" class="primary">建立中央訂單</button><p id="notice" class="notice" role="status" aria-live="polite"></p></div></aside>
+      </div>
+    </section>
+
+    <section class="pane" data-pane="pending" hidden><section class="panel"><h2>待出餐</h2><div id="orders" class="order-list"></div></section></section>
+    <section class="pane" data-pane="preorder" hidden><section class="panel unavailable"><h2>預約單</h2><p>尚未啟用。此版本不建立預約資料。</p></section></section>
+    <section class="pane" data-pane="customer" hidden><section class="panel unavailable"><h2>客人訂單</h2><p>尚未啟用。客人自助點餐與預約流程不在本階段範圍。</p></section></section>
+    <section class="pane" data-pane="stock" hidden><section class="panel"><h2>備貨／商品</h2><p class="unavailable">商品與場次備貨維持由既有管理介面處理。</p><div class="link-list"><a href="/admin">商品管理</a><a href="/admin/events">場次與備貨管理</a></div></section></section>
+    <section class="pane" data-pane="statistics" hidden><section class="panel"><h2>今日統計／收攤核對</h2><p class="unavailable">財務與收攤資訊只在低頻管理頁查看，不顯示於 POS 主畫面。</p><p><a href="/pos/statistics">前往今日統計／收攤核對</a></p></section></section>
   </main>
   <script>
     const sync=window.__rosRealtime;
-    const s={event:null,products:[],cart:new Map(),busy:false,notice:null};
+    const s={event:null,products:[],orders:[],cart:new Map(),busy:false,notice:null,activeTab:'onsite',activeCategory:null};
     const $=id=>document.querySelector('#'+id);
-    const api=async(p,o={})=>{
-      try{
-        const r=await fetch(p,{headers:{'content-type':'application/json'},...o}),b=await r.json();
-        if(!r.ok){const e=Error(b.error?.message||'Request failed');e.code=b.error?.code;throw e}
-        sync.recordApiSuccess();return b.data
-      }catch(e){sync.recordApiFailure();throw e}
-    };
-    const money=n=>'NT$'+n;
+    const api=async(path,options={})=>{try{const response=await fetch(path,{headers:{'content-type':'application/json'},...options}),body=await response.json();if(!response.ok){const error=Error(body.error?.message||'請求失敗');error.code=body.error?.code;throw error}sync.recordApiSuccess();return body.data}catch(error){sync.recordApiFailure();throw error}};
+    const money=value=>'NT$'+value;
     const key=()=>crypto.randomUUID();
-    const escape=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+    const escape=value=>String(value??'').replace(/[&<>'"]/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
     const setNotice=text=>{s.notice=text||null};
     const clearNotice=()=>{s.notice=null};
-    function renderNotice(){
-      const notice=$('notice');
-      notice.hidden=!s.notice;
-      notice.innerHTML=s.notice?'<span>'+escape(s.notice)+'</span><button type="button" data-dismiss-notice>關閉</button>':'';
-    }
-    function render(){
-      const total=[...s.cart.values()].reduce((a,x)=>a+x.sellingPrice*x.quantity,0);
-      $('total').textContent=money(total);
-      $('cart-items').innerHTML=[...s.cart.values()].map(x=>'<div class="line">'+escape(x.posName)+' <button data-adjust="-1" data-product-id="'+x.productId+'">-</button> x'+x.quantity+' <button data-adjust="1" data-product-id="'+x.productId+'" '+(x.quantity>=x.remainingQuantity?'disabled':'')+'>+</button> '+money(x.quantity*x.sellingPrice)+' <button data-cart="'+x.productId+'">刪除</button></div><input data-note="'+x.productId+'" placeholder="品項備註" value="'+escape(x.note||'')+'">').join('')||'尚未加入商品';
-      $('create-order').disabled=s.busy||!s.cart.size;
-      const groups=new Map();
-      for(const p of s.products){const name=p.displayCategoryName||'未分類';if(!groups.has(name))groups.set(name,[]);groups.get(name).push(p)}
-      $('products').innerHTML=[...groups.entries()].map(([name,items])=>'<section><h3>'+escape(name)+'</h3><div class="products">'+items.map(p=>'<article class="product" data-product-id="'+p.productId+'"><strong>'+escape(p.posName)+'</strong><br>'+money(p.sellingPrice)+'<br>剩餘 '+p.remainingQuantity+' 份<button data-add="'+p.productId+'" data-action="add" data-product-id="'+p.productId+'" '+(p.remainingQuantity<1?'disabled':'')+'>'+ (p.remainingQuantity<1?'售完':'加入')+'</button></article>').join('')+'</div></section>').join('');
-      $('remaining').textContent=s.products.reduce((a,p)=>a+p.remainingQuantity,0);
-      renderNotice();
-    }
-    function status(o){
-      if(o.orderStatus==='cancelled')return '已取消';
-      if(o.orderStatus==='completed')return '已完成';
-      if(o.productionStatus==='served')return '已出餐';
-      if(o.productionStatus==='ready')return '可取餐';
-      if(o.productionStatus==='preparing')return '製作中';
-      return '待製作';
-    }
-    async function load(){
-      const e=await api('/api/events/current');
-      s.event=e;sync.setEventId(e?.eventId);
-      if(!e){
-        $('event').textContent='目前沒有 OPEN Event';$('empty').textContent='目前沒有可販售商品';$('products').innerHTML='';$('orders').textContent='尚無訂單';render();return
-      }
-      const [p,o]=await Promise.all([api('/api/events/current/products'),api('/api/events/'+e.eventId+'/orders')]);
-      s.products=p.filter(x=>x.channels.includes('pos'));
-      $('event').textContent=e.displayName+' · '+e.eventCode+' · OPEN';
-      $('empty').textContent=s.products.length?'':'目前沒有可販售商品';
-      $('pending').textContent=o.filter(x=>x.orderStatus==='confirmed'&&x.productionStatus!=='served').length;
-      $('orders').innerHTML=o.map(x=>'<div class="order"><strong>'+escape(x.orderNumber)+'</strong> '+status(x)+'<br><small>'+x.items.map(i=>escape(i.posName)+' x'+i.quantity).join(', ')+' · '+x.orderStatus+'/'+x.paymentStatus+'/'+x.productionStatus+'</small></div>').join('')||'尚無訂單';
-      let cartReconciled=false;
-      for(const [id,x] of s.cart){
-        const product=s.products.find(y=>y.productId===id);
-        if(!product||product.remainingQuantity<1){s.cart.delete(id);cartReconciled=true;continue}
-        const quantity=Math.min(x.quantity,product.remainingQuantity);
-        if(quantity!==x.quantity)cartReconciled=true;
-        s.cart.set(id,{...x,...product,quantity});
-      }
-      if(cartReconciled)setNotice('商品已售完或剩餘數量不足');
-      render();
-    }
-    document.addEventListener('click',e=>{
-      const dismiss=e.target.closest('[data-dismiss-notice]');
-      if(dismiss){clearNotice();render();return}
-      const a=e.target.closest('[data-add]'),c=e.target.closest('[data-cart]'),q=e.target.closest('[data-adjust]');
-      if(a){const p=s.products.find(x=>x.productId===a.dataset.add),x=s.cart.get(p.productId);if(!x||x.quantity<p.remainingQuantity)s.cart.set(p.productId,{...p,quantity:(x?.quantity||0)+1,note:x?.note||''});render()}
-      if(c){s.cart.delete(c.dataset.cart);render()}
-      if(q){const x=s.cart.get(q.dataset.productId),p=s.products.find(y=>y.productId===q.dataset.productId),next=x.quantity+Number(q.dataset.adjust);if(next<1)s.cart.delete(x.productId);else if(next<=p.remainingQuantity)s.cart.set(x.productId,{...x,quantity:next});render()}
-    });
-    document.addEventListener('input',e=>{if(e.target.dataset.note){const x=s.cart.get(e.target.dataset.note);if(x){x.note=e.target.value;s.cart.set(x.productId,x)}}});
-    $('create-order').onclick=async()=>{
-      if(s.busy||!s.event||!s.cart.size)return;
-      clearNotice();s.busy=true;render();
-      try{
-        const d=await api('/api/orders',{method:'POST',body:JSON.stringify({source:'pos',eventId:s.event.eventId,idempotencyKey:key(),items:[...s.cart.values()].map(x=>({productId:x.productId,productVersionId:x.productVersionId,quantity:x.quantity,notes:x.note||null})),customerName:null,notes:$('order-notes').value||null})});
-        s.cart.clear();$('order-notes').value='';setNotice('訂單 '+d.orderNumber+' 建立成功');await load()
-      }catch(e){
-        setNotice(e instanceof TypeError?'無法連線，訂單未送達中央':e.code==='INSUFFICIENT_QUANTITY'?'商品已售完或剩餘數量不足':e.code==='EVENT_NOT_OPEN'?'場次已關閉':e.message)
-      }finally{s.busy=false;render()}
-    };
-    sync.registerLoad(load);
+    function productGroups(){const groups=new Map();for(const product of s.products){const name=product.displayCategoryName||'未分類';if(!groups.has(name))groups.set(name,[]);groups.get(name).push(product)}return [...groups.entries()].sort((left,right)=>(left[1][0]?.displayCategorySortOrder??0)-(right[1][0]?.displayCategorySortOrder??0))}
+    function displayStatus(order){if(order.orderStatus==='cancelled')return '已取消';if(order.orderStatus==='completed')return '已完成';if(order.productionStatus==='served')return '已出餐';if(order.productionStatus==='ready')return '可取餐';if(order.productionStatus==='preparing')return '製作中';return '待製作'}
+    function renderNotice(){const notice=$('notice');notice.hidden=!s.notice;notice.innerHTML=s.notice?'<span>'+escape(s.notice)+'</span><button type="button" data-dismiss-notice>關閉</button>':''}
+    function renderCart(){const total=[...s.cart.values()].reduce((sum,item)=>sum+item.sellingPrice*item.quantity,0);$('total').textContent=money(total);$('cart-items').innerHTML=[...s.cart.values()].map(item=>'<article class="cart-line"><div class="cart-main"><strong>'+escape(item.posName)+'</strong><div class="quantity"><button type="button" data-adjust="-1" data-product-id="'+item.productId+'">-</button><span>'+item.quantity+'</span><button type="button" data-adjust="1" data-product-id="'+item.productId+'" '+(item.quantity>=item.remainingQuantity?'disabled':'')+'>+</button></div><strong class="line-total">'+money(item.quantity*item.sellingPrice)+'</strong><button type="button" class="danger icon-button" data-cart="'+item.productId+'" aria-label="刪除 '+escape(item.posName)+'">刪除</button></div><label class="field">品項備註<input data-note="'+item.productId+'" maxlength="250" value="'+escape(item.note||'')+'" placeholder="選填"></label></article>').join('')||'<p class="empty">尚未加入商品</p>';$('create-order').disabled=s.busy||!s.cart.size;$('clear-cart').disabled=s.busy||!s.cart.size}
+    function renderProducts(){const groups=productGroups();if(s.activeCategory&&!groups.some(([name])=>name===s.activeCategory))s.activeCategory=null;$('category-tabs').innerHTML=groups.map(([name])=>'<button type="button" class="category-tab" data-category="'+escape(name)+'" aria-pressed="'+(s.activeCategory===name)+'">'+escape(name)+'</button>').join('');const visible=s.activeCategory?groups.filter(([name])=>name===s.activeCategory):groups;$('products').innerHTML=visible.flatMap(([,items])=>items).map(product=>{const cartQuantity=s.cart.get(product.productId)?.quantity||0,soldOut=product.remainingQuantity<1;return '<article class="product '+(soldOut?'sold-out':'')+'" data-product-id="'+product.productId+'"><div class="product-name">'+escape(product.posName)+'</div><div class="product-meta">'+escape(product.displayName||product.posName)+'</div><div class="product-price">'+money(product.sellingPrice)+'</div><div class="product-meta '+(soldOut?'soldout':'')+'">'+(soldOut?'售完':'剩餘 '+product.remainingQuantity+' 份')+'</div><div class="product-meta">購物車 '+cartQuantity+' 份</div><button type="button" data-add="'+product.productId+'" data-action="add" data-product-id="'+product.productId+'" '+(soldOut?'disabled':'')+'>'+ (soldOut?'售完':'加入')+'</button></article>'}).join('');$('remaining').textContent=s.products.reduce((sum,product)=>sum+product.remainingQuantity,0);$('empty').textContent=s.products.length?'':'目前沒有可販售商品'}
+    function renderOrders(){const activeOrders=s.orders.filter(order=>order.orderStatus==='confirmed'&&order.productionStatus!=='served');$('pending').textContent=activeOrders.length;$('orders').innerHTML=s.orders.map(order=>'<article class="order"><div class="order-top"><div><div class="order-number">'+escape(order.orderNumber)+'</div><div class="order-meta">'+escape(new Date(order.createdAt).toLocaleString())+(order.customerName?' · '+escape(order.customerName):'')+' · '+escape(order.source)+'</div></div><strong>'+displayStatus(order)+'</strong></div><div class="order-items">'+order.items.map(item=>escape(item.posName)+' x'+item.quantity+(item.notes?'（'+escape(item.notes)+'）':'')).join('、')+'</div><div class="order-meta">'+money(order.grandTotal)+(order.notes?' · 備註：'+escape(order.notes):'')+'</div><div class="status-list"><span class="status">訂單：'+escape(order.orderStatus)+'</span><span class="status">付款：'+escape(order.paymentStatus)+'</span><span class="status">製作：'+escape(order.productionStatus)+'</span></div></article>').join('')||'<p class="empty">尚無中央訂單</p>'}
+    function render(){renderCart();renderProducts();renderOrders();renderNotice()}
+    function renderTab(){document.querySelectorAll('[data-pane]').forEach(pane=>{pane.hidden=pane.dataset.pane!==s.activeTab});document.querySelectorAll('[data-tab]').forEach(tab=>tab.setAttribute('aria-selected',String(tab.dataset.tab===s.activeTab)))}
+    async function load(){const event=await api('/api/events/current');s.event=event;sync.setEventId(event?.eventId);if(!event){s.products=[];s.orders=[];$('event').textContent='目前沒有 OPEN Event';render();return}const [products,orders]=await Promise.all([api('/api/events/current/products'),api('/api/events/'+event.eventId+'/orders')]);s.products=products.filter(product=>product.channels.includes('pos'));s.orders=orders;$('event').textContent=event.displayName+' · '+event.eventCode+' · OPEN';let cartReconciled=false;for(const [productId,item] of s.cart){const product=s.products.find(candidate=>candidate.productId===productId);if(!product||product.remainingQuantity<1){s.cart.delete(productId);cartReconciled=true;continue}const quantity=Math.min(item.quantity,product.remainingQuantity);if(quantity!==item.quantity)cartReconciled=true;s.cart.set(productId,{...item,...product,quantity})}if(cartReconciled)setNotice('商品已售完或剩餘數量不足');render()}
+    document.addEventListener('click',event=>{const target=event.target;const tab=target.closest('[data-tab]');if(tab){s.activeTab=tab.dataset.tab;renderTab();return}const category=target.closest('[data-category]');if(category){s.activeCategory=s.activeCategory===category.dataset.category?null:category.dataset.category;renderProducts();return}if(target.closest('[data-dismiss-notice]')){clearNotice();renderNotice();return}if(target.closest('#clear-cart')){s.cart.clear();renderCart();return}const add=target.closest('[data-add]'),remove=target.closest('[data-cart]'),adjust=target.closest('[data-adjust]');if(add){const product=s.products.find(item=>item.productId===add.dataset.add),existing=s.cart.get(product.productId);if(!existing||existing.quantity<product.remainingQuantity)s.cart.set(product.productId,{...product,quantity:(existing?.quantity||0)+1,note:existing?.note||''});renderCart()}if(remove){s.cart.delete(remove.dataset.cart);renderCart()}if(adjust){const item=s.cart.get(adjust.dataset.productId),product=s.products.find(candidate=>candidate.productId===adjust.dataset.productId);if(!item||!product)return;const quantity=item.quantity+Number(adjust.dataset.adjust);if(quantity<1)s.cart.delete(item.productId);else if(quantity<=product.remainingQuantity)s.cart.set(item.productId,{...item,...product,quantity});renderCart()}});
+    document.addEventListener('input',event=>{const input=event.target;if(!input.dataset.note)return;const item=s.cart.get(input.dataset.note);if(item){item.note=input.value;s.cart.set(item.productId,item)}});
+    $('create-order').onclick=async()=>{if(s.busy||!s.event||!s.cart.size)return;clearNotice();s.busy=true;renderCart();try{const order=await api('/api/orders',{method:'POST',body:JSON.stringify({source:'pos',eventId:s.event.eventId,idempotencyKey:key(),items:[...s.cart.values()].map(item=>({productId:item.productId,productVersionId:item.productVersionId,quantity:item.quantity,notes:item.note||null})),customerName:$('customer-name').value.trim()||null,notes:$('order-notes').value.trim()||null})});s.cart.clear();$('customer-name').value='';$('order-notes').value='';setNotice('訂單 '+order.orderNumber+' 建立成功');await load()}catch(error){setNotice(error instanceof TypeError?'無法連線，訂單未送達中央':error.code==='INSUFFICIENT_QUANTITY'?'商品已售完或剩餘數量不足':error.code==='EVENT_NOT_OPEN'?'場次已關閉':error.message)}finally{s.busy=false;renderCart();renderNotice()}};
+    if(new URLSearchParams(location.search).get('debug')!=='1')$('sync-debug-toggle').hidden=true;
+    sync.registerLoad(load);renderTab();
   </script>
 </body>
 </html>`;

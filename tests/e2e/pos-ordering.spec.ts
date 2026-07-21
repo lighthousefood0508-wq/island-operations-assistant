@@ -71,6 +71,11 @@ test("two POS browser contexts race for the final portion and only one creates a
   await Promise.all([addToCart(first, contracts[0]?.productId as string), addToCart(second, contracts[0]?.productId as string)]);
   await Promise.all([first.locator("#create-order").click(), second.locator("#create-order").click()]);
   await expect.poll(async () => [await first.locator("#notice").textContent(), await second.locator("#notice").textContent()]).toEqual(expect.arrayContaining([expect.stringContaining("RACEUI-001"), expect.stringContaining("數量不足")]));
+  const notices = [await first.locator("#notice").textContent(), await second.locator("#notice").textContent()];
+  const failedPage = notices[0]?.includes("RACEUI-001") ? second : first;
+  await expect(failedPage.locator("#notice")).toContainText("????");
+  await failedPage.locator("[data-dismiss-notice]").click();
+  await expect(failedPage.locator("#notice")).toBeEmpty();
   const orders = await api(page, `/api/events/current/products`);
   expect(orders.body.data).toEqual([]);
   await firstContext.close();

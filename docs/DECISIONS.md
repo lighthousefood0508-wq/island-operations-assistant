@@ -16,6 +16,7 @@
 - **DECISIONS #015**: Independent ROS external endpoint review on 2026-07-20. Work stopped before implementation because a separate protected tunnel resource was unavailable; Legacy remained untouched.
 - **DECISIONS #016**: Realtime Synchronization Hardening approval on 2026-07-21 by Architecture Owner Miles / Lin Zi-Mao. The unmerged branch may harden POS, Kitchen, and Statistics connection visibility, SSE reconnect, polling fallback, debug observability, and acceptance tests only. No domain, contract, business-rule, Product, Event, Lifecycle, Payment, Cost, or Legacy change is approved.
 - **DECISIONS #017**: Cloudflare Tunnel Deployment Preparation approval on 2026-07-21 by Architecture Owner Miles / Lin Zi-Mao. It permits local cloudflared installation, non-secret templates, readiness reporting, ROS-only start/stop scripts, documentation, and a credential-free deployment package. Owner login and tunnel authorization remain manual. No Tunnel is created and no Legacy, domain, contract, or business behavior change is approved.
+- **DECISIONS #018**: Quick Tunnel fallback approval on 2026-07-21 by Architecture Owner Miles / Lin Zi-Mao. With no Cloudflare Zone available, ROS may use an accountless `trycloudflare.com` Quick Tunnel on local port 3092 for temporary external verification. No Legacy/ngrok/n8n, domain, contract, or business behavior change is approved.
 
 - ROS is a new repository, not a refactor of the legacy food truck system.
 - Operations and Cost are the only major business domains. Catalog is a deliberately small Admin-owned master.

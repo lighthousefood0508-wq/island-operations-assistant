@@ -26,6 +26,16 @@ Only these two actions remain:
 
 Do not reuse the Legacy ngrok URL, Legacy port, credentials, or configuration. Configure the ROS hostname to point only to `http://127.0.0.1:3090`.
 
+## No-Zone Quick Tunnel
+
+When the Cloudflare account has no Zone, use a Quick Tunnel for external Shadow Run testing. It does not require login, DNS, Zero Trust, or a custom domain. Start ROS on port 3092, then run:
+
+```powershell
+.\scripts\start-quick-tunnel.ps1
+```
+
+The script prints one temporary `https://*.trycloudflare.com` URL. Test `/health`, `/pos`, `/kitchen`, and `/pos/statistics` beneath that URL. The address is public, changes after restart, has no uptime guarantee, and is not suitable for production. Stop it with `./scripts/stop-quick-tunnel.ps1`.
+
 ## Windows preparation and health
 
 From the ROS repository root:

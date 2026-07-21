@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-07-21 - DECISIONS #018 Quick Tunnel External Verification
+
+- Added ROS-only Quick Tunnel start/stop helpers for the no-Zone Shadow Run fallback on local port 3092.
+- Verified the temporary external health, POS, Kitchen, and Statistics endpoints.
+- No named Tunnel, Zone, DNS, Cloudflare service, Legacy, ngrok, n8n, or business behavior change.
+
 ## 2026-07-21 - DECISIONS #017 Cloudflare Tunnel Deployment Preparation
 
 - Added credential-free Cloudflare Tunnel configuration and Windows start/stop/readiness/service templates for a ROS-only Shadow Run endpoint.

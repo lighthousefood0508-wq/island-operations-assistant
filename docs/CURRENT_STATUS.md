@@ -2,6 +2,8 @@
 
 Date: 2026-07-21
 
+Quick Tunnel external verification is active under **DECISIONS #018**. ROS runs locally on `127.0.0.1:3092` against central SQLite and is exposed only through a temporary accountless `trycloudflare.com` URL. The public URL is intentionally not committed because it changes whenever Quick Tunnel restarts. No named Tunnel, Zone, DNS, Cloudflare service, Legacy, or business behavior was changed.
+
 Cloudflare Tunnel Deployment Preparation is complete on `feature/cloudflare-tunnel-preparation` under **DECISIONS #017**, awaiting Architecture Owner authorization. `cloudflared` is installed locally; credential-free configuration, readiness reporting, ROS-only start/stop/service templates, documentation, and the excluded-data deployment ZIP are prepared. Owner login and named-Tunnel authorization remain manual; no actual Tunnel, Cloudflare service, credential, public hostname, or Legacy integration has been created.
 
 Realtime Synchronization Hardening is complete on `feature/realtime-hardening` under **DECISIONS #016**, awaiting Architecture Owner acceptance. POS, Kitchen, and Statistics now expose central connection state, a query-string Device identity, optional debug diagnostics, SSE reconnect refresh, 10-second REST polling fallback, and browser-resume refresh. SQLite remains the only source of truth; SSE remains notification-only. No Order, Payment, Production, Event, Catalog, Cost, Contract, or Legacy behavior changed.

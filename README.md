@@ -19,6 +19,8 @@ DECISIONS #017 prepares a dedicated ROS-only Cloudflare Tunnel without changing 
 1. Log in to Cloudflare and authorize one dedicated ROS Shadow Run Tunnel.
 2. Configure its ROS-only hostname and securely provide the connector token to the Windows host for the current session.
 
+For temporary testing without a Cloudflare Zone, DECISIONS #018 uses a public Quick Tunnel on port 3092. It prints a changing `trycloudflare.com` address and does not modify ROS URLs, Legacy, or ngrok. See [Cloudflare Tunnel setup](docs/deployment/CLOUDFLARE_TUNNEL_SETUP.md).
+
 For a local-network rehearsal, start ROS on the Windows host with `ROS_HOST=0.0.0.0` and `ROS_PORT=3090`, then allow inbound TCP 3090 in Windows Firewall on the private network. Find the host IPv4 address with `ipconfig`; on each iPad or Android device open `http://HOST-IP:3090/pos` or `http://HOST-IP:3090/kitchen`. Confirm every device returns the same `http://HOST-IP:3090/health` response before taking orders. `http://HOST-IP:3090/pos/statistics` is the owner-only closeout page. Do not use ngrok as the 7/26 production path.
 
 If ROS becomes unavailable, stop entering orders into ROS, continue in Legacy only, and record the time, device, order number, and screenshot. Do not repair code during service. Restart the Windows ROS process only after the current Legacy transaction is safe.

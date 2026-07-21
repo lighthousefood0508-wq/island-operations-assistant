@@ -10,6 +10,8 @@ The Shadow Run work is on `feature/20260726-shadow-run-mvp` under **DECISIONS #0
 
 The DECISIONS #016 hardening branch adds a small connection indicator and optional diagnostics to `/pos`, `/kitchen`, and `/pos/statistics`. Add `?device=POS-A&debug=1`, `?device=Kitchen-A&debug=1`, or `?device=Statistics&debug=1` when testing devices. The debug panel shows connection state, SSE state, polling fallback, last sync/event, reconnect count, server time, and central SQLite status. See [the realtime test checklist](docs/acceptance/SYNC_TEST.md).
 
+DECISIONS #034 adds `/debug/devices`: a read-only live list of connected SSE devices, their page role, connection time, and most recent server activity. It is operational telemetry only, held in server memory; it does not write SQLite or affect Orders, Events, Catalog, Cost, or Legacy.
+
 ## Cloudflare Deployment Preparation
 
 DECISIONS #017 prepares a dedicated ROS-only Cloudflare Tunnel without changing Legacy or creating a live Tunnel. The Windows host has non-secret start, stop, and readiness scripts; they refuse to start without an Owner-provided environment-only connector token and healthy ROS SQLite. The only remaining Owner actions are Cloudflare login and named-Tunnel authorization. See [Cloudflare Tunnel setup](docs/deployment/CLOUDFLARE_TUNNEL_SETUP.md).

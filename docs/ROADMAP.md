@@ -13,8 +13,9 @@
 11. Realtime Synchronization Hardening: POS, Kitchen, and Statistics reconnection, polling fallback, debug visibility, and cross-device acceptance - complete on `feature/realtime-hardening` under DECISIONS #016, awaiting Architecture Owner acceptance.
 12. Cloudflare Tunnel Deployment Preparation: local tooling, readiness report, non-secret templates, Owner-only authorization steps, and a credential-free Shadow Run package - complete on `feature/cloudflare-tunnel-preparation` under DECISIONS #017, awaiting Owner authorization.
 13. Quick Tunnel External Verification: temporary no-Zone `trycloudflare.com` access for ROS on port 3092 - active under DECISIONS #018 for Shadow Run testing only.
-14. Phase 2: Customer preorder only after Architecture Owner approval.
-15. Phase 3: POS and Kitchen pilot from the same REST/SSE source.
-16. Phase 4: Cost ledger and daily Sales Contract import, then Google Sheets reporting export.
+14. Device Connectivity Dashboard: read-only active SSE device telemetry at `/debug/devices` - complete under DECISIONS #034 on `feature/device-connectivity-dashboard`.
+15. Phase 2: Customer preorder only after Architecture Owner approval.
+16. Phase 3: POS and Kitchen pilot from the same REST/SSE source.
+17. Phase 4: Cost ledger and daily Sales Contract import, then Google Sheets reporting export.
 
 Each phase requires its own acceptance test and rollback plan before advancing.

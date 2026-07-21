@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-07-21 - DECISIONS #034 Device Connectivity Dashboard
+
+- Added a ROS-only, read-only SSE device dashboard and ephemeral connection telemetry. No business data, SQLite state, contracts, or Legacy behavior is changed.
+
 ## 2026-07-21 - DECISIONS #018 Quick Tunnel External Verification
 
 - Added ROS-only Quick Tunnel start/stop helpers for the no-Zone Shadow Run fallback on local port 3092.

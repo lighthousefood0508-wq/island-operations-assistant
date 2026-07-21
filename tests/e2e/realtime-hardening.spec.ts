@@ -35,15 +35,17 @@ test("realtime clients refresh central state after order and Kitchen changes wit
     if (opened.status < 200 || opened.status >= 300) throw new Error(`Realtime Event open failed: status=${opened.status}; eventId=${eventId}; eventCode=SYNC; body=${JSON.stringify(opened.body)}`);
     eventOpened = true;
 
-    const [contextA, contextB, contextC, contextD] = await Promise.all([browser.newContext(), browser.newContext(), browser.newContext(), browser.newContext()]);
-    contexts.push(contextA, contextB, contextC, contextD);
-    const [posA, posB, kitchen, statistics] = await Promise.all([contextA.newPage(), contextB.newPage(), contextC.newPage(), contextD.newPage()]);
+    const [contextA, contextB, contextC, contextD, monitorContext] = await Promise.all([browser.newContext(), browser.newContext(), browser.newContext(), browser.newContext(), browser.newContext()]);
+    contexts.push(contextA, contextB, contextC, contextD, monitorContext);
+    const [posA, posB, kitchen, statistics, monitor] = await Promise.all([contextA.newPage(), contextB.newPage(), contextC.newPage(), contextD.newPage(), monitorContext.newPage()]);
     await Promise.all([posA.goto("/pos?device=POS-A&debug=1"), posB.goto("/pos?device=POS-B&debug=1"), kitchen.goto("/kitchen?device=Kitchen-A&debug=1"), statistics.goto("/pos/statistics?device=Statistics&debug=1")]);
 
     for (const page of [posA, posB, kitchen, statistics]) await expect(page.locator("#connection-status")).toContainText("Connected");
     await expect(posA.locator("#sync-debug-device")).toHaveText("POS-A");
     await expect(kitchen.locator("#sync-debug-device")).toHaveText("Kitchen-A");
     await expect(statistics.locator("#sync-debug-device")).toHaveText("Statistics");
+    await monitor.goto("/debug/devices");
+    for (const device of ["POS-A", "POS-B", "Kitchen-A", "Statistics"]) await expect(monitor.locator("#devices")).toContainText(device);
 
     await posA.locator(`[data-add="${published.body.data.contract.productId}"]`).click();
     await posA.locator("#create-order").click();

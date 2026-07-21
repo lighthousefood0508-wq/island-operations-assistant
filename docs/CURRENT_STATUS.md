@@ -2,6 +2,8 @@
 
 Date: 2026-07-21
 
+Device connectivity dashboard is complete under **DECISIONS #034** on `feature/device-connectivity-dashboard`. `/debug/devices` is a ROS-only, read-only view of active in-memory SSE connections. It records no SQLite data and does not affect Orders, Event, Catalog, Cost, Contracts, or Legacy. Existing POS, Kitchen, and Statistics all retain the one shared realtime client; a single SseHub heartbeat refreshes connection activity.
+
 Quick Tunnel external verification is active under **DECISIONS #018**. ROS runs locally on `127.0.0.1:3092` against central SQLite and is exposed only through a temporary accountless `trycloudflare.com` URL. The public URL is intentionally not committed because it changes whenever Quick Tunnel restarts. No named Tunnel, Zone, DNS, Cloudflare service, Legacy, or business behavior was changed.
 
 Cloudflare Tunnel Deployment Preparation is complete on `feature/cloudflare-tunnel-preparation` under **DECISIONS #017**, awaiting Architecture Owner authorization. `cloudflared` is installed locally; credential-free configuration, readiness reporting, ROS-only start/stop/service templates, documentation, and the excluded-data deployment ZIP are prepared. Owner login and named-Tunnel authorization remain manual; no actual Tunnel, Cloudflare service, credential, public hostname, or Legacy integration has been created.

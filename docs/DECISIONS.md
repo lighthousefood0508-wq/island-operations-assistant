@@ -2,6 +2,7 @@
 
 ## Approval Register
 
+- **DECISIONS #034**: Device connectivity dashboard approval on 2026-07-21 by Architecture Owner Miles / Lin Zi-Mao. The ROS-only debug tool may expose the live in-memory SSE connection list at `/debug/devices`. It must reuse the shared realtime client and SseHub, must not persist telemetry or modify Operations, Catalog, Cost, contracts, business rules, or Legacy.
 - **DECISIONS #001**: Phase 1B approval on 2026-07-20 for Event, Sellable Inventory, Product Contract v2, and POS Current Event.
 - **DECISIONS #002**: Phase 1B.1 approval on 2026-07-20 for Governance and OPEN Event Product Snapshot Freeze.
 - **DECISIONS #003**: Phase 1C Design Finalization approval on 2026-07-20 for Order Policy Freeze and ADR-014 through ADR-018 acceptance only.

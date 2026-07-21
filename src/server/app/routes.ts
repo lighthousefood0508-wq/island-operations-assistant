@@ -10,6 +10,7 @@ import { renderOrdering } from "../../web/ordering/page.js";
 import { renderPos } from "../../web/pos/page.js";
 import { renderLifecycle } from "../../web/lifecycle/page.js";
 import { renderStatistics } from "../../web/statistics/page.js";
+import { renderDevicesDebug } from "../../web/devices/page.js";
 
 type Services = Readonly<{ catalog: CatalogService; operations: OperationsService; orders: OrderService; lifecycle: LifecycleService }>;
 
@@ -54,6 +55,10 @@ async function readJson(request: IncomingMessage): Promise<Record<string, unknow
   }
 }
 
+function telemetryPart(value: string | null, fallback: string): string {
+  return /^[A-Za-z0-9-]{1,32}$/.test(value || "") ? value as string : fallback;
+}
+
 export function createRoute(services: Services, events: SseHub): (request: IncomingMessage, response: ServerResponse) => void {
   return (request, response) => { void route(request, response, services, events); };
 }
@@ -64,9 +69,8 @@ async function route(request: IncomingMessage, response: ServerResponse, service
   try {
     if (request.method === "GET" && pathname === "/health") return success(response, 200, { status: "ok", service: "desert-island-ros", database: "ready", now: new Date().toISOString() });
     if (request.method === "GET" && pathname === "/events") {
-      events.connect(response);
-      const interval = setInterval(() => events.heartbeat(), 15_000);
-      request.on("close", () => { clearInterval(interval); events.disconnect(response); });
+      events.connect(response, { deviceId: telemetryPart(url.searchParams.get("device"), "unknown"), page: telemetryPart(url.searchParams.get("page"), "unknown") });
+      response.once("error", () => events.disconnect(response));
       return;
     }
     if (request.method === "GET" && pathname === "/admin") return sendHtml(response, renderAdmin());
@@ -76,6 +80,9 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "GET" && pathname === "/pos/statistics") return sendHtml(response, renderStatistics());
     if (request.method === "GET" && pathname === "/order") return sendHtml(response, renderOrdering());
     if (request.method === "GET" && pathname === "/kitchen") return sendHtml(response, renderKitchen());
+    if (request.method === "GET" && pathname === "/debug/devices") return sendHtml(response, renderDevicesDebug());
+
+    if (request.method === "GET" && pathname === "/api/debug/devices") return success(response, 200, events.listDevices());
 
     if (request.method === "GET" && pathname === "/api/admin/categories") return success(response, 200, services.catalog.listCategories());
     if (request.method === "POST" && pathname === "/api/admin/categories") return success(response, 201, services.catalog.createCategory(await readJson(request) as never));

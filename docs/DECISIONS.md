@@ -3,6 +3,7 @@
 ## Approval Register
 
 - **DECISIONS #034**: Device connectivity dashboard approval on 2026-07-21 by Architecture Owner Miles / Lin Zi-Mao. The ROS-only debug tool may expose the live in-memory SSE connection list at `/debug/devices`. It must reuse the shared realtime client and SseHub, must not persist telemetry or modify Operations, Catalog, Cost, contracts, business rules, or Legacy.
+- **DECISIONS #035**: Front Office / Back Office / Kitchen information architecture approval on 2026-07-22 by Architecture Owner Miles / Lin Zi-Mao. `/pos` is limited to staff ordering and order visibility, `/kitchen` remains production-status-only, and Back Office owns Catalog, Event setup, Statistics/closeout, Health, and sharing links. This is a presentation, routing, test, and documentation change only; no domain, contract, schema, migration, Event Close rule, Device Registry, Payment, Customer, Cost, Voice, AI, LINE, n8n, Google Sheets, or Legacy change is approved.
 - **DECISIONS #001**: Phase 1B approval on 2026-07-20 for Event, Sellable Inventory, Product Contract v2, and POS Current Event.
 - **DECISIONS #002**: Phase 1B.1 approval on 2026-07-20 for Governance and OPEN Event Product Snapshot Freeze.
 - **DECISIONS #003**: Phase 1C Design Finalization approval on 2026-07-20 for Order Policy Freeze and ADR-014 through ADR-018 acceptance only.

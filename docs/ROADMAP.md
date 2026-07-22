@@ -14,8 +14,9 @@
 12. Cloudflare Tunnel Deployment Preparation: local tooling, readiness report, non-secret templates, Owner-only authorization steps, and a credential-free Shadow Run package - complete on `feature/cloudflare-tunnel-preparation` under DECISIONS #017, awaiting Owner authorization.
 13. Quick Tunnel External Verification: temporary no-Zone `trycloudflare.com` access for ROS on port 3092 - active under DECISIONS #018 for Shadow Run testing only.
 14. Device Connectivity Dashboard: read-only active SSE device telemetry at `/debug/devices` - complete under DECISIONS #034 on `feature/device-connectivity-dashboard`.
-15. Phase 2: Customer preorder only after Architecture Owner approval.
-16. Phase 3: POS and Kitchen pilot from the same REST/SSE source.
-17. Phase 4: Cost ledger and daily Sales Contract import, then Google Sheets reporting export.
+15. Front Office / Back Office / Kitchen information architecture: `/pos` for staff ordering, `/kitchen` for production, and `/admin` for Catalog, Event setup, Statistics, Health, and sharing links - complete under DECISIONS #035 on `feature/front-back-office-information-architecture`.
+16. Phase 2: Customer preorder only after Architecture Owner approval.
+17. Phase 3: POS and Kitchen pilot from the same REST/SSE source.
+18. Phase 4: Cost ledger and daily Sales Contract import, then Google Sheets reporting export.
 
 Each phase requires its own acceptance test and rollback plan before advancing.

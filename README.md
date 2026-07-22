@@ -12,6 +12,8 @@ The DECISIONS #016 hardening branch adds a small connection indicator and option
 
 DECISIONS #034 adds `/debug/devices`: a read-only live list of connected SSE devices, their page role, connection time, and most recent server activity. It is operational telemetry only, held in server memory; it does not write SQLite or affect Orders, Events, Catalog, Cost, or Legacy.
 
+DECISIONS #035 separates the day-of-service screens by role. `/pos` is now the staff Front Office surface for ordering and order visibility only. `/kitchen` is the production surface and can update only production status. Back Office work lives under `/admin`: Catalog at `/admin`, Event setup at `/admin/events`, closeout/statistics at `/admin/statistics`, and health/share links at `/admin/health`. Financial closeout information is not shown on the POS main screen.
+
 ## Cloudflare Deployment Preparation
 
 DECISIONS #017 prepares a dedicated ROS-only Cloudflare Tunnel without changing Legacy or creating a live Tunnel. The Windows host has non-secret start, stop, and readiness scripts; they refuse to start without an Owner-provided environment-only connector token and healthy ROS SQLite. The only remaining Owner actions are Cloudflare login and named-Tunnel authorization. See [Cloudflare Tunnel setup](docs/deployment/CLOUDFLARE_TUNNEL_SETUP.md).
@@ -51,7 +53,7 @@ npm run migrate
 npm run dev
 ```
 
-Open [Catalog Admin](http://127.0.0.1:3090/admin), [Event Admin](http://127.0.0.1:3090/admin/events), and [POS](http://127.0.0.1:3090/pos). Health is at `http://127.0.0.1:3090/health`.
+Open [Back Office Catalog](http://127.0.0.1:3090/admin), [Event Setup](http://127.0.0.1:3090/admin/events), [POS](http://127.0.0.1:3090/pos), [Kitchen](http://127.0.0.1:3090/kitchen), [Statistics](http://127.0.0.1:3090/admin/statistics), and [Back Office Health](http://127.0.0.1:3090/admin/health). Health is at `http://127.0.0.1:3090/health`.
 
 ## First product
 

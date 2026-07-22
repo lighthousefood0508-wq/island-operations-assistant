@@ -53,6 +53,15 @@
 - Added lifecycle APIs and `/pos/lifecycle` staff console; added unit/integration and Playwright coverage for lifecycle, illegal transition, release replay/concurrency, Event Close lock/idempotence, and UI confirmation flow.
 - Added `005_order_lifecycle.sql` and ROS v0.5 Draft documentation. No Payment, Kitchen, Kiosk, Preorder, Cost, Sales Contract, LINE, Google Sheets, or Legacy behavior was added.
 
+## 2026-07-22 - DECISIONS #035 Front / Back Office information architecture
+
+- Separated ROS staff-facing POS, Kitchen, and Back Office navigation under DECISIONS #035.
+- Limited `/pos` to 現場點餐, 待出餐, 預約單, and 客人訂單 while keeping financial closeout off the POS main screen.
+- Added Back Office navigation for Catalog, Event setup, Statistics/closeout, and Health/share links.
+- Added `/admin/statistics` and `/admin/health` presentation routes while preserving `/pos/statistics` compatibility.
+- Fixed Statistics event-name display to avoid undefined names when the read model returns snake_case rows.
+- Added Front/Back Office device acceptance documentation. No domain, contract, schema, migration, Event Close rule, Device Registry, Payment, Customer, Cost, Voice, AI, LINE, n8n, Google Sheets, or Legacy behavior changed.
+
 ## 2026-07-20 - Phase 1C.1 POS Minimal UI
 
 - Added a responsive POS shopping cart driven only by the Current Event and POS Order APIs.

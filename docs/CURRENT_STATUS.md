@@ -1,6 +1,8 @@
 # Current Status
 
-Date: 2026-07-21
+Date: 2026-07-22
+
+Front Office / Back Office / Kitchen information architecture is complete on `feature/front-back-office-information-architecture` under **DECISIONS #035**, awaiting Architecture Owner acceptance. `/pos` is now a staff-facing ordering surface with only 現場點餐, 待出餐, 預約單, and 客人訂單 tabs; inventory setup and financial closeout have moved out of the POS main workflow. Back Office now groups Catalog, Event setup, Statistics/closeout, Health, and link sharing under `/admin`, `/admin/events`, `/admin/statistics`, and `/admin/health`. Kitchen remains a production-status-only surface. This work changed presentation, routes, tests, and documentation only; no Domain, Contract, Schema, Migration, Event Close business rule, Payment, Customer, Cost, Device Registry, Voice, AI, LINE, n8n, Google Sheets, or Legacy behavior changed.
 
 Device connectivity dashboard is complete under **DECISIONS #034** on `feature/device-connectivity-dashboard`. `/debug/devices` is a ROS-only, read-only view of active in-memory SSE connections. It records no SQLite data and does not affect Orders, Event, Catalog, Cost, Contracts, or Legacy. Existing POS, Kitchen, and Statistics all retain the one shared realtime client; a single SseHub heartbeat refreshes connection activity.
 

@@ -37,7 +37,7 @@ async function addToCart(page: Page, productId: string) {
   await page.locator(`button[data-action="add"][data-product-id="${productId}"]`).click();
 }
 
-test("POS creates a central Order from two cart products and refreshes remaining quantities", async ({ page, browser }) => {
+test("POS keeps front-office tabs, creates a central Order, and protects cart navigation", async ({ page, browser }) => {
   const { eventId, contracts } = await setupOpenEvent(page, "POSUI", [
     { name: "Rice bowl", posName: "Rice", price: 180, quantity: 5 },
     { name: "Shrimp bowl", posName: "Shrimp", price: 220, quantity: 4 },
@@ -48,23 +48,35 @@ test("POS creates a central Order from two cart products and refreshes remaining
   try {
     await page.goto("/pos");
     await kitchen.goto("/kitchen");
-    for (const tab of ["現場點餐", "待出餐", "預約單", "客人訂單", "備貨／商品", "今日統計"]) await expect(page.getByRole("button", { name: tab })).toBeVisible();
+    for (const tab of ["現場點餐", "待出餐", "預約單", "客人訂單"]) await expect(page.getByRole("button", { name: tab })).toBeVisible();
+    await expect(page.getByRole("button", { name: "備貨／商品" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "今日統計" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Kitchen" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Back Office" })).toBeVisible();
+    await expect(page.locator("body")).not.toContainText("帳面總額");
+    await expect(page.locator("body")).not.toContainText("實收差額");
+    await expect(page.locator("body")).not.toContainText("毛利");
+
     await expect(page.locator("#category-tabs")).toContainText("Meals");
     await expect(page.locator(`article[data-product-id="${contracts[0]?.productId}"]`)).toContainText("Rice");
     await expect(page.locator(`article[data-product-id="${contracts[1]?.productId}"]`)).toContainText("Shrimp");
     await expect(page.locator(`article[data-product-id="${contracts[2]?.productId}"]`)).toHaveClass(/sold-out/);
     await expect(page.locator(`article[data-product-id="${contracts[2]?.productId}"]`)).toContainText("售完");
     await expect(page.locator(`article[data-product-id="${contracts[2]?.productId}"] button`)).toBeDisabled();
-    const products = await api(page, "/api/events/current/products");
-    expect(products.body.data.find((product: any) => product.productId === contracts[2]?.productId)?.remainingQuantity).toBe(0);
+
     await page.getByRole("button", { name: "預約單" }).click();
     await expect(page.locator('[data-pane="preorder"]')).toContainText("尚未啟用");
     await page.getByRole("button", { name: "客人訂單" }).click();
     await expect(page.locator('[data-pane="customer"]')).toContainText("尚未啟用");
     await page.getByRole("button", { name: "現場點餐" }).click();
+
     await addToCart(page, contracts[0]?.productId as string);
+    await page.once("dialog", async (dialog) => { expect(dialog.message()).toContain("購物車尚未送出"); await dialog.dismiss(); });
+    await page.getByRole("link", { name: "Kitchen" }).click();
+    await expect(page).toHaveURL(/\/pos/);
     await page.locator("#clear-cart").click();
     await expect(page.locator("#cart-items")).toContainText("尚未加入商品");
+
     await addToCart(page, contracts[0]?.productId as string);
     await addToCart(page, contracts[0]?.productId as string);
     await page.locator(`[data-adjust="-1"][data-product-id="${contracts[0]?.productId}"]`).click();
@@ -75,9 +87,8 @@ test("POS creates a central Order from two cart products and refreshes remaining
     await expect(page.locator("#cart-items")).toContainText("Rice");
     await expect(page.locator("#cart-items")).toContainText("Shrimp");
     await expect(page.locator("#total")).toContainText("NT$400");
-    await expect(page.locator(".stat")).toHaveCount(3);
-    await expect(page.locator("body")).not.toContainText("今日營業額");
-    await expect(page.locator("#sync-debug")).toBeHidden();
+    await expect(page.locator(".stat")).toHaveCount(4);
+
     await page.locator("#create-order").click();
     await expect(page.locator("#notice")).toContainText("POSUI-001");
     await expect(page.locator(`article[data-product-id="${contracts[0]?.productId}"]`)).toContainText("剩餘 4 份");
@@ -85,6 +96,7 @@ test("POS creates a central Order from two cart products and refreshes remaining
     const orders = await api(page, `/api/events/${eventId}/orders`);
     expect(orders.body.data[0]?.customerName).toBe("Miles");
     expect(orders.body.data[0]?.notes).toBe("counter pickup");
+
     await page.getByRole("button", { name: "待出餐" }).click();
     await expect(page.locator("#orders")).toContainText("POSUI-001");
     await expect(page.locator("#orders")).toContainText("Miles");
@@ -92,7 +104,9 @@ test("POS creates a central Order from two cart products and refreshes remaining
     await expect(page.locator("#orders")).toContainText("付款：unpaid");
     await expect(page.locator("#orders")).toContainText("製作：not_started");
     await expect(kitchen.locator("#pending")).toContainText("Miles");
-    await expect(kitchen.locator("#pending")).not.toContainText("匿名");
+    await expect(kitchen.getByRole("link", { name: "POS" })).toBeVisible();
+    await expect(kitchen.getByRole("link", { name: "Back Office" })).toBeVisible();
+
     await page.goto("/pos?debug=1");
     await expect(page.locator("#sync-debug")).toBeVisible();
   } finally {
@@ -115,10 +129,10 @@ test("two POS browser contexts race for the final portion and only one creates a
     await Promise.all([expect(firstSubmit).toBeVisible(), expect(secondSubmit).toBeVisible()]);
     await Promise.all([expect(firstSubmit).toBeEnabled(), expect(secondSubmit).toBeEnabled()]);
     await Promise.all([firstSubmit.dispatchEvent("click"), secondSubmit.dispatchEvent("click")]);
-    await expect.poll(async () => [await first.locator("#notice").textContent(), await second.locator("#notice").textContent()]).toEqual(expect.arrayContaining([expect.stringContaining("RACEUI-001"), expect.stringContaining("數量不足")]));
+    await expect.poll(async () => [await first.locator("#notice").textContent(), await second.locator("#notice").textContent()]).toEqual(expect.arrayContaining([expect.stringContaining("RACEUI-001"), expect.stringContaining("商品已售完或剩餘數量不足")]));
     const notices = [await first.locator("#notice").textContent(), await second.locator("#notice").textContent()];
     const failedPage = notices[0]?.includes("RACEUI-001") ? second : first;
-    await expect(failedPage.locator("#notice")).toContainText("數量不足");
+    await expect(failedPage.locator("#notice")).toContainText("商品已售完或剩餘數量不足");
     await failedPage.locator("[data-dismiss-notice]").click();
     await expect(failedPage.locator("#notice")).toBeEmpty();
     const products = await api(page, `/api/events/current/products`);

@@ -14,5 +14,6 @@
 | Phase 1C.2-R | Complete, awaiting acceptance | 2026-07-20 | ADR-014 state separation recovery, idempotent data recovery migration, no-show cancellation reason, unified Event Close, and compatibility gate; DECISIONS #010 |
 | 2026-07-26 Shadow Run MVP | Complete, unmerged, awaiting acceptance | 2026-07-20 | Central SQLite POS/Kitchen synchronization, SSE refresh, production-only Kitchen, and minimal closeout reconciliation; DECISIONS #013 |
 | 2026-07-26 External Shadow Run | Prepared, unmerged, externally blocked | 2026-07-20 | Protected temporary ngrok access, same-origin SSE validation, connectivity state, and external-device instructions; blocked because Legacy owns the only current ngrok endpoint; DECISIONS #014 |
+| Front / Back Office information architecture | Complete, awaiting acceptance | 2026-07-22 | `/pos` staff ordering only, `/kitchen` production surface, Back Office Catalog/Event/Statistics/Health/share links, and device acceptance checklist; DECISIONS #035 |
 
 No future phase starts automatically. A new phase, scope expansion, or contract change requires explicit Architecture Owner approval before implementation begins.

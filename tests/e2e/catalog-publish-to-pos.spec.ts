@@ -1,8 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
-async function createCategory(page: Page, code: string, displayName: string, active = true) {
+async function createCategory(page: Page, displayName: string, active = true) {
   await page.goto("/admin");
-  await page.locator("#category-code").fill(code);
   await page.locator("#category-name").fill(displayName);
   await page.locator("#category-sort").fill("10");
   await page.locator("#category-active").selectOption(String(active));
@@ -26,7 +25,7 @@ async function publish(page: Page) { await page.locator("#publish").click(); }
 test.describe.configure({ mode: "serial" });
 
 test("Admin publication flows through Event inventory to the POS short-name display", async ({ page, browser }) => {
-  await createCategory(page, "bento-e2e", "Bento");
+  await createCategory(page, "Bento");
   await createDraft(page, { internalName: "Braised rice", categoryName: "Bento", displayName: "Braised rice", posName: "Rice", price: "180", channels: ["pos"] });
   await publish(page);
   await expect(page.locator("#products")).toContainText("v1");
@@ -65,7 +64,7 @@ test("Admin publication flows through Event inventory to the POS short-name disp
 });
 
 test("Catalog Admin keeps the selected product, draft, and published version in sync", async ({ page }) => {
-  await createCategory(page, "catalog-sync", "Catalog Sync");
+  await createCategory(page, "Catalog Sync");
   await expect(page.locator("#product-id")).toHaveValue("");
   await page.locator("#internal-name").fill("Sync meal");
   await page.locator("#product-category").selectOption({ label: "Catalog Sync" });
@@ -100,14 +99,14 @@ test("Catalog Admin keeps the selected product, draft, and published version in 
 });
 
 test("publish rejects a draft without POS short name", async ({ page }) => {
-  await createCategory(page, "missing-pos", "Missing POS");
+  await createCategory(page, "Missing POS");
   await createDraft(page, { internalName: "No short name", categoryName: "Missing POS", displayName: "No short name", price: "180", channels: ["pos"] });
   await publish(page);
   await expect(page.locator("#notice")).toContainText("posName is required");
 });
 
 test("publish rejects a draft without a price or enabled channel", async ({ page }) => {
-  await createCategory(page, "missing-price", "Missing price");
+  await createCategory(page, "Missing price");
   await createDraft(page, { internalName: "No price", categoryName: "Missing price", displayName: "No price", posName: "NoPrice", channels: ["pos"] });
   await publish(page);
   await expect(page.locator("#notice")).toContainText("sellingPrice must be a non-negative integer");
@@ -117,9 +116,9 @@ test("publish rejects a draft without a price or enabled channel", async ({ page
 });
 
 test("inactive categories and kiosk-only products stay out of POS", async ({ page }) => {
-  await createCategory(page, "inactive-cat", "Inactive", false);
+  await createCategory(page, "Inactive", false);
   await expect(page.locator("#product-category")).not.toContainText("Inactive");
-  await createCategory(page, "kiosk-cat", "Kiosk");
+  await createCategory(page, "Kiosk");
   await createDraft(page, { internalName: "Kiosk item", categoryName: "Kiosk", displayName: "Kiosk item", posName: "Kiosk", price: "130", channels: ["kiosk"] });
   await publish(page);
   await page.goto("/pos");

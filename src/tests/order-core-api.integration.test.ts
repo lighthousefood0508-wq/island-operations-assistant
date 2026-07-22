@@ -24,7 +24,7 @@ async function setup(quantity = 2) {
   const server = createRosServer({ host: "127.0.0.1", port: 0, databasePath });
   server.listen(0, "127.0.0.1"); await once(server, "listening");
   const address = server.address(); assert.ok(address && typeof address !== "string"); const baseUrl = `http://127.0.0.1:${address.port}`;
-  const category = await request(baseUrl, "/api/admin/categories", "POST", { code: "rice", displayName: "Rice", sortOrder: 1 });
+  const category = await request(baseUrl, "/api/admin/categories", "POST", { displayName: "Rice", sortOrder: 1 });
   const product = await request(baseUrl, "/api/admin/products", "POST", { internalName: "Braised Rice", categoryId: category.body.data.categoryId, displayName: "Braised Rice", posName: "Rice", sellingPrice: 180, channels: ["pos"] });
   const published = await request(baseUrl, `/api/admin/products/${product.body.data.productId}/publish`, "POST", {});
   const event = await request(baseUrl, "/api/admin/events", "POST", { eventCode: "YONG", displayName: "Night market", date: "2026-07-20", startTime: "17:00", endTime: "22:00" });

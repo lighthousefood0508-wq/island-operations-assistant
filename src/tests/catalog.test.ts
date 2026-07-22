@@ -23,18 +23,62 @@ test("Database Adapter rolls back a failed transaction", () => {
   database.close();
 });
 
-test("Catalog creates valid categories and rejects duplicate codes", () => {
+test("Catalog generates stable category codes and rejects caller-provided codes", () => {
   const { database, service } = createCatalogFixture();
-  const category = service.createCategory({ code: "rice", displayName: "飯類", sortOrder: 2 });
+  const category = service.createCategory({ displayName: "飯類", sortOrder: 2 });
   assert.match(category.categoryId, /^cat_/);
-  assert.equal(category.code, "rice");
-  assert.throws(() => service.createCategory({ code: "rice", displayName: "重複" }), (error) => error instanceof HttpError && error.code === "category_code_conflict");
+  assert.equal(category.code, "cat-0001");
+  const second = service.createCategory({ displayName: "小菜", sortOrder: 3 });
+  assert.equal(second.code, "cat-0002");
+  assert.throws(() => service.createCategory({ code: "manual", displayName: "手動代碼" } as never), (error) => error instanceof HttpError && error.code === "validation_error");
+  database.close();
+});
+
+test("Catalog keeps legacy category codes and generates only from cat-number codes", () => {
+  const { database, service } = createCatalogFixture();
+  const timestamp = new Date().toISOString();
+  database.execute("INSERT INTO catalog_categories (category_id, code, display_name, sort_order, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)", ["cat_legacy", "bento", "荒島飯盒", 1, 1, timestamp, timestamp]);
+  database.execute("INSERT INTO catalog_categories (category_id, code, display_name, sort_order, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)", ["cat_numbered", "cat-0007", "流水分類", 2, 1, timestamp, timestamp]);
+  const category = service.createCategory({ displayName: "新分類" });
+  assert.equal(category.code, "cat-0008");
+  assert.equal(service.listCategories().find((item) => item.categoryId === "cat_legacy")?.code, "bento");
+  database.close();
+});
+
+test("Catalog category code is immutable after creation", () => {
+  const { database, service } = createCatalogFixture();
+  const category = service.createCategory({ displayName: "飯類", sortOrder: 2 });
+  const updated = service.updateCategory(category.categoryId, { displayName: "飯盒", sortOrder: 5, isActive: false });
+  assert.equal(updated.categoryId, category.categoryId);
+  assert.equal(updated.code, category.code);
+  assert.equal(updated.displayName, "飯盒");
+  assert.equal(updated.sortOrder, 5);
+  assert.equal(updated.isActive, false);
+  assert.throws(() => service.updateCategory(category.categoryId, { code: "cat-9999" } as never), (error) => error instanceof HttpError && error.code === "validation_error");
+  assert.throws(() => service.updateCategory(category.categoryId, { categoryId: "other" } as never), (error) => error instanceof HttpError && error.code === "validation_error");
+  assert.equal(service.getPublishedProducts().length, 0);
+  database.close();
+});
+
+test("Catalog category code generation stops at cat-9999", () => {
+  const { database, service } = createCatalogFixture();
+  const timestamp = new Date().toISOString();
+  database.execute("INSERT INTO catalog_categories (category_id, code, display_name, sort_order, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)", ["cat_full", "cat-9999", "最後分類", 1, 1, timestamp, timestamp]);
+  assert.throws(() => service.createCategory({ displayName: "超過上限" }), (error) => error instanceof HttpError && error.code === "category_code_exhausted");
+  database.close();
+});
+
+test("Catalog category code unique index remains the final protection", () => {
+  const { database, service } = createCatalogFixture();
+  const category = service.createCategory({ displayName: "飯類" });
+  const timestamp = new Date().toISOString();
+  assert.throws(() => database.execute("INSERT INTO catalog_categories (category_id, code, display_name, sort_order, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)", ["cat_duplicate", category.code, "重複", 1, 1, timestamp, timestamp]));
   database.close();
 });
 
 test("Catalog creates a draft and requires complete fields before publishing", () => {
   const { database, service } = createCatalogFixture();
-  const category = service.createCategory({ code: "rice", displayName: "飯類" });
+  const category = service.createCategory({ displayName: "飯類" });
   const product = service.createProduct({ internalName: "燉肉飯", categoryId: category.categoryId });
   assert.equal(product.status, "draft");
   assert.throws(() => service.publishProduct(product.productId));
@@ -43,7 +87,7 @@ test("Catalog creates a draft and requires complete fields before publishing", (
 
 test("Publishing creates immutable versions and valid Product Contracts", () => {
   const { database, service } = createCatalogFixture();
-  const category = service.createCategory({ code: "rice", displayName: "飯類" });
+  const category = service.createCategory({ displayName: "飯類" });
   const product = service.createProduct({ internalName: "燉肉飯", categoryId: category.categoryId, displayName: "燉肉飯", posName: "燉肉", sellingPrice: 120, channels: ["pos", "preorder"] });
   const first = service.publishProduct(product.productId);
   assert.equal(first.version.versionNumber, 1);
@@ -57,7 +101,7 @@ test("Publishing creates immutable versions and valid Product Contracts", () => 
 
 test("Published Product Contract filters channels for POS", () => {
   const { database, service } = createCatalogFixture();
-  const category = service.createCategory({ code: "rice", displayName: "飯類" });
+  const category = service.createCategory({ displayName: "飯類" });
   const posProduct = service.createProduct({ internalName: "POS 商品", categoryId: category.categoryId, displayName: "POS 商品", posName: "POS", sellingPrice: 100, channels: ["pos"] });
   const preorderProduct = service.createProduct({ internalName: "預訂商品", categoryId: category.categoryId, displayName: "預訂商品", posName: "預訂", sellingPrice: 110, channels: ["preorder"] });
   service.publishProduct(posProduct.productId);

@@ -12,7 +12,7 @@ async function request(baseUrl: string, pathName: string, method = "GET", body?:
 async function setup(quantity = 2) {
   const server = createRosServer({ host: "127.0.0.1", port: 0, databasePath: path.resolve("data", `lifecycle-${randomUUID()}.sqlite`) }); server.listen(0, "127.0.0.1"); await once(server, "listening");
   const address = server.address(); assert.ok(address && typeof address !== "string"); const baseUrl = `http://127.0.0.1:${address.port}`;
-  const category = await request(baseUrl, "/api/admin/categories", "POST", { code: "meal", displayName: "Meal", sortOrder: 1 });
+  const category = await request(baseUrl, "/api/admin/categories", "POST", { displayName: "Meal", sortOrder: 1 });
   const product = await request(baseUrl, "/api/admin/products", "POST", { internalName: "Meal", categoryId: category.body.data.categoryId, displayName: "Meal", posName: "Meal", sellingPrice: 100, channels: ["pos"] });
   const published = await request(baseUrl, `/api/admin/products/${product.body.data.productId}/publish`, "POST", {});
   const event = await request(baseUrl, "/api/admin/events", "POST", { eventCode: "LIFE", displayName: "Lifecycle", date: "2026-07-20", startTime: "17:00", endTime: "22:00" });

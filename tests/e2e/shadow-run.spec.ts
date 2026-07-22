@@ -26,7 +26,7 @@ test("shadow run syncs POS A, POS B, Kitchen, inventory, and closeout through ce
   let eventOpened = false;
 
   try {
-    const category = await api(setup, "/api/admin/categories", "POST", { code: "shadow", displayName: "Shadow", sortOrder: 1 });
+    const category = await api(setup, "/api/admin/categories", "POST", { displayName: "Shadow", sortOrder: 1 });
     const product = await api(setup, "/api/admin/products", "POST", { internalName: "Shadow Meal", categoryId: category.body.data.categoryId, displayName: "Shadow Meal", posName: "Shadow", sellingPrice: 100, channels: ["pos"] });
     const published = await api(setup, `/api/admin/products/${product.body.data.productId}/publish`, "POST", {});
     const event = await api(setup, "/api/admin/events", "POST", { eventCode, displayName: "Shadow Run", date: "2026-07-26", startTime: "17:00", endTime: "22:00" });

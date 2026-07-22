@@ -25,7 +25,7 @@ test("realtime clients refresh central state after order and Kitchen changes wit
   let eventOpened = false;
 
   try {
-    const category = await api(setup, "/api/admin/categories", "POST", { code: "realtime", displayName: "Realtime", sortOrder: 1 });
+    const category = await api(setup, "/api/admin/categories", "POST", { displayName: "Realtime", sortOrder: 1 });
     const product = await api(setup, "/api/admin/products", "POST", { internalName: "Realtime Meal", categoryId: category.body.data.categoryId, displayName: "Realtime Meal", posName: "Realtime", sellingPrice: 120, channels: ["pos"] });
     const published = await api(setup, `/api/admin/products/${product.body.data.productId}/publish`, "POST", {});
     const event = await api(setup, "/api/admin/events", "POST", { eventCode: "SYNC", displayName: "Sync Run", date: "2026-07-26", startTime: "17:00", endTime: "22:00" });

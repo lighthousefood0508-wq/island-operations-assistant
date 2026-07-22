@@ -13,7 +13,7 @@ async function addProduct(page: Page, categoryId: string, input: { name: string;
 }
 
 async function setupOpenEvent(page: Page, eventCode: string, products: readonly { name: string; posName: string; price: number; quantity: number }[]) {
-  const category = await api(page, "/api/admin/categories", "POST", { code: `cat-${eventCode.toLowerCase()}`, displayName: "Meals", sortOrder: 1 });
+  const category = await api(page, "/api/admin/categories", "POST", { displayName: "Meals", sortOrder: 1 });
   const contracts = [];
   for (const product of products) contracts.push(await addProduct(page, category.body.data.categoryId, product));
   const event = await api(page, "/api/admin/events", "POST", { eventCode, displayName: `${eventCode} market`, date: "2026-07-20", startTime: "17:00", endTime: "22:00" });

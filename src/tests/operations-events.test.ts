@@ -19,9 +19,11 @@ test("an event opens with sellable inventory and exposes remaining product snaps
   const event = service.createEvent({ eventCode: "20260720-night", displayName: "7/20 晚場", date: "2026-07-20", startTime: "17:00", endTime: "22:00" });
   const inventory = service.setSellableInventory(event.eventId, product, { plannedQuantity: 20 });
   assert.equal(inventory.remainingQuantity, 20);
+  assert.equal(inventory.safetyBufferQuantity, 0);
+  assert.equal(inventory.customerAvailableQuantity, 20);
   const opened = service.openEvent(event.eventId);
   assert.equal(opened.status, "open");
-  assert.deepEqual(service.getCurrentProducts(), [{ ...product, remainingQuantity: 20 }]);
+  assert.deepEqual(service.getCurrentProducts(), [{ ...product, remainingQuantity: 20, safetyBufferQuantity: 0, customerAvailableQuantity: 20 }]);
   assert.equal(service.closeEvent(event.eventId).status, "closed");
   assert.deepEqual(service.getCurrentProducts(), []);
   database.close();
@@ -33,7 +35,7 @@ test("an OPEN Event retains an active published product snapshot when it is sold
   service.setSellableInventory(event.eventId, product, { plannedQuantity: 1 });
   service.setSellableInventory(event.eventId, { ...product, productId: "prod_sold", productVersionId: "pver_sold", displayName: "售完商品", posName: "售完" }, { plannedQuantity: 0 });
   service.openEvent(event.eventId);
-  assert.deepEqual(service.getCurrentProducts().map((item) => ({ productId: item.productId, remainingQuantity: item.remainingQuantity })), [{ productId: "prod_sold", remainingQuantity: 0 }, { productId: "prod_1", remainingQuantity: 1 }]);
+  assert.deepEqual(service.getCurrentProducts().map((item) => ({ productId: item.productId, remainingQuantity: item.remainingQuantity, customerAvailableQuantity: item.customerAvailableQuantity })), [{ productId: "prod_sold", remainingQuantity: 0, customerAvailableQuantity: 0 }, { productId: "prod_1", remainingQuantity: 1, customerAvailableQuantity: 1 }]);
   database.close();
 });
 

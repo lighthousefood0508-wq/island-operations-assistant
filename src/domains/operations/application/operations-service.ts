@@ -1,12 +1,12 @@
 import { parseProductContract, type ProductContractV2 } from "../../../shared/contracts/product-contract.js";
 import { HttpError } from "../../../shared/errors/http-error.js";
 import { createId } from "../../../shared/utils/ids.js";
-import { EVENT_STATUSES, type EventProduct, type EventStatus, type OperationsEvent, type SellableInventory } from "../domain/types.js";
+import { EVENT_STATUSES, type EventProduct, type EventStatus, type OperationsEvent, type SellableInventory, type SellableInventoryView } from "../domain/types.js";
 import { OperationsRepository } from "../infrastructure/operations-repository.js";
 
 export type CreateEventInput = Readonly<{ eventCode: string; displayName: string; date: string; startTime: string; endTime: string }>;
 export type UpdateEventInput = Readonly<Partial<CreateEventInput>>;
-export type SetSellableInventoryInput = Readonly<{ plannedQuantity: number }>;
+export type SetSellableInventoryInput = Readonly<{ plannedQuantity: number; safetyBufferQuantity?: number }>;
 
 function now(): string { return new Date().toISOString(); }
 function requiredText(value: unknown, field: string): string {
@@ -27,13 +27,19 @@ function quantity(value: unknown): number {
   if (!Number.isSafeInteger(value) || (value as number) < 0) throw new HttpError(422, "validation_error", "plannedQuantity must be a non-negative integer.", { field: "plannedQuantity" });
   return value as number;
 }
+function safetyBuffer(value: unknown, plannedQuantity: number): number {
+  const quantityValue = value === undefined ? 0 : value;
+  if (!Number.isSafeInteger(quantityValue) || (quantityValue as number) < 0) throw new HttpError(422, "validation_error", "safetyBufferQuantity must be a non-negative integer.", { field: "safetyBufferQuantity" });
+  if ((quantityValue as number) > plannedQuantity) throw new HttpError(422, "validation_error", "safetyBufferQuantity cannot exceed plannedQuantity.", { field: "safetyBufferQuantity" });
+  return quantityValue as number;
+}
 
 export class OperationsService {
   constructor(private readonly repository: OperationsRepository) {}
   listEvents(): OperationsEvent[] { return this.repository.listEvents(); }
   getCurrentEvent(): OperationsEvent | null { return this.repository.findOpenEvent() ?? null; }
   getCurrentProducts(): EventProduct[] { const event = this.getCurrentEvent(); return event ? this.repository.listCurrentProducts(event.eventId) : []; }
-  getInventory(eventId: string): SellableInventory[] { this.requireEvent(eventId); return this.repository.listInventory(eventId); }
+  getInventory(eventId: string): SellableInventoryView[] { this.requireEvent(eventId); return this.repository.listInventory(eventId); }
 
   createEvent(input: CreateEventInput): OperationsEvent {
     const timestamp = now();
@@ -48,15 +54,17 @@ export class OperationsService {
     this.repository.transaction(() => this.repository.updateEvent(event));
     return event;
   }
-  setSellableInventory(eventId: string, contractInput: unknown, input: SetSellableInventoryInput): SellableInventory {
+  setSellableInventory(eventId: string, contractInput: unknown, input: SetSellableInventoryInput): SellableInventoryView {
     const event = this.requireEvent(eventId);
     if (event.status !== "draft") throw new HttpError(422, "event_not_draft", "Sellable inventory can only be changed while an event is draft.");
     const contract = parseProductContract(contractInput);
     if (!contract.isActive) throw new HttpError(422, "product_inactive", "Only active published products can be made sellable.");
     const timestamp = now();
-    const inventory: SellableInventory = { eventId, productId: contract.productId, productVersionId: contract.productVersionId, plannedQuantity: quantity(input.plannedQuantity), reservedQuantity: 0, soldQuantity: 0, remainingQuantity: quantity(input.plannedQuantity), createdAt: timestamp, updatedAt: timestamp };
+    const plannedQuantity = quantity(input.plannedQuantity);
+    const safetyBufferQuantity = safetyBuffer(input.safetyBufferQuantity, plannedQuantity);
+    const inventory: SellableInventory = { eventId, productId: contract.productId, productVersionId: contract.productVersionId, plannedQuantity, reservedQuantity: 0, soldQuantity: 0, safetyBufferQuantity, remainingQuantity: plannedQuantity, customerAvailableQuantity: Math.max(0, plannedQuantity - safetyBufferQuantity), createdAt: timestamp, updatedAt: timestamp };
     this.repository.transaction(() => { this.repository.upsertProductCopy(contract, timestamp); this.repository.setInventory(inventory); });
-    return this.repository.listInventory(eventId).find((item) => item.productVersionId === contract.productVersionId) as SellableInventory;
+    return this.repository.listInventory(eventId).find((item) => item.productVersionId === contract.productVersionId) as SellableInventoryView;
   }
   openEvent(eventId: string): OperationsEvent { return this.transition(eventId, "draft", "open", () => { if (!this.repository.hasPositiveInventory(eventId)) throw new HttpError(422, "sellable_inventory_required", "Add at least one sellable product before opening the event."); }); }
   closeEvent(eventId: string): OperationsEvent { return this.transition(eventId, "open", "closed"); }

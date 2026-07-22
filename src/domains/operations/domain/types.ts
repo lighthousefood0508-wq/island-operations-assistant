@@ -22,13 +22,16 @@ export type SellableInventory = Readonly<{
   plannedQuantity: number;
   reservedQuantity: number;
   soldQuantity: number;
+  safetyBufferQuantity: number;
   remainingQuantity: number;
+  customerAvailableQuantity: number;
   createdAt: string;
   updatedAt: string;
 }>;
 
 export type OperationsProductCopy = Readonly<ProductContractV2>;
-export type EventProduct = Readonly<ProductContractV2 & { remainingQuantity: number }>;
+export type EventProduct = Readonly<ProductContractV2 & { remainingQuantity: number; safetyBufferQuantity: number; customerAvailableQuantity: number }>;
+export type SellableInventoryView = Readonly<SellableInventory & Partial<ProductContractV2>>;
 
 export type PosOrderItemInput = Readonly<{
   productId: string;

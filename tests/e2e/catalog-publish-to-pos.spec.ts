@@ -43,7 +43,10 @@ test("Admin publication flows through Event inventory to the POS short-name disp
   await page.locator("#inventory-product").selectOption({ index: 1 });
   await page.locator("#planned-quantity").fill("20");
   await page.locator("#inventory-form button[type=submit]").click();
+  const openResponsePromise = page.waitForResponse(response => response.url().includes("/api/admin/events/") && response.url().endsWith("/open") && response.request().method() === "POST");
   await page.locator("#open-event").click();
+  const openResponse = await openResponsePromise;
+  expect(openResponse.ok()).toBeTruthy();
 
   await page.goto("/pos");
   await expect(page.locator("#products")).toContainText("Rice");

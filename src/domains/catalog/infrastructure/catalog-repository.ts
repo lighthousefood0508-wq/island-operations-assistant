@@ -23,6 +23,7 @@ export class CatalogRepository {
   constructor(private readonly database: DatabaseAdapter) {}
 
   transaction<T>(work: () => T): T { return this.database.transaction(work); }
+  transactionImmediate<T>(work: () => T): T { return this.database.transactionImmediate(work); }
 
   listCategories(): Category[] {
     return this.database.queryMany<CategoryRow>("SELECT category_id, code, display_name, sort_order, is_active, created_at, updated_at FROM catalog_categories ORDER BY sort_order, display_name").map(mapCategory);
@@ -38,12 +39,19 @@ export class CatalogRepository {
     return row ? mapCategory(row) : undefined;
   }
 
+  nextGeneratedCategoryCodeNumber(): number {
+    const row = this.database.queryOne<{ next_number: number }>(
+      "SELECT COALESCE(MAX(CAST(SUBSTR(code, 5) AS INTEGER)), 0) + 1 AS next_number FROM catalog_categories WHERE code GLOB 'cat-[0-9][0-9][0-9][0-9]'"
+    );
+    return row?.next_number ?? 1;
+  }
+
   insertCategory(category: Category): void {
     this.database.execute("INSERT INTO catalog_categories (category_id, code, display_name, sort_order, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)", [category.categoryId, category.code, category.displayName, category.sortOrder, category.isActive ? 1 : 0, category.createdAt, category.updatedAt]);
   }
 
   updateCategory(category: Category): void {
-    this.database.execute("UPDATE catalog_categories SET code = ?, display_name = ?, sort_order = ?, is_active = ?, updated_at = ? WHERE category_id = ?", [category.code, category.displayName, category.sortOrder, category.isActive ? 1 : 0, category.updatedAt, category.categoryId]);
+    this.database.execute("UPDATE catalog_categories SET display_name = ?, sort_order = ?, is_active = ?, updated_at = ? WHERE category_id = ?", [category.displayName, category.sortOrder, category.isActive ? 1 : 0, category.updatedAt, category.categoryId]);
   }
 
   insertProduct(product: Omit<CatalogProduct, "versions">): void {

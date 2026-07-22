@@ -4,7 +4,7 @@ import { createId } from "../../../shared/utils/ids.js";
 import { CATALOG_CHANNELS, type CatalogChannel, type CatalogProduct, type Category, type ProductDraft, type ProductStatus, type ProductVersion } from "../domain/types.js";
 import { CatalogRepository } from "../infrastructure/catalog-repository.js";
 
-export type CreateCategoryInput = Readonly<{ code: string; displayName: string; sortOrder?: number; isActive?: boolean }>;
+export type CreateCategoryInput = Readonly<{ displayName: string; sortOrder?: number; isActive?: boolean }>;
 export type UpdateCategoryInput = Readonly<Partial<CreateCategoryInput>>;
 export type CreateProductInput = Readonly<{
   internalName: string;
@@ -39,6 +39,11 @@ function requireBoolean(value: unknown, field: string): boolean {
   if (typeof value !== "boolean") throw new HttpError(422, "validation_error", `${field} must be a boolean.`, { field });
   return value;
 }
+function rejectUnexpectedKeys(input: Record<string, unknown>, allowed: readonly string[]): void {
+  for (const key of Object.keys(input)) {
+    if (!allowed.includes(key)) throw new HttpError(422, "validation_error", `${key} is not allowed.`, { field: key });
+  }
+}
 function draftText(value: unknown, field: string): string | null {
   if (typeof value !== "string") throw new HttpError(422, "validation_error", `${field} must be a string.`, { field });
   const normalized = value.trim();
@@ -68,22 +73,25 @@ export class CatalogService {
 
   createCategory(input: CreateCategoryInput): Category {
     const timestamp = now();
-    const code = requireText(input.code, "code").toLowerCase();
-    if (!/^[a-z0-9_-]+$/.test(code)) throw new HttpError(422, "validation_error", "code may contain lowercase letters, numbers, underscores, and hyphens only.", { field: "code" });
-    if (this.repository.findCategoryByCode(code)) throw new HttpError(409, "category_code_conflict", "Category code already exists.", { field: "code" });
-    const category: Category = { categoryId: createId("cat_"), code, displayName: requireText(input.displayName, "displayName"), sortOrder: input.sortOrder === undefined ? 0 : requireNonNegativeInteger(input.sortOrder, "sortOrder"), isActive: input.isActive === undefined ? true : requireBoolean(input.isActive, "isActive"), createdAt: timestamp, updatedAt: timestamp };
-    this.repository.transaction(() => { this.repository.insertCategory(category); this.audit("category", category.categoryId, "category.created", category); });
-    return category;
+    rejectUnexpectedKeys(input as Record<string, unknown>, ["displayName", "sortOrder", "isActive"]);
+    const base: Omit<Category, "categoryId" | "code"> = { displayName: requireText(input.displayName, "displayName"), sortOrder: input.sortOrder === undefined ? 0 : requireNonNegativeInteger(input.sortOrder, "sortOrder"), isActive: input.isActive === undefined ? true : requireBoolean(input.isActive, "isActive"), createdAt: timestamp, updatedAt: timestamp };
+    return this.repository.transactionImmediate(() => {
+      const nextNumber = this.repository.nextGeneratedCategoryCodeNumber();
+      if (nextNumber > 9999) throw new HttpError(409, "category_code_exhausted", "Category code sequence has reached cat-9999.");
+      const code = `cat-${String(nextNumber).padStart(4, "0")}`;
+      if (this.repository.findCategoryByCode(code)) throw new HttpError(409, "category_code_conflict", "Category code already exists.", { field: "code" });
+      const category: Category = { categoryId: createId("cat_"), code, ...base };
+      this.repository.insertCategory(category);
+      this.audit("category", category.categoryId, "category.created", category);
+      return category;
+    });
   }
 
   updateCategory(categoryId: string, input: UpdateCategoryInput): Category {
+    rejectUnexpectedKeys(input as Record<string, unknown>, ["displayName", "sortOrder", "isActive"]);
     const existing = this.repository.findCategory(categoryId);
     if (!existing) throw new HttpError(404, "category_not_found", "Category was not found.");
-    const code = input.code === undefined ? existing.code : requireText(input.code, "code").toLowerCase();
-    if (!/^[a-z0-9_-]+$/.test(code)) throw new HttpError(422, "validation_error", "code may contain lowercase letters, numbers, underscores, and hyphens only.", { field: "code" });
-    const codeOwner = this.repository.findCategoryByCode(code);
-    if (codeOwner && codeOwner.categoryId !== categoryId) throw new HttpError(409, "category_code_conflict", "Category code already exists.", { field: "code" });
-    const category: Category = { ...existing, code, displayName: input.displayName === undefined ? existing.displayName : requireText(input.displayName, "displayName"), sortOrder: input.sortOrder === undefined ? existing.sortOrder : requireNonNegativeInteger(input.sortOrder, "sortOrder"), isActive: input.isActive === undefined ? existing.isActive : requireBoolean(input.isActive, "isActive"), updatedAt: now() };
+    const category: Category = { ...existing, displayName: input.displayName === undefined ? existing.displayName : requireText(input.displayName, "displayName"), sortOrder: input.sortOrder === undefined ? existing.sortOrder : requireNonNegativeInteger(input.sortOrder, "sortOrder"), isActive: input.isActive === undefined ? existing.isActive : requireBoolean(input.isActive, "isActive"), updatedAt: now() };
     this.repository.transaction(() => { this.repository.updateCategory(category); this.audit("category", category.categoryId, "category.updated", category); });
     return category;
   }

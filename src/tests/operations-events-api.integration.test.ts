@@ -58,3 +58,22 @@ test("OPEN Event keeps its Product Contract v2 snapshot after Catalog republishe
   assert.equal(liveSecondEvent.body.data[0].productVersionId, secondPublish.body.data.contract.productVersionId);
   server.close(); await once(server, "close");
 });
+
+test("events can omit eventCode and receive a same-day sequence", async () => {
+  const server = createRosServer({ host: "127.0.0.1", port: 0, databasePath: path.resolve("data", `operations-event-code-${randomUUID()}.sqlite`) });
+  server.listen(0, "127.0.0.1"); await once(server, "listening");
+  const address = server.address(); assert.ok(address && typeof address !== "string"); const baseUrl = `http://127.0.0.1:${address.port}`;
+  try {
+    const first = await request(baseUrl, "/api/admin/events", "POST", { displayName: "Lunch", date: "2026-07-26", startTime: "11:00", endTime: "14:00" });
+    const second = await request(baseUrl, "/api/admin/events", "POST", { displayName: "Dinner", date: "2026-07-26", startTime: "17:00", endTime: "21:00" });
+    const otherDate = await request(baseUrl, "/api/admin/events", "POST", { displayName: "Next Day", date: "2026-07-27", startTime: "11:00", endTime: "14:00" });
+    assert.equal(first.status, 201);
+    assert.equal(second.status, 201);
+    assert.equal(otherDate.status, 201);
+    assert.equal(first.body.data.eventCode, "20260726-01");
+    assert.equal(second.body.data.eventCode, "20260726-02");
+    assert.equal(otherDate.body.data.eventCode, "20260727-01");
+  } finally {
+    server.close(); await once(server, "close");
+  }
+});

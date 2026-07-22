@@ -17,9 +17,17 @@ function mapInventory(row: InventoryRow): SellableInventory {
 export class OperationsRepository {
   constructor(private readonly database: DatabaseAdapter) {}
   transaction<T>(work: () => T): T { return this.database.transaction(work); }
+  transactionImmediate<T>(work: () => T): T { return this.database.transactionImmediate(work); }
 
   listEvents(): OperationsEvent[] {
     return this.database.queryMany<EventRow>("SELECT event_id, event_code, display_name, date, start_time, end_time, status, created_at, updated_at FROM operations_events WHERE event_code IS NOT NULL ORDER BY date DESC, start_time DESC").map(mapEvent);
+  }
+  listEventCodesByDate(date: string): string[] {
+    return this.database.queryMany<{ event_code: string }>("SELECT event_code FROM operations_events WHERE date = ? AND event_code IS NOT NULL ORDER BY event_code", [date]).map((row) => row.event_code);
+  }
+  findEventByCode(eventCode: string): OperationsEvent | undefined {
+    const row = this.database.queryOne<EventRow>("SELECT event_id, event_code, display_name, date, start_time, end_time, status, created_at, updated_at FROM operations_events WHERE event_code = ?", [eventCode]);
+    return row ? mapEvent(row) : undefined;
   }
   findEvent(eventId: string): OperationsEvent | undefined {
     const row = this.database.queryOne<EventRow>("SELECT event_id, event_code, display_name, date, start_time, end_time, status, created_at, updated_at FROM operations_events WHERE event_id = ?", [eventId]);

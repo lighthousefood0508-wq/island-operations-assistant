@@ -1,5 +1,5 @@
 type SystemArea = "pos" | "kitchen" | "admin";
-type BackOfficeArea = "catalog" | "events" | "statistics" | "health" | "devices";
+type BackOfficeArea = "events" | "catalog" | "statistics" | "analysis" | "health" | "devices";
 
 const systemItems: readonly { key: SystemArea; href: string; label: string }[] = [
   { key: "pos", href: "/pos", label: "POS 點餐" },
@@ -8,9 +8,10 @@ const systemItems: readonly { key: SystemArea; href: string; label: string }[] =
 ];
 
 const backOfficeItems: readonly { key: BackOfficeArea; href: string; label: string }[] = [
-  { key: "catalog", href: "/admin", label: "商品目錄" },
-  { key: "events", href: "/admin/events", label: "場次與備貨" },
+  { key: "events", href: "/admin", label: "場次與備貨" },
+  { key: "catalog", href: "/admin/catalog", label: "商品目錄" },
   { key: "statistics", href: "/admin/statistics", label: "今日統計" },
+  { key: "analysis", href: "/admin/analysis", label: "場次分析" },
   { key: "health", href: "/admin/health", label: "系統狀態" },
   { key: "devices", href: "/admin/devices", label: "裝置連線" }
 ];

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function createCategory(page: Page, displayName: string, active = true) {
-  await page.goto("/admin");
+  await page.goto("/admin/catalog");
   await page.locator("#category-name").fill(displayName);
   await page.locator("#category-sort").fill("10");
   await page.locator("#category-active").selectOption(String(active));
@@ -32,8 +32,7 @@ test("Admin publication flows through Event inventory to the POS short-name disp
   const contract = (await (await page.request.get("/api/catalog/products/published?channel=pos")).json()).data[0];
   expect(contract).toMatchObject({ displayName: "Braised rice", posName: "Rice", sellingPrice: 180 });
 
-  await page.goto("/admin/events");
-  await page.locator("#event-code").fill("e2e-night");
+  await page.goto("/admin");
   await page.locator("#event-name").fill("E2E market");
   await page.locator("#event-date").fill("2026-07-20");
   await page.locator("#event-start").fill("17:00");

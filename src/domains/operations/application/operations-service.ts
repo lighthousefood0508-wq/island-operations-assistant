@@ -4,7 +4,7 @@ import { createId } from "../../../shared/utils/ids.js";
 import { EVENT_STATUSES, type EventProduct, type EventStatus, type OperationsEvent, type SellableInventory, type SellableInventoryView } from "../domain/types.js";
 import { OperationsRepository } from "../infrastructure/operations-repository.js";
 
-export type CreateEventInput = Readonly<{ eventCode: string; displayName: string; date: string; startTime: string; endTime: string }>;
+export type CreateEventInput = Readonly<{ eventCode?: string; displayName: string; date: string; startTime: string; endTime: string }>;
 export type UpdateEventInput = Readonly<Partial<CreateEventInput>>;
 export type SetSellableInventoryInput = Readonly<{ plannedQuantity: number; safetyBufferQuantity?: number }>;
 
@@ -33,6 +33,10 @@ function safetyBuffer(value: unknown, plannedQuantity: number): number {
   if ((quantityValue as number) > plannedQuantity) throw new HttpError(422, "validation_error", "safetyBufferQuantity cannot exceed plannedQuantity.", { field: "safetyBufferQuantity" });
   return quantityValue as number;
 }
+function optionalEventCode(value: unknown): string | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  return requiredText(value, "eventCode");
+}
 
 export class OperationsService {
   constructor(private readonly repository: OperationsRepository) {}
@@ -43,16 +47,30 @@ export class OperationsService {
 
   createEvent(input: CreateEventInput): OperationsEvent {
     const timestamp = now();
-    const event: OperationsEvent = { eventId: createId("event_"), eventCode: requiredText(input.eventCode, "eventCode"), displayName: requiredText(input.displayName, "displayName"), date: date(input.date), startTime: time(input.startTime, "startTime"), endTime: time(input.endTime, "endTime"), status: "draft", createdAt: timestamp, updatedAt: timestamp };
-    this.repository.transaction(() => this.repository.insertEvent(event));
-    return event;
+    const eventDate = date(input.date);
+    const suppliedEventCode = optionalEventCode(input.eventCode);
+    return this.repository.transactionImmediate(() => {
+      const eventCode = suppliedEventCode ?? this.generateEventCode(eventDate);
+      const existing = this.repository.findEventByCode(eventCode);
+      if (existing) throw new HttpError(409, "event_code_conflict", "Event code already exists.", { eventCode });
+      const event: OperationsEvent = { eventId: createId("event_"), eventCode, displayName: requiredText(input.displayName, "displayName"), date: eventDate, startTime: time(input.startTime, "startTime"), endTime: time(input.endTime, "endTime"), status: "draft", createdAt: timestamp, updatedAt: timestamp };
+      this.repository.insertEvent(event);
+      return event;
+    });
   }
   updateEvent(eventId: string, input: UpdateEventInput): OperationsEvent {
     const current = this.requireEvent(eventId);
     if (current.status === "archived") throw new HttpError(422, "event_archived", "An archived event cannot be changed.");
-    const event: OperationsEvent = { ...current, eventCode: input.eventCode === undefined ? current.eventCode : requiredText(input.eventCode, "eventCode"), displayName: input.displayName === undefined ? current.displayName : requiredText(input.displayName, "displayName"), date: input.date === undefined ? current.date : date(input.date), startTime: input.startTime === undefined ? current.startTime : time(input.startTime, "startTime"), endTime: input.endTime === undefined ? current.endTime : time(input.endTime, "endTime"), updatedAt: now() };
-    this.repository.transaction(() => this.repository.updateEvent(event));
-    return event;
+    const eventDate = input.date === undefined ? current.date : date(input.date);
+    const suppliedEventCode = optionalEventCode(input.eventCode);
+    return this.repository.transactionImmediate(() => {
+      const eventCode = suppliedEventCode ?? (eventDate === current.date ? current.eventCode : this.generateEventCode(eventDate));
+      const existing = this.repository.findEventByCode(eventCode);
+      if (existing && existing.eventId !== eventId) throw new HttpError(409, "event_code_conflict", "Event code already exists.", { eventCode });
+      const event: OperationsEvent = { ...current, eventCode, displayName: input.displayName === undefined ? current.displayName : requiredText(input.displayName, "displayName"), date: eventDate, startTime: input.startTime === undefined ? current.startTime : time(input.startTime, "startTime"), endTime: input.endTime === undefined ? current.endTime : time(input.endTime, "endTime"), updatedAt: now() };
+      this.repository.updateEvent(event);
+      return event;
+    });
   }
   setSellableInventory(eventId: string, contractInput: unknown, input: SetSellableInventoryInput): SellableInventoryView {
     const event = this.requireEvent(eventId);
@@ -88,5 +106,17 @@ export class OperationsService {
     const event = this.repository.findEvent(eventId);
     if (!event) throw new HttpError(404, "event_not_found", "Event was not found.");
     return event;
+  }
+  private generateEventCode(eventDate: string): string {
+    const prefix = eventDate.replaceAll("-", "");
+    const used = new Set<number>();
+    for (const code of this.repository.listEventCodesByDate(eventDate)) {
+      const match = new RegExp(`^${prefix}-(\\d{2})$`).exec(code);
+      if (match?.[1]) used.add(Number(match[1]));
+    }
+    for (let sequence = 1; sequence <= 99; sequence += 1) {
+      if (!used.has(sequence)) return `${prefix}-${String(sequence).padStart(2, "0")}`;
+    }
+    throw new HttpError(409, "event_code_exhausted", `No event code is available for ${eventDate}.`);
   }
 }

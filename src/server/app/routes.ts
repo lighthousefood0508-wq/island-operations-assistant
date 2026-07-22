@@ -5,7 +5,8 @@ import { CatalogService } from "../../domains/catalog/index.js";
 import { LifecycleService, OperationsService, OrderService } from "../../domains/operations/index.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { SseHub } from "../events/sse.js";
-import { renderAdmin } from "../../web/admin/page.js";
+import { renderAnalysisPlaceholder } from "../../web/analysis/page.js";
+import { renderCatalogAdmin } from "../../web/catalog/page.js";
 import { renderEventsAdmin } from "../../web/events/page.js";
 import { renderHealthDashboard } from "../../web/health/page.js";
 import { renderKitchen } from "../../web/kitchen/page.js";
@@ -80,8 +81,10 @@ async function route(request: IncomingMessage, response: ServerResponse, service
       response.once("error", () => events.disconnect(response));
       return;
     }
-    if (request.method === "GET" && pathname === "/admin") return sendHtml(response, renderAdmin());
+    if (request.method === "GET" && pathname === "/admin") return sendHtml(response, renderEventsAdmin());
     if (request.method === "GET" && pathname === "/admin/events") return sendHtml(response, renderEventsAdmin());
+    if (request.method === "GET" && pathname === "/admin/catalog") return sendHtml(response, renderCatalogAdmin());
+    if (request.method === "GET" && pathname === "/admin/analysis") return sendHtml(response, renderAnalysisPlaceholder());
     if (request.method === "GET" && pathname === "/admin/health") return sendHtml(response, renderHealthDashboard());
     if (request.method === "GET" && pathname === "/admin/devices") return sendHtml(response, renderDevicesDebug());
     if (request.method === "GET" && pathname === "/admin/statistics") return sendHtml(response, renderStatistics());

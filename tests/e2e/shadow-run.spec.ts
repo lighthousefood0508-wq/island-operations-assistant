@@ -43,6 +43,7 @@ test("shadow run syncs POS A, POS B, Kitchen, inventory, and closeout through ce
     await expect(posA.locator("#connection-status")).toContainText("Connected");
     await expect(kitchen.locator("#connection-status")).toContainText("Connected");
     await posA.locator(`[data-add="${published.body.data.contract.productId}"]`).click();
+    await posA.locator("#payment-method").selectOption("CASH");
     await posA.locator("#create-order").click();
     await expect(posA.locator("#notice")).toContainText("SHADOW-001");
     await expect(posB.locator("#orders")).toContainText("SHADOW-001");
@@ -52,7 +53,7 @@ test("shadow run syncs POS A, POS B, Kitchen, inventory, and closeout through ce
     await kitchen.locator('[data-status="ready"]').click();
     await expect(posB.locator("#orders")).toContainText("可取餐");
     await kitchen.locator('[data-status="served"]').click();
-    await expect(posA.locator("#orders")).toContainText("已出餐");
+    await expect(posA.locator("#served-orders")).toContainText("已出餐");
     await kitchen.reload();
     await expect(kitchen.locator("#ready")).toContainText("SHADOW-001");
     const raceA = api(posA, "/api/orders", "POST", { source: "pos", eventId, idempotencyKey: "race-a", items: [{ productId: published.body.data.contract.productId, productVersionId: published.body.data.contract.productVersionId, quantity: 1, notes: null }], customerName: null, notes: null });

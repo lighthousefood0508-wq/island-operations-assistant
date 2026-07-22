@@ -83,6 +83,8 @@ test("POS keeps front-office tabs, creates a central Order, and protects cart na
     await addToCart(page, contracts[1]?.productId as string);
     await page.locator(`input[data-note="${contracts[0]?.productId}"]`).fill("less sauce");
     await page.locator("#customer-name").fill("Miles");
+    await page.locator("#customer-phone-tail").fill("1234");
+    await page.locator("#payment-method").selectOption("CASH");
     await page.locator("#order-notes").fill("counter pickup");
     await expect(page.locator("#cart-items")).toContainText("Rice");
     await expect(page.locator("#cart-items")).toContainText("Shrimp");
@@ -95,11 +97,15 @@ test("POS keeps front-office tabs, creates a central Order, and protects cart na
     await expect(page.locator(`article[data-product-id="${contracts[1]?.productId}"]`)).toContainText("剩餘 3 份");
     const orders = await api(page, `/api/events/${eventId}/orders`);
     expect(orders.body.data[0]?.customerName).toBe("Miles");
+    expect(orders.body.data[0]?.customerPhoneTail).toBe("1234");
+    expect(orders.body.data[0]?.paymentMethod).toBe("CASH");
     expect(orders.body.data[0]?.notes).toBe("counter pickup");
 
     await page.getByRole("button", { name: "待出餐" }).click();
     await expect(page.locator("#orders")).toContainText("POSUI-001");
     await expect(page.locator("#orders")).toContainText("Miles");
+    await expect(page.locator("#orders")).toContainText("1234");
+    await expect(page.locator("#orders")).toContainText("現金");
     await expect(page.locator("#orders")).toContainText("訂單：confirmed");
     await expect(page.locator("#orders")).toContainText("付款：unpaid");
     await expect(page.locator("#orders")).toContainText("製作：not_started");
@@ -124,6 +130,7 @@ test("two POS browser contexts race for the final portion and only one creates a
   try {
     await Promise.all([first.goto("/pos"), second.goto("/pos")]);
     await Promise.all([addToCart(first, contracts[0]?.productId as string), addToCart(second, contracts[0]?.productId as string)]);
+    await Promise.all([first.locator("#payment-method").selectOption("CASH"), second.locator("#payment-method").selectOption("CASH")]);
     const firstSubmit = first.locator("#create-order");
     const secondSubmit = second.locator("#create-order");
     await Promise.all([expect(firstSubmit).toBeVisible(), expect(secondSubmit).toBeVisible()]);

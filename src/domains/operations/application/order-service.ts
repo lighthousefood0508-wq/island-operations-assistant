@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { HttpError } from "../../../shared/errors/http-error.js";
 import { createId } from "../../../shared/utils/ids.js";
-import type { CreatePosOrderInput, OperationsOrder, PosOrderItemInput } from "../domain/types.js";
+import type { CreatePosOrderInput, OperationsOrder, PaymentMethod, PosOrderItemInput } from "../domain/types.js";
 import { OrderRepository, type OrderProductSnapshot } from "../infrastructure/order-repository.js";
 
 type CreateOrderResult = Readonly<{ order: OperationsOrder; replayed: boolean }>;
@@ -16,6 +16,18 @@ function optionalText(value: unknown, field: string): string | null {
 function requiredText(value: unknown, field: string): string {
   const text = optionalText(value, field);
   if (!text) throw new HttpError(400, "VALIDATION_ERROR", `${field} is required.`, { field });
+  return text;
+}
+function optionalPhoneTail(value: unknown): string | null {
+  const text = optionalText(value, "customerPhoneTail");
+  if (text === null) return null;
+  if (!/^\d{4}$/.test(text)) throw new HttpError(400, "VALIDATION_ERROR", "customerPhoneTail must be exactly 4 digits.", { field: "customerPhoneTail" });
+  return text;
+}
+function optionalPaymentMethod(value: unknown): PaymentMethod | null {
+  const text = optionalText(value, "paymentMethod");
+  if (text === null) return null;
+  if (text !== "CASH" && text !== "LINE_PAY") throw new HttpError(400, "VALIDATION_ERROR", "paymentMethod must be CASH or LINE_PAY.", { field: "paymentMethod" });
   return text;
 }
 function parseItem(value: unknown): PosOrderItemInput {
@@ -33,7 +45,7 @@ function parseInput(value: unknown): CreatePosOrderInput {
   if (!Array.isArray(record.items) || record.items.length === 0) throw new HttpError(400, "VALIDATION_ERROR", "items must not be empty.", { field: "items" });
   const idempotencyKey = requiredText(record.idempotencyKey, "idempotencyKey");
   if (idempotencyKey.length > 200) throw new HttpError(400, "VALIDATION_ERROR", "idempotencyKey is too long.", { field: "idempotencyKey" });
-  return { source: "pos", eventId: requiredText(record.eventId, "eventId"), idempotencyKey, items: record.items.map(parseItem), customerName: optionalText(record.customerName, "customerName"), notes: optionalText(record.notes, "notes") };
+  return { source: "pos", eventId: requiredText(record.eventId, "eventId"), idempotencyKey, items: record.items.map(parseItem), customerName: optionalText(record.customerName, "customerName"), customerPhoneTail: optionalPhoneTail(record.customerPhoneTail), paymentMethod: optionalPaymentMethod(record.paymentMethod), notes: optionalText(record.notes, "notes") };
 }
 
 function normalizeItems(items: readonly PosOrderItemInput[]): PosOrderItemInput[] {
@@ -47,7 +59,7 @@ function normalizeItems(items: readonly PosOrderItemInput[]): PosOrderItemInput[
 }
 
 function fingerprint(input: CreatePosOrderInput, items: readonly PosOrderItemInput[]): string {
-  return createHash("sha256").update(JSON.stringify({ source: input.source, eventId: input.eventId, items, customerName: input.customerName, notes: input.notes })).digest("hex");
+  return createHash("sha256").update(JSON.stringify({ source: input.source, eventId: input.eventId, items, customerName: input.customerName, customerPhoneTail: input.customerPhoneTail, paymentMethod: input.paymentMethod, notes: input.notes })).digest("hex");
 }
 
 function requirePosChannel(snapshot: OrderProductSnapshot): void {
@@ -93,7 +105,7 @@ export class OrderService {
       const orderId = createId("order_");
       const orderNumber = `${event.event_code}-${String(this.repository.nextOrderSequence(input.eventId, timestamp)).padStart(3, "0")}`;
       const subtotal = resolved.reduce((total, entry) => total + entry.snapshot.sellingPrice * entry.item.quantity, 0);
-      this.repository.insertOrder({ orderId, eventId: input.eventId, orderNumber, idempotencyKey: input.idempotencyKey, fingerprint: requestFingerprint, customerName: input.customerName, notes: input.notes, subtotal, createdAt: timestamp });
+      this.repository.insertOrder({ orderId, eventId: input.eventId, orderNumber, idempotencyKey: input.idempotencyKey, fingerprint: requestFingerprint, customerName: input.customerName, customerPhoneTail: input.customerPhoneTail, paymentMethod: input.paymentMethod, notes: input.notes, subtotal, createdAt: timestamp });
       for (const { item, snapshot } of resolved) this.repository.insertOrderItem({ orderItemId: createId("order_item_"), orderId, item, snapshot, createdAt: timestamp });
       this.repository.insertIdempotency(input.eventId, input.idempotencyKey, requestFingerprint, orderId, timestamp);
       this.repository.insertAudit(orderId, input.eventId, orderNumber, resolved.reduce((total, entry) => total + entry.item.quantity, 0), subtotal, timestamp);

@@ -1,5 +1,5 @@
 import type { DatabaseAdapter } from "../../../shared/database/database-adapter.js";
-import type { OperationsOrder, OrderItem, OrderStatus, PaymentStatus, PosOrderItemInput, ProductionStatus } from "../domain/types.js";
+import type { OperationsOrder, OrderItem, OrderStatus, PaymentMethod, PaymentStatus, PosOrderItemInput, ProductionStatus } from "../domain/types.js";
 
 type EventRow = { event_id: string; event_code: string; status: string };
 type EventProductRow = {
@@ -9,8 +9,8 @@ type EventProductRow = {
 type IdempotencyRow = { request_fingerprint: string; order_id: string };
 type OrderRow = {
   order_id: string; order_number: string; event_id: string; source: "pos"; order_status: OrderStatus; payment_status: PaymentStatus;
-  production_status: ProductionStatus; cancellation_reason: string | null; customer_name: string | null; notes: string | null; subtotal: number; discount_total: number;
-  grand_total: number; created_at: string; confirmed_at: string;
+  production_status: ProductionStatus; cancellation_reason: string | null; customer_name: string | null; customer_phone_tail: string | null; payment_method: PaymentMethod | null; notes: string | null; subtotal: number; discount_total: number;
+  grand_total: number; created_at: string; confirmed_at: string; served_at: string | null;
 };
 type OrderItemRow = {
   order_item_id: string; product_id: string; product_version_id: string; display_name_snapshot: string; pos_name_snapshot: string;
@@ -31,8 +31,8 @@ function mapOrder(row: OrderRow, items: readonly OrderItem[]): OperationsOrder {
   return {
     orderId: row.order_id, orderNumber: row.order_number, eventId: row.event_id, source: row.source,
     orderStatus: row.order_status, paymentStatus: row.payment_status, productionStatus: row.production_status, cancellationReason: row.cancellation_reason,
-    customerName: row.customer_name, notes: row.notes, subtotal: row.subtotal, discountTotal: row.discount_total,
-    grandTotal: row.grand_total, createdAt: row.created_at, confirmedAt: row.confirmed_at, items
+    customerName: row.customer_name, customerPhoneTail: row.customer_phone_tail, paymentMethod: row.payment_method, notes: row.notes, subtotal: row.subtotal, discountTotal: row.discount_total,
+    grandTotal: row.grand_total, createdAt: row.created_at, confirmedAt: row.confirmed_at, servedAt: row.served_at, items
   };
 }
 
@@ -95,11 +95,11 @@ export class OrderRepository {
     return sequence;
   }
 
-  insertOrder(input: { orderId: string; eventId: string; orderNumber: string; idempotencyKey: string; fingerprint: string; customerName: string | null; notes: string | null; subtotal: number; createdAt: string }): void {
+  insertOrder(input: { orderId: string; eventId: string; orderNumber: string; idempotencyKey: string; fingerprint: string; customerName: string | null; customerPhoneTail: string | null; paymentMethod: PaymentMethod | null; notes: string | null; subtotal: number; createdAt: string }): void {
     this.database.execute(`INSERT INTO operations_orders (order_id, event_id, channel, status, subtotal, discount_total, grand_total, paid_total, idempotency_key, created_at,
-      order_number, source, order_status, payment_status, production_status, customer_name, notes, request_fingerprint, confirmed_at)
-      VALUES (?, ?, 'pos', 'confirmed', ?, 0, ?, 0, ?, ?, ?, 'pos', 'confirmed', 'unpaid', 'not_started', ?, ?, ?, ?)`,
-      [input.orderId, input.eventId, input.subtotal, input.subtotal, `${input.eventId}:pos:${input.idempotencyKey}`, input.createdAt, input.orderNumber, input.customerName, input.notes, input.fingerprint, input.createdAt]);
+      order_number, source, order_status, payment_status, production_status, customer_name, customer_phone_tail, payment_method, notes, request_fingerprint, confirmed_at)
+      VALUES (?, ?, 'pos', 'confirmed', ?, 0, ?, 0, ?, ?, ?, 'pos', 'confirmed', 'unpaid', 'not_started', ?, ?, ?, ?, ?, ?)`,
+      [input.orderId, input.eventId, input.subtotal, input.subtotal, `${input.eventId}:pos:${input.idempotencyKey}`, input.createdAt, input.orderNumber, input.customerName, input.customerPhoneTail, input.paymentMethod, input.notes, input.fingerprint, input.createdAt]);
   }
 
   insertOrderItem(input: { orderItemId: string; orderId: string; item: PosOrderItemInput; snapshot: OrderProductSnapshot; createdAt: string }): void {
@@ -121,8 +121,8 @@ export class OrderRepository {
   }
 
   getOrder(orderId: string): OperationsOrder | undefined {
-    const order = this.database.queryOne<OrderRow>(`SELECT order_id, order_number, event_id, source, order_status, payment_status, production_status, cancellation_reason, customer_name, notes,
-      subtotal, discount_total, grand_total, created_at, confirmed_at FROM operations_orders WHERE order_id = ?`, [orderId]);
+    const order = this.database.queryOne<OrderRow>(`SELECT order_id, order_number, event_id, source, order_status, payment_status, production_status, cancellation_reason, customer_name, customer_phone_tail, payment_method, notes,
+      subtotal, discount_total, grand_total, created_at, confirmed_at, served_at FROM operations_orders WHERE order_id = ?`, [orderId]);
     if (!order) return undefined;
     const items = this.database.queryMany<OrderItemRow>(`SELECT order_item_id, product_id, product_version_id, display_name_snapshot, pos_name_snapshot, display_category_name_snapshot,
       unit_list_price, unit_selling_price, quantity, line_discount, line_total, notes, cost_status FROM operations_order_items WHERE order_id = ? ORDER BY rowid`, [orderId]).map(mapItem);

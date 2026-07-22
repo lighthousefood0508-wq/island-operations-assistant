@@ -20,16 +20,22 @@ async function setup(quantity = 2) {
   await request(baseUrl, `/api/admin/events/${event.body.data.eventId}/open`, "POST", {});
   return { server, baseUrl, eventId: event.body.data.eventId, product: published.body.data.contract };
 }
-async function createOrder(baseUrl: string, eventId: string, product: any, key: string, customerName: string | null = null) { return request(baseUrl, "/api/orders", "POST", { source: "pos", eventId, idempotencyKey: key, items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }], customerName, notes: null }); }
+async function createOrder(baseUrl: string, eventId: string, product: any, key: string, customerName: string | null = null) { return request(baseUrl, "/api/orders", "POST", { source: "pos", eventId, idempotencyKey: key, items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }], customerName, customerPhoneTail: customerName ? "1234" : null, paymentMethod: "LINE_PAY", notes: null }); }
 
 test("lifecycle keeps Order, Payment, and Production states separate", async () => {
   const { server, baseUrl, eventId, product } = await setup(); const created = await createOrder(baseUrl, eventId, product, "life-a", "Miles"); const id = created.body.data.orderId;
   assert.equal(created.body.data.orderStatus, "confirmed"); assert.equal(created.body.data.paymentStatus, "unpaid"); assert.equal(created.body.data.productionStatus, "not_started");
-  assert.equal((await request(baseUrl, `/api/events/${eventId}/orders`)).body.data[0].customerName, "Miles");
+  const list = await request(baseUrl, `/api/events/${eventId}/orders`);
+  assert.equal(list.body.data[0].customerName, "Miles");
+  assert.equal(list.body.data[0].customerPhoneTail, "1234");
+  assert.equal(list.body.data[0].paymentMethod, "LINE_PAY");
   assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "ready" })).status, 409);
   assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "preparing" })).body.data.productionStatus, "preparing");
   assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "ready" })).body.data.productionStatus, "ready");
-  assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "served" })).body.data.productionStatus, "served");
+  const served = await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "served" });
+  assert.equal(served.body.data.productionStatus, "served");
+  assert.match(served.body.data.servedAt, /^20/);
+  assert.match((await request(baseUrl, `/api/events/${eventId}/orders`)).body.data[0].servedAt, /^20/);
   const incomplete = await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "completed" }); assert.equal(incomplete.status, 409); assert.equal(incomplete.body.error.code, "ORDER_COMPLETION_REQUIREMENTS_NOT_MET");
   server.close(); await once(server, "close");
 });

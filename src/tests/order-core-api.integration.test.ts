@@ -34,7 +34,7 @@ async function setup(quantity = 2) {
 }
 
 function payload(eventId: string, product: any, key: string) {
-  return { source: "pos", eventId, idempotencyKey: key, items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }], customerName: null, notes: null };
+  return { source: "pos", eventId, idempotencyKey: key, items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }], customerName: "Miles", customerPhoneTail: "1234", paymentMethod: "CASH", notes: null };
 }
 
 function readAuditCount(databasePath: string): number {
@@ -52,6 +52,10 @@ test("Order API creates, replays, retrieves public snapshots, and never exposes 
   try {
     const first = await request(baseUrl, "/api/orders", "POST", payload(eventId, product, "pos-one"));
     assert.equal(first.status, 201); assert.equal(first.body.data.orderNumber, "YONG-001");
+    assert.equal(first.body.data.customerName, "Miles");
+    assert.equal(first.body.data.customerPhoneTail, "1234");
+    assert.equal(first.body.data.paymentMethod, "CASH");
+    assert.equal(first.body.data.servedAt, null);
     assert.equal(JSON.stringify(first.body.data).includes("requestFingerprint"), false);
     const replay = await request(baseUrl, "/api/orders", "POST", payload(eventId, product, "pos-one"));
     assert.equal(replay.status, 200); assert.equal(replay.body.data.orderId, first.body.data.orderId);
@@ -84,6 +88,8 @@ test("two POS requests for the final sellable portion produce one success and on
     const orders = await request(baseUrl, `/api/events/${eventId}/orders`);
     assert.equal(orders.body.data.length, 1);
     assert.equal(orders.body.data[0].orderNumber, "YONG-001");
+    assert.equal(orders.body.data[0].customerPhoneTail, "1234");
+    assert.equal(orders.body.data[0].paymentMethod, "CASH");
     assert.equal(readAuditCount(databasePath), 1);
   } finally {
     await closeServer(server);

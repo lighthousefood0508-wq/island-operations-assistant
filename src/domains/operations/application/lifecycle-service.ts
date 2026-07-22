@@ -32,9 +32,9 @@ export class LifecycleService {
       const order = this.repository.findOrder(orderId); if (!order) throw new HttpError(404, "ORDER_NOT_FOUND", "Order was not found.");
       if (terminal(order.orderStatus) || !productionTransitions[order.productionStatus].includes(target)) throw new HttpError(409, "ILLEGAL_STATUS_TRANSITION", "This Production status transition is not allowed.");
       const timestamp = now();
-      if (!this.repository.updateProductionStatus(orderId, order.productionStatus, target)) throw new HttpError(409, "ORDER_CONCURRENTLY_CHANGED", "Order changed concurrently; refresh and retry.");
+      if (!this.repository.updateProductionStatus(orderId, order.productionStatus, target, timestamp)) throw new HttpError(409, "ORDER_CONCURRENTLY_CHANGED", "Order changed concurrently; refresh and retry.");
       this.repository.insertAudit({ auditLogId: createId("audit_"), entityType: "order", entityId: orderId, action: "production_status_changed", metadata: { operator: actor, eventId: order.eventId, orderId, from: order.productionStatus, to: target }, occurredAt: timestamp });
-      return { ...order, productionStatus: target };
+      return { ...order, productionStatus: target, servedAt: target === "served" ? timestamp : order.servedAt };
     });
   }
   private completeOrder(orderId: string, actor: string): LifecycleOrder {

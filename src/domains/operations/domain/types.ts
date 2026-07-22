@@ -43,6 +43,8 @@ export type CreatePosOrderInput = Readonly<{
   idempotencyKey: string;
   items: readonly PosOrderItemInput[];
   customerName: string | null;
+  customerPhoneTail: string | null;
+  paymentMethod: PaymentMethod | null;
   notes: string | null;
 }>;
 
@@ -72,12 +74,15 @@ export type OperationsOrder = Readonly<{
   productionStatus: ProductionStatus;
   cancellationReason: string | null;
   customerName: string | null;
+  customerPhoneTail: string | null;
+  paymentMethod: PaymentMethod | null;
   notes: string | null;
   subtotal: number;
   discountTotal: number;
   grandTotal: number;
   createdAt: string;
   confirmedAt: string;
+  servedAt: string | null;
   items: readonly OrderItem[];
 }>;
 
@@ -86,6 +91,9 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export const PAYMENT_STATUSES = ["unpaid", "pending", "paid", "failed", "partially_refunded", "refunded"] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+export const PAYMENT_METHODS = ["CASH", "LINE_PAY"] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export const PRODUCTION_STATUSES = ["not_started", "queued", "preparing", "ready", "served", "cancelled"] as const;
 export type ProductionStatus = (typeof PRODUCTION_STATUSES)[number];

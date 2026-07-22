@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-07-22 - DECISIONS #037 Phase B-1 POS Basic Operating Loop
+
+- Added central Order fields for `customer_phone_tail`, `payment_method`, and `served_at` through additive Operations migration `008_phase_b1_pos_operating_loop.sql`.
+- Extended POS Order creation and lifecycle read models to preserve optional phone tail, limited POS payment method (`CASH` / `LINE_PAY`), and served timestamp without introducing a Payment domain.
+- Updated `/pos` to collect phone tail/payment method, keep financial closeout off the main POS surface, show active current-Event Orders, and separate today's served Orders.
+- Updated `/kitchen` to display phone tail/payment method while remaining production-status-only.
+- Added unit, integration, and E2E coverage for phone tail, payment method, served read model projection, current-Event active/served lists, and cross-device realtime updates. No Customer/Kiosk/Preorder, Cost, Voice, Google Sheets, AI, `/debug/devices`, Legacy, no-show, cancellation, or Event Close rule change.
+
 ## 2026-07-21 - DECISIONS #034 Device Connectivity Dashboard
 
 - Added a ROS-only, read-only SSE device dashboard and ephemeral connection telemetry. No business data, SQLite state, contracts, or Legacy behavior is changed.

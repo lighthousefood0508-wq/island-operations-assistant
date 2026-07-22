@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>後台品項工作台 UI 草圖</title>
+  <style>
+    :root {
+      --bg: #f5f0e8;
+      --paper: #fffdf9;
+      --ink: #0d2f37;
+      --muted: #637379;
+      --line: #d8cfc2;
+      --green: #0f7668;
+      --green-dark: #0b5f56;
+      --blue: #2f4858;
+      --red: #b94732;
+      --amber: #926318;
+      --soft: #edf5f1;
+      font-family: Arial, "Noto Sans TC", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    button, input, select, textarea { font: inherit; }
+    button {
+      border: 0;
+      border-radius: 6px;
+      padding: 10px 14px;
+      background: var(--green);
+      color: white;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    button.secondary { background: #617477; }
+    button.warn { background: var(--red); }
+    button.ghost {
+      background: #eef4f1;
+      color: #244b50;
+      border: 1px solid #b9cbc6;
+    }
+    button:disabled {
+      opacity: .48;
+      cursor: not-allowed;
+    }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid #b8c8c4;
+      border-radius: 5px;
+      padding: 9px;
+      background: white;
+      color: var(--ink);
+    }
+    textarea {
+      min-height: 62px;
+      resize: vertical;
+    }
+    label {
+      display: grid;
+      gap: 5px;
+      color: #344d54;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    main {
+      max-width: 1520px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 12px;
+      border-bottom: 2px solid var(--green);
+      padding-bottom: 12px;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 4px; font-size: 29px; }
+    h2 { margin-bottom: 12px; font-size: 22px; }
+    h3 { margin-bottom: 8px; font-size: 16px; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .nav {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      margin: 12px 0;
+      padding: 10px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 7px;
+    }
+    .nav a {
+      white-space: nowrap;
+      text-decoration: none;
+      color: #244b50;
+      border: 1px solid #c4d3cf;
+      background: #eef4f1;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-weight: 900;
+    }
+    .nav a.active {
+      color: white;
+      background: var(--green);
+      border-color: var(--green);
+    }
+    .notice {
+      min-height: 24px;
+      color: var(--green-dark);
+      font-weight: 900;
+      text-align: right;
+    }
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 14px;
+      margin-top: 14px;
+    }
+    .add-grid {
+      display: grid;
+      grid-template-columns: 180px 1fr 130px 120px 120px 120px 160px;
+      gap: 10px;
+      align-items: end;
+    }
+    .wide-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .channels {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 9px;
+      border: 1px solid #d6e2df;
+      border-radius: 6px;
+      background: #fbfdfc;
+    }
+    .channels label {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      font-weight: 900;
+    }
+    .channels input { width: auto; }
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .summary-row {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .summary {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 12px;
+    }
+    .summary span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .summary strong {
+      font-size: 24px;
+    }
+    .table-wrap {
+      overflow: auto;
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: white;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 1380px;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--blue);
+      color: white;
+      text-align: left;
+      padding: 10px 8px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    td {
+      border-top: 1px solid #e6ded2;
+      padding: 9px 8px;
+      vertical-align: top;
+    }
+    td input, td select { padding: 8px; }
+    .name-cell strong {
+      display: block;
+      font-size: 18px;
+    }
+    .name-cell small {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+    }
+    .num { font-weight: 900; }
+    .remaining { font-size: 18px; font-weight: 900; }
+    .soldout { color: var(--red); }
+    .safe { color: var(--amber); }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #dff2e7;
+      color: #13643b;
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .badge.draft { background: #fff2d1; color: #7a5613; }
+    .badge.off { background: #f1e4df; color: #84351f; }
+    .mini-actions button { padding: 8px 9px; }
+    .details-row { display: none; background: #fbfdfc; }
+    .details-row.open { display: table-row; }
+    .details-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+    }
+    .archive {
+      opacity: .72;
+    }
+    .danger-note {
+      color: #8a321c;
+      font-weight: 900;
+      margin: 10px 0 0;
+    }
+    @media (max-width: 1000px) {
+      main { padding: 10px; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .notice { text-align: left; }
+      .add-grid, .wide-grid, .summary-row, .details-grid { grid-template-columns: 1fr; }
+      .table-wrap { border: 0; overflow: visible; }
+      table { min-width: 0; }
+      thead { display: none; }
+      tr {
+        display: block;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        margin: 10px 0;
+        background: white;
+      }
+      td {
+        display: grid;
+        grid-template-columns: 105px 1fr;
+        gap: 8px;
+        align-items: center;
+      }
+      td::before {
+        content: attr(data-label);
+        color: var(--muted);
+        font-weight: 900;
+      }
+      .details-row.open { display: block; }
+      .details-row td { display: block; }
+      .mini-actions { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="topbar">
+      <div>
+        <div class="muted">荒島餐車 ROS / UI Mockup only</div>
+        <h1>品項 / 備貨工作台</h1>
+        <p class="muted">純靜態草圖：不連 API、不讀資料庫、不會儲存。先看操作動線。</p>
+      </div>
+      <div id="notice" class="notice">目前為 UI 草圖</div>
+    </header>
+
+    <nav class="nav" aria-label="mock navigation">
+      <a class="active" href="#">品項工作台</a>
+      <a href="#">場次</a>
+      <a href="#">今日統計</a>
+      <a href="#">系統狀態</a>
+      <a href="#">回 POS</a>
+      <a href="#">回 Kitchen</a>
+    </nav>
+
+    <section class="card">
+      <div class="section-title">
+        <div>
+          <h2>新增品項</h2>
+          <p class="muted">上方只負責新增。新增後，品項會出現在下方表格，再於表格內手動微調。</p>
+        </div>
+        <button type="button" id="mock-add">新增品項</button>
+      </div>
+
+      <div class="add-grid">
+        <label>POS 短名<input value="" placeholder="例如 東坡"></label>
+        <label>客人完整名稱<input value="" placeholder="例如 一曲東坡肉飯盒"></label>
+        <label>售價<input type="number" value="0"></label>
+        <label>成本<input type="number" value="0"></label>
+        <label>備貨<input id="new-planned" type="number" value="0"></label>
+        <label>安全量<input id="new-safe" type="number" value="0"></label>
+        <label>分類
+          <select>
+            <option>荒島飯盒</option>
+            <option>小飯系列</option>
+            <option>小菜系列</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="wide-grid">
+        <label>客人頁介紹<textarea placeholder="給客人看的簡短說明"></textarea></label>
+        <label>食材細項 / BOM 備註<textarea placeholder="例如 豬肉、白飯、特製蔬菜、溫泉蛋、餐盒"></textarea></label>
+        <label>通路
+          <div class="channels">
+            <label><input type="checkbox" checked> POS</label>
+            <label><input type="checkbox" checked> Kiosk</label>
+            <label><input type="checkbox" checked> Preorder</label>
+          </div>
+        </label>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <div>
+          <h2>今日品項設定</h2>
+          <p class="muted">這裡是一頁式操作：售價、成本、備貨、安全量、細項、停用都在同一張表。</p>
+        </div>
+        <div class="actions">
+          <button type="button" class="ghost">重載範例資料</button>
+          <button type="button" class="secondary">只看啟用</button>
+        </div>
+      </div>
+
+      <div class="summary-row">
+        <div class="summary"><span>今日品項</span><strong>6</strong></div>
+        <div class="summary"><span>總備貨</span><strong>92</strong></div>
+        <div class="summary"><span>安全預留</span><strong>6</strong></div>
+        <div class="summary"><span>客人可訂</span><strong>86</strong></div>
+        <div class="summary"><span>目前售出</span><strong>0</strong></div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>品項 / 剩餘</th>
+              <th>分類</th>
+              <th>售價</th>
+              <th>成本</th>
+              <th>備貨</th>
+              <th>安全量</th>
+              <th>客人可訂</th>
+              <th>預約</th>
+              <th>現場售出</th>
+              <th>目前訂單</th>
+              <th>狀態</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="品項 / 剩餘" class="name-cell"><strong>東坡</strong><small>一曲東坡肉飯盒</small><span class="remaining">剩餘 12</span></td>
+              <td data-label="分類"><select><option>荒島飯盒</option></select></td>
+              <td data-label="售價"><input type="number" value="180"></td>
+              <td data-label="成本"><input type="number" value="120"></td>
+              <td data-label="備貨"><input class="planned" type="number" value="12"></td>
+              <td data-label="安全量"><input class="safe-input" type="number" value="1"></td>
+              <td data-label="客人可訂" class="num customer">11</td>
+              <td data-label="預約" class="num">3</td>
+              <td data-label="現場售出" class="num">0</td>
+              <td data-label="目前訂單" class="num">0</td>
+              <td data-label="狀態"><span class="badge">啟用</span></td>
+              <td data-label="操作" class="mini-actions"><button type="button">儲存</button> <button type="button" class="ghost detail">細項</button> <button type="button" class="warn">停用</button></td>
+            </tr>
+            <tr class="details-row">
+              <td colspan="12">
+                <div class="details-grid">
+                  <label>客人完整名稱<input value="一曲東坡肉飯盒"></label>
+                  <label>客人頁介紹<textarea>慢火滷製東坡肉，搭配白飯、特色蔬菜、筍乾、溫泉蛋。</textarea></label>
+                  <label>食材細項 / BOM<textarea>東坡肉、白飯、特色蔬菜、筍乾、溫泉蛋、餐盒</textarea></label>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td data-label="品項 / 剩餘" class="name-cell"><strong>蝦</strong><small>塔香小番茄蒜辣蝦飯盒</small><span class="remaining">剩餘 10</span></td>
+              <td data-label="分類"><select><option>荒島飯盒</option></select></td>
+              <td data-label="售價"><input type="number" value="190"></td>
+              <td data-label="成本"><input type="number" value="100"></td>
+              <td data-label="備貨"><input class="planned" type="number" value="10"></td>
+              <td data-label="安全量"><input class="safe-input" type="number" value="1"></td>
+              <td data-label="客人可訂" class="num customer">9</td>
+              <td data-label="預約" class="num">3</td>
+              <td data-label="現場售出" class="num">0</td>
+              <td data-label="目前訂單" class="num">0</td>
+              <td data-label="狀態"><span class="badge">啟用</span></td>
+              <td data-label="操作" class="mini-actions"><button type="button">儲存</button> <button type="button" class="ghost detail">細項</button> <button type="button" class="warn">停用</button></td>
+            </tr>
+            <tr class="details-row">
+              <td colspan="12">
+                <div class="details-grid">
+                  <label>客人完整名稱<input value="塔香小番茄蒜辣蝦飯盒"></label>
+                  <label>客人頁介紹<textarea>蒜香鮮蝦與小番茄、九層塔、胡椒，搭配白飯。</textarea></label>
+                  <label>食材細項 / BOM<textarea>鮮蝦、小番茄、九層塔、蒜頭、白飯、特色蔬菜、溫泉蛋、餐盒</textarea></label>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td data-label="品項 / 剩餘" class="name-cell"><strong>咖哩牛</strong><small>椰香紅咖哩牛肋飯盒</small><span class="remaining soldout">剩餘 0</span></td>
+              <td data-label="分類"><select><option>荒島飯盒</option></select></td>
+              <td data-label="售價"><input type="number" value="190"></td>
+              <td data-label="成本"><input type="number" value="120"></td>
+              <td data-label="備貨"><input class="planned" type="number" value="0"></td>
+              <td data-label="安全量"><input class="safe-input" type="number" value="0"></td>
+              <td data-label="客人可訂" class="num customer">0</td>
+              <td data-label="預約" class="num">0</td>
+              <td data-label="現場售出" class="num">0</td>
+              <td data-label="目前訂單" class="num">0</td>
+              <td data-label="狀態"><span class="badge off">今日停用</span></td>
+              <td data-label="操作" class="mini-actions"><button type="button">儲存</button> <button type="button" class="ghost detail">細項</button> <button type="button" class="secondary">恢復</button></td>
+            </tr>
+            <tr class="details-row">
+              <td colspan="12">
+                <div class="details-grid">
+                  <label>客人完整名稱<input value="椰香紅咖哩牛肋飯盒"></label>
+                  <label>客人頁介紹<textarea>椰香紅咖哩牛肋，搭配白飯與溫泉蛋。</textarea></label>
+                  <label>食材細項 / BOM<textarea>紅咖哩牛肋、白飯、特色蔬菜、溫泉蛋、餐盒</textarea></label>
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td data-label="品項 / 剩餘" class="name-cell"><strong>控肉</strong><small>梅干香滷控肉飯</small><span class="remaining">剩餘 20</span></td>
+              <td data-label="分類"><select><option>小飯系列</option></select></td>
+              <td data-label="售價"><input type="number" value="120"></td>
+              <td data-label="成本"><input type="number" value="80"></td>
+              <td data-label="備貨"><input class="planned" type="number" value="20"></td>
+              <td data-label="安全量"><input class="safe-input" type="number" value="1"></td>
+              <td data-label="客人可訂" class="num customer">19</td>
+              <td data-label="預約" class="num">3</td>
+              <td data-label="現場售出" class="num">0</td>
+              <td data-label="目前訂單" class="num">0</td>
+              <td data-label="狀態"><span class="badge">啟用</span></td>
+              <td data-label="操作" class="mini-actions"><button type="button">儲存</button> <button type="button" class="ghost detail">細項</button> <button type="button" class="warn">停用</button></td>
+            </tr>
+
+            <tr>
+              <td data-label="品項 / 剩餘" class="name-cell"><strong>梅干</strong><small>老甕梅干肉燥飯</small><span class="remaining">剩餘 20</span></td>
+              <td data-label="分類"><select><option>小飯系列</option></select></td>
+              <td data-label="售價"><input type="number" value="80"></td>
+              <td data-label="成本"><input type="number" value="45"></td>
+              <td data-label="備貨"><input class="planned" type="number" value="20"></td>
+              <td data-label="安全量"><input class="safe-input" type="number" value="1"></td>
+              <td data-label="客人可訂" class="num customer">19</td>
+              <td data-label="預約" class="num">4</td>
+              <td data-label="現場售出" class="num">0</td>
+              <td data-label="目前訂單" class="num">0</td>
+              <td data-label="狀態"><span class="badge">啟用</span></td>
+              <td data-label="操作" class="mini-actions"><button type="button">儲存</button> <button type="button" class="ghost detail">細項</button> <button type="button" class="warn">停用</button></td>
+            </tr>
+
+            <tr>
+              <td data-label="品項 / 剩餘" class="name-cell"><strong>豆干</strong><small>香滷豆干</small><span class="remaining">剩餘 30</span></td>
+              <td data-label="分類"><select><option>小菜系列</option></select></td>
+              <td data-label="售價"><input type="number" value="50"></td>
+              <td data-label="成本"><input type="number" value="15"></td>
+              <td data-label="備貨"><input class="planned" type="number" value="30"></td>
+              <td data-label="安全量"><input class="safe-input" type="number" value="1"></td>
+              <td data-label="客人可訂" class="num customer">29</td>
+              <td data-label="預約" class="num">0</td>
+              <td data-label="現場售出" class="num">0</td>
+              <td data-label="目前訂單" class="num">0</td>
+              <td data-label="狀態"><span class="badge">啟用</span></td>
+              <td data-label="操作" class="mini-actions"><button type="button">儲存</button> <button type="button" class="ghost detail">細項</button> <button type="button" class="warn">停用</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="danger-note">草圖想法：正式品項先用「停用 / 今日停用」保護歷史資料；只有測試草稿才出現真正刪除。</p>
+    </section>
+
+    <section class="card archive">
+      <div class="section-title">
+        <div>
+          <h2>測試 / 草稿 / 停用品項</h2>
+          <p class="muted">預設收起，避免污染正式菜單。</p>
+        </div>
+        <button type="button" class="ghost" id="toggle-archive">展開</button>
+      </div>
+      <div id="archive-body" hidden>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>品項</th><th>分類</th><th>狀態</th><th>可用操作</th></tr></thead>
+            <tbody>
+              <tr>
+                <td data-label="品項">測試東坡肉</td>
+                <td data-label="分類">測試便當</td>
+                <td data-label="狀態"><span class="badge draft">草稿</span></td>
+                <td data-label="可用操作"><button type="button" class="secondary">恢復編輯</button> <button type="button" class="warn">刪除草稿</button></td>
+              </tr>
+              <tr>
+                <td data-label="品項">測試東坡肉</td>
+                <td data-label="分類">測試便當</td>
+                <td data-label="狀態"><span class="badge off">已停用</span></td>
+                <td data-label="可用操作"><button type="button" class="secondary">恢復</button> <button type="button" disabled>不可刪除</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const notice = document.querySelector("#notice");
+    function flash(text) {
+      notice.textContent = text;
+      setTimeout(() => {
+        if (notice.textContent === text) notice.textContent = "目前為 UI 草圖";
+      }, 2200);
+    }
+    function updateRow(row) {
+      const planned = Number(row.querySelector(".planned")?.value || 0);
+      const safe = Number(row.querySelector(".safe-input")?.value || 0);
+      const customer = row.querySelector(".customer");
+      if (customer) {
+        customer.textContent = String(Math.max(0, planned - safe));
+        customer.classList.toggle("safe", planned > 0 && planned - safe <= 0);
+      }
+    }
+    document.addEventListener("input", (event) => {
+      const row = event.target.closest("tr");
+      if (row && (event.target.classList.contains("planned") || event.target.classList.contains("safe-input"))) updateRow(row);
+    });
+    document.addEventListener("click", (event) => {
+      if (event.target.id === "mock-add") flash("草圖：新增後會出現在下方表格");
+      if (event.target.id === "toggle-archive") {
+        const body = document.querySelector("#archive-body");
+        body.hidden = !body.hidden;
+        event.target.textContent = body.hidden ? "展開" : "收起";
+      }
+      if (event.target.classList.contains("detail")) {
+        const detailRow = event.target.closest("tr")?.nextElementSibling;
+        if (detailRow?.classList.contains("details-row")) detailRow.classList.toggle("open");
+      }
+      if (event.target.textContent === "儲存") flash("草圖：這裡未連資料庫，不會真的儲存");
+      if (event.target.textContent === "停用") flash("草圖：正式版會先停用，不直接刪除");
+      if (event.target.textContent === "刪除草稿") flash("草圖：只有無引用草稿才允許刪除");
+    });
+  </script>
+</body>
+</html>

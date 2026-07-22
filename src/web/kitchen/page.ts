@@ -26,7 +26,6 @@ export function renderKitchen(): string {
           <a href="/pos">POS 點餐</a>
           <span class="current" aria-disabled="true">廚房系統</span>
           <a href="/admin">後台管理</a>
-          <a href="/admin/devices">裝置連線</a>
         </nav>
       </details>
     </header>

@@ -57,7 +57,8 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await expect(page.locator(".system-links .current")).toBeVisible();
     await expect(page.locator('.system-links a[href="/kitchen"]')).toBeVisible();
     await expect(page.locator('.system-links a[href="/admin"]')).toBeVisible();
-    await expect(page.locator(".system-links .future")).toBeVisible();
+    await expect(page.locator('.system-links a[href="/admin/devices"]')).toHaveCount(0);
+    await expect(page.locator(".system-links .future")).toHaveCount(0);
     await page.locator(".system-menu summary").click();
     await expect(page.locator("body")).not.toContainText("今日收入");
     await expect(page.locator("body")).not.toContainText("毛利");

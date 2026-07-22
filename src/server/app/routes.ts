@@ -1,4 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { CatalogService } from "../../domains/catalog/index.js";
 import { LifecycleService, OperationsService, OrderService } from "../../domains/operations/index.js";
 import { HttpError } from "../../shared/errors/http-error.js";
@@ -23,6 +25,10 @@ function sendJson(response: ServerResponse, status: number, payload: unknown): v
 function sendHtml(response: ServerResponse, body: string): void {
   response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
   response.end(body);
+}
+
+function sendMockup(response: ServerResponse, filename: string): void {
+  sendHtml(response, readFileSync(path.resolve(process.cwd(), "mockups", filename), "utf8"));
 }
 
 function success(response: ServerResponse, status: number, data: unknown): void {
@@ -85,6 +91,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "GET" && pathname === "/order") return sendHtml(response, renderOrdering());
     if (request.method === "GET" && pathname === "/kitchen") return sendHtml(response, renderKitchen());
     if (request.method === "GET" && pathname === "/debug/devices") return sendHtml(response, renderDevicesDebug());
+    if (request.method === "GET" && (pathname === "/mockup/item-workbench" || pathname === "/mockups/back-office-item-workbench.html")) return sendMockup(response, "back-office-item-workbench.html");
 
     if (request.method === "GET" && pathname === "/api/debug/devices") return success(response, 200, events.listDevices());
 

@@ -24,5 +24,5 @@ export function renderSystemNav(active: SystemArea): string {
 }
 
 export function renderBackOfficeNav(active: BackOfficeArea): string {
-  return `<nav class="office-nav" aria-label="後台管理導覽">${backOfficeItems.map((item) => `<a href="${item.href}"${item.key === active ? ` aria-current="page"` : ""}>${item.label}</a>`).join("")}</nav>`;
+  return `<nav class="office-nav" aria-label="後台導覽">${backOfficeItems.map((item) => `<a href="${item.href}"${item.key === active ? ` aria-current="page"` : ""}>${item.label}</a>`).join("")}</nav>`;
 }

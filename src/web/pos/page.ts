@@ -23,9 +23,6 @@ export function renderPos(): string {
           <span class="current" aria-disabled="true">POS 點餐</span>
           <a href="/kitchen">廚房系統</a>
           <a href="/admin">後台管理</a>
-          <a href="/admin/devices">裝置連線</a>
-          <span class="disabled future" aria-disabled="true">客人點餐（尚未啟用）</span>
-          <span class="disabled" aria-disabled="true">AI 助理（尚未啟用）</span>
         </nav>
       </details>
     </header>

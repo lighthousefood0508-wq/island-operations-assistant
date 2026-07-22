@@ -5,6 +5,7 @@ import { HttpError } from "../../shared/errors/http-error.js";
 import { SseHub } from "../events/sse.js";
 import { renderAdmin } from "../../web/admin/page.js";
 import { renderEventsAdmin } from "../../web/events/page.js";
+import { renderHealthDashboard } from "../../web/health/page.js";
 import { renderKitchen } from "../../web/kitchen/page.js";
 import { renderOrdering } from "../../web/ordering/page.js";
 import { renderPos } from "../../web/pos/page.js";
@@ -75,6 +76,8 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     }
     if (request.method === "GET" && pathname === "/admin") return sendHtml(response, renderAdmin());
     if (request.method === "GET" && pathname === "/admin/events") return sendHtml(response, renderEventsAdmin());
+    if (request.method === "GET" && pathname === "/admin/health") return sendHtml(response, renderHealthDashboard());
+    if (request.method === "GET" && pathname === "/admin/statistics") return sendHtml(response, renderStatistics());
     if (request.method === "GET" && pathname === "/pos") return sendHtml(response, renderPos());
     if (request.method === "GET" && pathname === "/pos/lifecycle") return sendHtml(response, renderLifecycle());
     if (request.method === "GET" && pathname === "/pos/statistics") return sendHtml(response, renderStatistics());

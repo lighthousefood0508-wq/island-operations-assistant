@@ -57,7 +57,7 @@ Open [Back Office Catalog](http://127.0.0.1:3090/admin), [Event Setup](http://12
 
 ## First product
 
-1. Create an active category with a unique lowercase code.
+1. Create an active category by entering only its display name, sort order, and active state; ROS generates the stable category code.
 2. Create a product, fill display name, POS short name, price, and at least one channel.
 3. Save the draft, then select **發布新版本**.
 4. Create a draft Event in `/admin/events`, assign a positive planned quantity to published products, and open it.

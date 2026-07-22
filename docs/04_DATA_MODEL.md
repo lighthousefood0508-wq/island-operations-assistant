@@ -9,7 +9,7 @@ IDs are immutable prefixed random UUIDs, timestamps are UTC ISO-8601 text, and m
 | Cost | `cost_*` | reserved only; no application behavior |
 | Shared/System | `schema_migrations`, `users`, `roles`, `user_roles`, `audit_logs`, `system_settings` | migration/audit infrastructure |
 
-`catalog_categories.code` is unique; renaming never changes `category_id`. Products own editable draft data, while published rows in `catalog_product_versions` are immutable by trigger and application rule. Published channel rows belong to the version. Product Contract exposes only approved published data, never the draft description, BOM, cost, stock, or purchase data.
+`catalog_categories.category_id` is the only formal category relationship key. `catalog_categories.code` is unique, stable, and system generated for new categories as `cat-0001`, `cat-0002`, etc.; existing legacy codes such as `bento`, `rice`, or `side` are preserved and never re-numbered. Users edit only category display name, sort order, and active state. Products own editable draft data, while published rows in `catalog_product_versions` are immutable by trigger and application rule. Published channel rows belong to the version. Product Contract exposes only approved published data, never category code, the draft description, BOM, cost, stock, or purchase data.
 
 ## Phase 1C Operations Order Core
 

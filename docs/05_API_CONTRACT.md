@@ -17,6 +17,8 @@ All JSON responses use `{ "ok": true, "data": ... }` or `{ "ok": false, "error":
 
 The public catalog route validates every returned Product Contract at runtime. It has no BOM, cost, ingredient, inventory, purchase, or internal draft fields. POS has no direct database access and consumes this API only.
 
+`POST /api/admin/categories` accepts `displayName`, optional `sortOrder`, and optional `isActive`. The server generates immutable category `code` values for new categories using `cat-0001` format and rejects caller-supplied `code`. `PATCH /api/admin/categories/:categoryId` accepts only `displayName`, `sortOrder`, and `isActive`; caller-supplied `code` or `categoryId` is rejected. Responses still include `categoryId`, `code`, `displayName`, `sortOrder`, and `isActive`.
+
 ## POS Order Core
 
 `POST /api/orders` accepts `source: "pos"`, `eventId`, `idempotencyKey`, non-empty `items`, and optional `customerName`, `customerPhoneTail`, `paymentMethod`, and `notes`. `customerPhoneTail`, when present, must be exactly four digits. `paymentMethod`, when present, is limited to `CASH` or `LINE_PAY`; it is a POS-recorded method hint only and does not create a Payment domain, payment provider, reconciliation, or paid state. Each item requires `productId`, `productVersionId`, a positive integer `quantity`, and optional notes. Prices are never accepted as an authority: the server uses the frozen Event Product Snapshot.

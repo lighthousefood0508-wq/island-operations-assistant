@@ -75,7 +75,7 @@ test("POS keeps front-office tabs, creates a central Order, and protects cart na
     await page.getByRole("link", { name: "Kitchen" }).click();
     await expect(page).toHaveURL(/\/pos/);
     await page.locator("#clear-cart").click();
-    await expect(page.locator("#cart-items")).toContainText("尚未加入商品");
+    await expect(page.locator("#cart-items")).toContainText("點商品即可加入訂單");
 
     await addToCart(page, contracts[0]?.productId as string);
     await addToCart(page, contracts[0]?.productId as string);
@@ -93,8 +93,8 @@ test("POS keeps front-office tabs, creates a central Order, and protects cart na
 
     await page.locator("#create-order").click();
     await expect(page.locator("#notice")).toContainText("POSUI-001");
-    await expect(page.locator(`article[data-product-id="${contracts[0]?.productId}"]`)).toContainText("剩餘 4 份");
-    await expect(page.locator(`article[data-product-id="${contracts[1]?.productId}"]`)).toContainText("剩餘 3 份");
+    await expect(page.locator(`article[data-product-id="${contracts[0]?.productId}"]`)).toContainText("剩 4 份");
+    await expect(page.locator(`article[data-product-id="${contracts[1]?.productId}"]`)).toContainText("剩 3 份");
     const orders = await api(page, `/api/events/${eventId}/orders`);
     expect(orders.body.data[0]?.customerName).toBe("Miles");
     expect(orders.body.data[0]?.customerPhoneTail).toBe("1234");

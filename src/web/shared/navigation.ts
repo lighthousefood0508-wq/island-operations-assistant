@@ -8,9 +8,9 @@ const systemItems: readonly { key: SystemArea; href: string; label: string }[] =
 ];
 
 const backOfficeItems: readonly { key: BackOfficeArea; href: string; label: string }[] = [
-  { key: "catalog", href: "/admin", label: "商品管理" },
-  { key: "events", href: "/admin/events", label: "場次＋備貨" },
-  { key: "statistics", href: "/admin/statistics", label: "今日統計／收攤" },
+  { key: "catalog", href: "/admin", label: "商品目錄" },
+  { key: "events", href: "/admin/events", label: "場次與備貨" },
+  { key: "statistics", href: "/admin/statistics", label: "今日統計" },
   { key: "health", href: "/admin/health", label: "系統狀態" }
 ];
 
@@ -19,7 +19,7 @@ export function renderNavigationStyles(): string {
 }
 
 export function renderSystemNav(active: SystemArea): string {
-  return `<nav class="system-nav" aria-label="跨系統導覽">${systemItems.map((item) => `<a href="${item.href}"${item.key === active ? ` aria-current="page"` : ""}>${item.label}</a>`).join("")}</nav>`;
+  return `<nav class="system-nav" aria-label="系統導覽">${systemItems.map((item) => `<a href="${item.href}"${item.key === active ? ` aria-current="page"` : ""}>${item.label}</a>`).join("")}</nav>`;
 }
 
 export function renderBackOfficeNav(active: BackOfficeArea): string {

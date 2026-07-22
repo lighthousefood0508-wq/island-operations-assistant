@@ -2,9 +2,45 @@
 
 Date: 2026-07-22
 
+## Current Phase
+
+DECISIONS #039 - POS Operating Loop completion.
+
+## Current Branch
+
+`feature/phase-b1-pos-operating-loop-completion`
+
+## Completed
+
+- POS header now shows the current Event, OPEN/CLOSED status, remaining main meals, active order count, preorder count fixed at 0, and operator fixed as `Owner`.
+- POS system navigation has been moved into a right-side `系統` popup menu so the main surface remains dedicated to ordering only.
+- POS now exposes only three staff operating tabs: `現場點餐`, `待出餐`, and `今日已出餐`. Preorder, Customer, inventory setup, health, sharing, closeout, and statistics remain Back Office concerns.
+- POS product cards now use a dense 2-3 column Grid optimized for fast staff ordering: POS name, price, remaining quantity, and `+1` only. Product descriptions, images, and per-card quantity controls are intentionally absent.
+- POS product groups now visibly preserve the Legacy category rhythm while keeping the ROS Product Contract snapshot as the data source.
+- POS cart remains the only place for quantity changes, item notes, deletion, customer name, phone tail, payment method, order notes, and central order submission.
+- POS active orders now show order number, customer name, phone tail, payment method, items, notes, wait time, and current three-track state labels.
+- POS active orders can use existing production-status APIs for `開始製作` and `完成出餐`; the edit button is present but disabled for the next approved phase.
+- POS today-served list remains scoped to the current Event and can search by customer name, phone tail, or order number.
+- Kitchen UI has been polished as a production board with larger order numbers, clearer queue/preparing/ready columns, bigger action buttons, and the same right-side `系統` popup menu.
+- POS, Kitchen, and Back Office navigation uses relative paths (`/pos`, `/kitchen`, `/admin`, `/admin/statistics`, `/admin/health`).
+
+## Next Phase
+
+Architecture Owner should decide the next operating-loop scope, most likely one of: edit order workflow, phone-tail lookup polish, or Payment phase.
+
+## Open Questions
+
+- Whether POS should expose a separate ready/served distinction to operators, or keep the current simplified `完成出餐` action that follows the existing production state machine.
+- Whether edit order remains disabled until a dedicated change/audit policy is approved.
+
+## Blocked
+
+- Formal order completion remains blocked by the approved Payment model because orders are still `paymentStatus = unpaid`.
+- Customer/Kiosk/Preorder, Cost, Voice, AI, LINE, and Google Sheets remain out of scope until separate DECISIONS approval.
+
 Phase B-1 POS Basic Operating Loop is in progress on `feature/phase-b1-pos-operating-loop` under **DECISIONS #037**. It adds an Operations-owned additive migration for `customer_phone_tail`, `payment_method`, and `served_at`; POS can record customer name, optional phone tail, and a limited POS payment method (`CASH` or `LINE_PAY`) when creating central Orders; Kitchen still only changes `productionStatus`; POS now separates active current-Event Orders from today's served Orders. This does not add a Payment domain/provider/reconciliation, Customer/Kiosk/Preorder, Cost, Voice, Google Sheets, AI, `/debug/devices`, no-show, cancellation, Event Close rule changes, or Legacy changes.
 
-Front Office / Back Office / Kitchen information architecture is complete on `feature/front-back-office-information-architecture` under **DECISIONS #035**, awaiting Architecture Owner acceptance. `/pos` is now a staff-facing ordering surface with only 現場點餐, 待出餐, 預約單, and 客人訂單 tabs; inventory setup and financial closeout have moved out of the POS main workflow. Back Office now groups Catalog, Event setup, Statistics/closeout, Health, and link sharing under `/admin`, `/admin/events`, `/admin/statistics`, and `/admin/health`. Kitchen remains a production-status-only surface. This work changed presentation, routes, tests, and documentation only; no Domain, Contract, Schema, Migration, Event Close business rule, Payment, Customer, Cost, Device Registry, Voice, AI, LINE, n8n, Google Sheets, or Legacy behavior changed.
+Front Office / Back Office / Kitchen information architecture is complete on `feature/front-back-office-information-architecture` under **DECISIONS #035**, awaiting Architecture Owner acceptance. `/pos` is now a staff-facing ordering surface with only `現場點餐`, `待出餐`, and `今日已出餐`; inventory setup, preorder/customer surfaces, system health, sharing, and financial closeout have moved out of the POS main workflow. Back Office groups Catalog, Event setup, Statistics/closeout, Health, and link sharing under `/admin`, `/admin/events`, `/admin/statistics`, and `/admin/health`. Kitchen remains a production-status-only surface. This work changed presentation, routes, tests, and documentation only; no Domain, Contract, Schema, Migration, Event Close business rule, Payment, Customer, Cost, Device Registry, Voice, AI, LINE, n8n, Google Sheets, or Legacy behavior changed.
 
 Device connectivity dashboard is complete under **DECISIONS #034** on `feature/device-connectivity-dashboard`. `/debug/devices` is a ROS-only, read-only view of active in-memory SSE connections. It records no SQLite data and does not affect Orders, Event, Catalog, Cost, Contracts, or Legacy. Existing POS, Kitchen, and Statistics all retain the one shared realtime client; a single SseHub heartbeat refreshes connection activity.
 

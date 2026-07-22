@@ -77,6 +77,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "GET" && pathname === "/admin") return sendHtml(response, renderAdmin());
     if (request.method === "GET" && pathname === "/admin/events") return sendHtml(response, renderEventsAdmin());
     if (request.method === "GET" && pathname === "/admin/health") return sendHtml(response, renderHealthDashboard());
+    if (request.method === "GET" && pathname === "/admin/devices") return sendHtml(response, renderDevicesDebug());
     if (request.method === "GET" && pathname === "/admin/statistics") return sendHtml(response, renderStatistics());
     if (request.method === "GET" && pathname === "/pos") return sendHtml(response, renderPos());
     if (request.method === "GET" && pathname === "/pos/lifecycle") return sendHtml(response, renderLifecycle());

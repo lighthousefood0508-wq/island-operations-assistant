@@ -27,7 +27,7 @@ async function closeEvent(page: Page, eventId: string) {
   for (const order of orders.body.data) {
     if (order.orderStatus === "confirmed") {
       await api(page, `/api/orders/${order.orderId}/no-show`, "POST", {});
-      await api(page, `/api/orders/${order.orderId}/release-inventory`, "POST", { confirmed: true });
+      if (order.productionStatus === "not_started") await api(page, `/api/orders/${order.orderId}/release-inventory`, "POST", { confirmed: true });
     }
   }
   await api(page, `/api/events/${eventId}/close`, "POST", { confirmed: true });
@@ -37,7 +37,7 @@ async function addToCart(page: Page, productId: string) {
   await page.locator(`button[data-action="add"][data-product-id="${productId}"]`).click();
 }
 
-test("POS keeps front-office tabs, creates a central Order, and protects cart navigation", async ({ page, browser }) => {
+test("POS keeps front-office tabs, creates a central Order, and completes the active order loop", async ({ page, browser }) => {
   const { eventId, contracts } = await setupOpenEvent(page, "POSUI", [
     { name: "Rice bowl", posName: "Rice", price: 180, quantity: 5 },
     { name: "Shrimp bowl", posName: "Shrimp", price: 220, quantity: 4 },
@@ -48,34 +48,34 @@ test("POS keeps front-office tabs, creates a central Order, and protects cart na
   try {
     await page.goto("/pos");
     await kitchen.goto("/kitchen");
-    for (const tab of ["現場點餐", "待出餐", "預約單", "客人訂單"]) await expect(page.getByRole("button", { name: tab })).toBeVisible();
-    await expect(page.getByRole("button", { name: "備貨／商品" })).toHaveCount(0);
+    for (const tab of ["onsite", "pending", "served"]) await expect(page.locator(`button[data-tab="${tab}"]`)).toBeVisible();
+    await expect(page.locator('button[data-tab="preorder"]')).toHaveCount(0);
+    await expect(page.locator('button[data-tab="customer"]')).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "庫存設定" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "今日統計" })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Kitchen" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Back Office" })).toBeVisible();
-    await expect(page.locator("body")).not.toContainText("帳面總額");
-    await expect(page.locator("body")).not.toContainText("實收差額");
+    await page.locator(".system-menu summary").click();
+    await expect(page.locator(".system-links .current")).toBeVisible();
+    await expect(page.locator('.system-links a[href="/kitchen"]')).toBeVisible();
+    await expect(page.locator('.system-links a[href="/admin"]')).toBeVisible();
+    await expect(page.locator(".system-links .future")).toBeVisible();
+    await page.locator(".system-menu summary").click();
+    await expect(page.locator("body")).not.toContainText("今日收入");
     await expect(page.locator("body")).not.toContainText("毛利");
+    await expect(page.locator("body")).not.toContainText("成本");
+    await expect(page.locator("#header-operator")).toContainText("Owner");
+    await expect(page.locator("#header-event")).toContainText("POSUI market");
+    await expect(page.locator("#header-status")).toContainText("OPEN");
 
     await expect(page.locator("#category-tabs")).toContainText("Meals");
     await expect(page.locator(`article[data-product-id="${contracts[0]?.productId}"]`)).toContainText("Rice");
     await expect(page.locator(`article[data-product-id="${contracts[1]?.productId}"]`)).toContainText("Shrimp");
     await expect(page.locator(`article[data-product-id="${contracts[2]?.productId}"]`)).toHaveClass(/sold-out/);
-    await expect(page.locator(`article[data-product-id="${contracts[2]?.productId}"]`)).toContainText("售完");
     await expect(page.locator(`article[data-product-id="${contracts[2]?.productId}"] button`)).toBeDisabled();
 
-    await page.getByRole("button", { name: "預約單" }).click();
-    await expect(page.locator('[data-pane="preorder"]')).toContainText("尚未啟用");
-    await page.getByRole("button", { name: "客人訂單" }).click();
-    await expect(page.locator('[data-pane="customer"]')).toContainText("尚未啟用");
-    await page.getByRole("button", { name: "現場點餐" }).click();
-
-    await addToCart(page, contracts[0]?.productId as string);
-    await page.once("dialog", async (dialog) => { expect(dialog.message()).toContain("購物車尚未送出"); await dialog.dismiss(); });
-    await page.getByRole("link", { name: "Kitchen" }).click();
-    await expect(page).toHaveURL(/\/pos/);
-    await page.locator("#clear-cart").click();
-    await expect(page.locator("#cart-items")).toContainText("點商品即可加入訂單");
+    await page.locator('button[data-tab="served"]').click();
+    await expect(page.locator('[data-pane="served"]')).toBeVisible();
+    await expect(page.locator('[data-pane="served"]')).toContainText("今日已出餐");
+    await page.locator('button[data-tab="onsite"]').click();
 
     await addToCart(page, contracts[0]?.productId as string);
     await addToCart(page, contracts[0]?.productId as string);
@@ -93,25 +93,43 @@ test("POS keeps front-office tabs, creates a central Order, and protects cart na
 
     await page.locator("#create-order").click();
     await expect(page.locator("#notice")).toContainText("POSUI-001");
-    await expect(page.locator(`article[data-product-id="${contracts[0]?.productId}"]`)).toContainText("剩 4 份");
-    await expect(page.locator(`article[data-product-id="${contracts[1]?.productId}"]`)).toContainText("剩 3 份");
+    await expect(page.locator(`article[data-product-id="${contracts[0]?.productId}"]`)).toContainText("4");
+    await expect(page.locator(`article[data-product-id="${contracts[1]?.productId}"]`)).toContainText("3");
     const orders = await api(page, `/api/events/${eventId}/orders`);
     expect(orders.body.data[0]?.customerName).toBe("Miles");
     expect(orders.body.data[0]?.customerPhoneTail).toBe("1234");
     expect(orders.body.data[0]?.paymentMethod).toBe("CASH");
     expect(orders.body.data[0]?.notes).toBe("counter pickup");
 
-    await page.getByRole("button", { name: "待出餐" }).click();
+    await page.locator('button[data-tab="pending"]').click();
     await expect(page.locator("#orders")).toContainText("POSUI-001");
     await expect(page.locator("#orders")).toContainText("Miles");
     await expect(page.locator("#orders")).toContainText("1234");
-    await expect(page.locator("#orders")).toContainText("現金");
-    await expect(page.locator("#orders")).toContainText("訂單：confirmed");
-    await expect(page.locator("#orders")).toContainText("付款：unpaid");
-    await expect(page.locator("#orders")).toContainText("製作：not_started");
+    await expect(page.locator("#orders")).toContainText("等待");
+    await expect(page.locator("#orders")).toContainText("less sauce");
+    await expect(page.locator("#orders")).toContainText("counter pickup");
+    await expect(page.locator('#orders [data-order-action="start"]')).toBeVisible();
+    await expect(page.locator("#orders button:disabled")).toBeVisible();
+    await page.locator("#orders [data-view-order]").click();
+    await expect(page.locator("#orders")).toContainText("confirmed");
     await expect(kitchen.locator("#pending")).toContainText("Miles");
-    await expect(kitchen.getByRole("link", { name: "POS" })).toBeVisible();
-    await expect(kitchen.getByRole("link", { name: "Back Office" })).toBeVisible();
+    await kitchen.locator(".system-menu summary").click();
+    await expect(kitchen.locator('.system-links a[href="/pos"]')).toBeVisible();
+    await expect(kitchen.locator('.system-links a[href="/admin"]')).toBeVisible();
+
+    await page.locator('#orders [data-order-action="start"]').click();
+    await expect.poll(async () => (await api(page, `/api/events/${eventId}/orders`)).body.data[0]?.productionStatus).toBe("preparing");
+    await page.locator('#orders [data-order-action="served"]').click();
+    await page.locator('button[data-tab="served"]').click();
+    await expect(page.locator("#served-orders")).toContainText("POSUI-001");
+    await expect(page.locator("#served-orders")).toContainText("Miles");
+    await expect(page.locator("#served-orders")).toContainText("1234");
+    await page.locator("#served-search").fill("Miles");
+    await expect(page.locator("#served-orders")).toContainText("POSUI-001");
+    await page.locator("#served-search").fill("1234");
+    await expect(page.locator("#served-orders")).toContainText("POSUI-001");
+    await page.locator("#served-search").fill("POSUI-001");
+    await expect(page.locator("#served-orders")).toContainText("Miles");
 
     await page.goto("/pos?debug=1");
     await expect(page.locator("#sync-debug")).toBeVisible();

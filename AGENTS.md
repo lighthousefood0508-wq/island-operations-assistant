@@ -1,6 +1,20 @@
 # ROS Working Rules
 
-Read `CONSTITUTION.md` before modifying code. Then read `README.md`, `docs/02_SYSTEM_ARCHITECTURE.md`, `docs/03_DOMAIN_OWNERSHIP.md`, `docs/CURRENT_STATUS.md`, `docs/DECISIONS.md`, `docs/ROADMAP.md`, and relevant ADRs.
+Read the following before modifying code, in this order:
+
+1. `CONSTITUTION.md` — the highest repository rule.
+2. Relevant accepted ADRs and Architecture Owner Decisions.
+3. This `AGENTS.md` file.
+4. AI onboarding and handover documents:
+   - `docs/bootstrap/01_AI_HANDOVER.md`
+   - `docs/bootstrap/02_AI_CONSTITUTION.md`
+   - `docs/bootstrap/03_UI_PHILOSOPHY.md`
+   - `docs/bootstrap/04_DOMAIN_RULES.md`
+   - `docs/bootstrap/05_DEVELOPMENT_WORKFLOW.md`
+   - `docs/bootstrap/CURRENT_AI_HANDOVER.md`
+5. `README.md`, `docs/02_SYSTEM_ARCHITECTURE.md`, `docs/03_DOMAIN_OWNERSHIP.md`, `docs/CURRENT_STATUS.md`, `docs/DECISIONS.md`, `docs/ROADMAP.md`, and other relevant documentation.
+
+`docs/bootstrap/` is AI onboarding and handover material. It cannot override `CONSTITUTION.md`, an accepted ADR, or an Architecture Owner Decision. When documents disagree, follow that precedence and correct the bootstrap material rather than weakening an architecture rule.
 
 - Do not create new business domains.
 - Do not query another domain's tables.

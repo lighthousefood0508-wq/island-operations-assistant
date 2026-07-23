@@ -1,16 +1,20 @@
 # Current Status
 
-Date: 2026-07-22
+Date: 2026-07-23
 
 ## Current Phase
 
-DECISIONS #039 - POS Operating Loop completion.
+Post-DECISIONS #041A Catalog Category Automatic Code, with Back Office event-first page separation under active review.
 
 ## Current Branch
 
-`feature/phase-b1-pos-operating-loop-completion`
+`feature/catalog-category-auto-code`
 
 ## Completed
+
+- Catalog category automatic codes are implemented under DECISIONS #041A: new categories receive immutable backend-generated `cat-0001`-style codes, while existing legacy codes and `categoryId` relationships remain unchanged.
+- Back Office now has separate event-first `/admin` and product-master `/admin/catalog` routes. Event codes are backend-generated from date with a same-day sequence such as `YYYYMMDD-01`.
+- Documentation-only AI handover integration is in progress: `docs/bootstrap/` now contains onboarding guides, a real handover, and a new-session prompt. This does not change product behavior.
 
 - POS header now shows the current Event, OPEN/CLOSED status, remaining main meals, active order count, preorder count fixed at 0, and operator fixed as `Owner`.
 - POS system navigation has been moved into a right-side `系統` popup menu so the main surface remains dedicated to ordering only.

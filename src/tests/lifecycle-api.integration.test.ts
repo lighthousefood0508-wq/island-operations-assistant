@@ -21,6 +21,10 @@ async function setup(quantity = 2) {
   return { server, baseUrl, eventId: event.body.data.eventId, product: published.body.data.contract };
 }
 async function createOrder(baseUrl: string, eventId: string, product: any, key: string, customerName: string | null = null) { return request(baseUrl, "/api/orders", "POST", { source: "pos", eventId, idempotencyKey: key, items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }], customerName, customerPhoneTail: customerName ? "1234" : null, paymentMethod: "LINE_PAY", notes: null }); }
+async function saveZeroCloseout(baseUrl: string, eventId: string) {
+  const statistics = await request(baseUrl, `/api/events/${eventId}/statistics`);
+  return request(baseUrl, `/api/events/${eventId}/closeout`, "PUT", { cashReceived: 0, linePayReceived: 0, otherReceived: 0, wasteAmount: 0, notes: "", items: statistics.body.data.inventory.map((item: any) => ({ productVersionId: item.productVersionId, wasteQuantity: 0 })) });
+}
 
 test("lifecycle keeps Order, Payment, and Production states separate", async () => {
   const { server, baseUrl, eventId, product } = await setup(); const created = await createOrder(baseUrl, eventId, product, "life-a", "Miles"); const id = created.body.data.orderId;
@@ -54,6 +58,7 @@ test("Event Close blocks unresolved orders, creates an idempotent daily report, 
   const { server, baseUrl, eventId, product } = await setup(); const order = await createOrder(baseUrl, eventId, product, "close"); const id = order.body.data.orderId;
   const blocked = await request(baseUrl, `/api/events/${eventId}/close`, "POST", { confirmed: true }); assert.equal(blocked.status, 409); assert.equal(blocked.body.error.code, "EVENT_CLOSE_BLOCKED");
   await request(baseUrl, `/api/orders/${id}/no-show`, "POST", {});
+  assert.equal((await saveZeroCloseout(baseUrl, eventId)).status, 200);
   const [left, right] = await Promise.all([request(baseUrl, `/api/events/${eventId}/close`, "POST", { confirmed: true }), request(baseUrl, `/api/events/${eventId}/close`, "POST", { confirmed: true })]);
   assert.equal(left.status, 200); assert.equal(right.status, 200); assert.deepEqual(left.body.data.report, right.body.data.report);
   const report = await request(baseUrl, `/api/events/${eventId}/daily-report`); assert.equal(report.body.data.orders.noShow, 1);

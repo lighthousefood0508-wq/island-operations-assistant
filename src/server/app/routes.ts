@@ -142,21 +142,33 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "POST" && pathname === "/api/admin/events") return success(response, 201, services.operations.createEvent(await readJson(request) as never));
     const eventMatch = pathname.match(/^\/api\/admin\/events\/([^/]+)$/);
     if (request.method === "PATCH" && eventMatch?.[1]) return success(response, 200, services.operations.updateEvent(decodeURIComponent(eventMatch[1]), await readJson(request) as never));
-    const eventActionMatch = pathname.match(/^\/api\/admin\/events\/([^/]+)\/(open|close|archive)$/);
+    const eventActionMatch = pathname.match(/^\/api\/admin\/events\/([^/]+)\/(open|pause|resume|close|archive)$/);
     if (request.method === "POST" && eventActionMatch?.[1] && eventActionMatch[2]) {
       const eventId = decodeURIComponent(eventActionMatch[1]);
       const action = eventActionMatch[2];
       if (action === "close") { const result = services.lifecycle.closeEvent(eventId, await readJson(request)); events.publish("event.closed", eventId); return success(response, 200, result); }
-      return success(response, 200, action === "open" ? services.operations.openEvent(eventId) : services.operations.archiveEvent(eventId));
+      const event = action === "open" ? services.operations.openEvent(eventId)
+        : action === "pause" ? services.operations.pauseEvent(eventId)
+          : action === "resume" ? services.operations.resumeEvent(eventId)
+            : services.operations.archiveEvent(eventId);
+      events.publish(action === "pause" ? "event.paused" : action === "resume" ? "event.resumed" : "event.opened", eventId);
+      return success(response, 200, event);
     }
     const inventoryMatch = pathname.match(/^\/api\/admin\/events\/([^/]+)\/sellable-inventory$/);
     if (inventoryMatch?.[1] && request.method === "GET") return success(response, 200, services.operations.getInventory(decodeURIComponent(inventoryMatch[1])));
     if (inventoryMatch?.[1] && request.method === "PUT") {
       const input = await readJson(request);
+      const eventId = decodeURIComponent(inventoryMatch[1]);
+      if (Array.isArray(input.items)) {
+        const contracts = new Map(services.catalog.getPublishedProducts().map((product) => [product.productVersionId, product]));
+        const result = services.operations.saveInventoryBatch(eventId, contracts, input as never);
+        events.publish("inventory.changed", eventId);
+        return success(response, 200, result);
+      }
       const productVersionId = typeof input.productVersionId === "string" ? input.productVersionId : "";
       const contract = services.catalog.getPublishedProducts().find((product) => product.productVersionId === productVersionId);
       if (!contract) throw new HttpError(422, "published_product_not_found", "Choose a currently published product version.", { field: "productVersionId" });
-      return success(response, 200, services.operations.setSellableInventory(decodeURIComponent(inventoryMatch[1]), contract, input as never));
+      return success(response, 200, services.operations.setSellableInventory(eventId, contract, input as never));
     }
     if (request.method === "GET" && pathname === "/api/v1") return sendJson(response, 501, { ok: false, error: { code: "not_implemented", message: "Business APIs are intentionally scoped to Catalog Phase 1A." } });
     return sendJson(response, 404, { ok: false, error: { code: "not_found", message: "Route not found." } });

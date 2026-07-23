@@ -1,6 +1,6 @@
 import type { ServerResponse } from "node:http";
 
-export type RosEventType = "order.created" | "order.production_changed" | "order.completed" | "inventory.changed" | "event.closed" | "closeout.updated";
+export type RosEventType = "order.created" | "order.production_changed" | "order.completed" | "inventory.changed" | "event.opened" | "event.paused" | "event.resumed" | "event.closed" | "closeout.updated";
 
 export type ConnectedDevice = Readonly<{
   deviceId: string;

@@ -64,7 +64,7 @@ export class OrderRepository {
       p.display_name, p.pos_name, p.display_category_name, p.selling_price, p.channels_json, p.is_active
       FROM operations_sellable_inventory i
       JOIN operations_product_copies p ON p.product_version_id = i.product_version_id
-      WHERE i.event_id = ? AND i.product_id = ?`, [eventId, productId]);
+      WHERE i.event_id = ? AND i.product_id = ? AND i.is_enabled = 1`, [eventId, productId]);
   }
 
   getProductSnapshot(eventId: string, item: PosOrderItemInput): OrderProductSnapshot | undefined {
@@ -80,7 +80,7 @@ export class OrderRepository {
   decrementRemaining(eventId: string, item: PosOrderItemInput, timestamp: string): boolean {
     const result = this.database.execute(`UPDATE operations_sellable_inventory
       SET sold_quantity = sold_quantity + ?, updated_at = ?
-      WHERE event_id = ? AND product_id = ? AND product_version_id = ?
+      WHERE event_id = ? AND product_id = ? AND product_version_id = ? AND is_enabled = 1
         AND planned_quantity - reserved_quantity - sold_quantity >= ?`,
       [item.quantity, timestamp, eventId, item.productId, item.productVersionId, item.quantity]);
     return result.changes === 1;

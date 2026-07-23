@@ -1,6 +1,6 @@
 import type { ProductContractV2 } from "../../../shared/contracts/product-contract.js";
 
-export const EVENT_STATUSES = ["draft", "open", "closed", "archived"] as const;
+export const EVENT_STATUSES = ["draft", "open", "paused", "closed", "archived"] as const;
 export type EventStatus = (typeof EVENT_STATUSES)[number];
 
 export type OperationsEvent = Readonly<{
@@ -23,6 +23,7 @@ export type SellableInventory = Readonly<{
   reservedQuantity: number;
   soldQuantity: number;
   safetyBufferQuantity: number;
+  isEnabled: boolean;
   remainingQuantity: number;
   customerAvailableQuantity: number;
   createdAt: string;

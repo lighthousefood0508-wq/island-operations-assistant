@@ -79,8 +79,9 @@ export class LifecycleService {
     return this.repository.transactionImmediate(() => {
       const closed = this.repository.findClosure(eventId); if (closed) return { report: closed, replayed: true };
       const event = this.repository.findEvent(eventId); if (!event) throw new HttpError(404, "EVENT_NOT_FOUND", "Event was not found.");
-      if (event.status !== "open") throw new HttpError(409, "EVENT_NOT_OPEN", "Only an OPEN Event can be closed.");
+      if (event.status !== "open" && event.status !== "paused") throw new HttpError(409, "EVENT_NOT_OPERATIONAL", "Only an OPEN or PAUSED Event can be closed.");
       const unresolved = this.repository.unresolvedCount(eventId); if (unresolved) throw new HttpError(409, "EVENT_CLOSE_BLOCKED", "Resolve all non-terminal Orders first.", { unresolved: String(unresolved) });
+      if (!this.repository.hasCompleteCloseout(eventId)) throw new HttpError(409, "EVENT_CLOSEOUT_REQUIRED", "Complete the per-product waste and retained closeout before closing the Event.");
       const timestamp = now(); const report = this.repository.buildReport(event, timestamp); const auditLogId = createId("audit_");
       this.repository.insertAudit({ auditLogId, entityType: "event", entityId: eventId, action: "event_closed", metadata: { operator: actor, eventId, report }, occurredAt: timestamp });
       this.repository.insertClosure(eventId, report, timestamp, actor, auditLogId);
@@ -95,8 +96,26 @@ export class LifecycleService {
     const cashReceived = amount("cashReceived"), linePayReceived = amount("linePayReceived"), otherReceived = amount("otherReceived"), wasteAmount = amount("wasteAmount");
     if (cashReceived === null || linePayReceived === null || otherReceived === null || wasteAmount === null) throw new HttpError(400, "VALIDATION_ERROR", "Closeout amounts must be non-negative integers.");
     const event = this.repository.findEvent(eventId); if (!event) throw new HttpError(404, "EVENT_NOT_FOUND", "Event was not found.");
+    if (event.status !== "open" && event.status !== "paused") throw new HttpError(409, "EVENT_CLOSEOUT_LOCKED", "Closeout is only available while an Event is open or paused.");
+    if (!Array.isArray(value?.items)) throw new HttpError(400, "VALIDATION_ERROR", "Closeout requires one item for every event product.");
+    const inventory = this.repository.listInventoryForCloseout(eventId);
+    const supplied = new Map<string, { wasteQuantity: number }>();
+    for (const item of value.items) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) throw new HttpError(400, "VALIDATION_ERROR", "Closeout items must be objects.");
+      const productVersionId = (item as Record<string, unknown>).productVersionId;
+      const wasteQuantity = (item as Record<string, unknown>).wasteQuantity;
+      if (typeof productVersionId !== "string" || typeof wasteQuantity !== "number" || !Number.isSafeInteger(wasteQuantity) || wasteQuantity < 0) throw new HttpError(400, "VALIDATION_ERROR", "Closeout items require productVersionId and a non-negative wasteQuantity.");
+      if (supplied.has(productVersionId)) throw new HttpError(400, "VALIDATION_ERROR", "Each closeout product may only appear once.");
+      supplied.set(productVersionId, { wasteQuantity });
+    }
+    if (supplied.size !== inventory.length || inventory.some((item) => !supplied.has(item.productVersionId))) throw new HttpError(400, "VALIDATION_ERROR", "Closeout must cover every event product exactly once.");
+    const closeoutItems = inventory.map((item) => {
+      const wasteQuantity = supplied.get(item.productVersionId)!.wasteQuantity;
+      if (wasteQuantity > item.remainingQuantity) throw new HttpError(400, "VALIDATION_ERROR", "Waste quantity cannot exceed the current remaining quantity.", { productVersionId: item.productVersionId });
+      return { ...item, wasteQuantity, retainedQuantity: item.remainingQuantity - wasteQuantity };
+    });
     const timestamp = now(); const actor = operator(value?.operator); const auditLogId = createId("audit_"); const notes = typeof value?.notes === "string" ? value.notes.slice(0, 1000) : "";
-    this.repository.transactionImmediate(() => { this.repository.saveCloseout(eventId, { cashReceived, linePayReceived, otherReceived, wasteAmount, notes, updatedAt: timestamp, operator: actor, auditLogId }); this.repository.insertAudit({ auditLogId, entityType: "event", entityId: eventId, action: "closeout_updated", metadata: { operator: actor, eventId }, occurredAt: timestamp }); });
+    this.repository.transactionImmediate(() => { this.repository.saveCloseout(eventId, { cashReceived, linePayReceived, otherReceived, wasteAmount, notes, updatedAt: timestamp, operator: actor, auditLogId }); this.repository.replaceCloseoutItems(eventId, closeoutItems.map((item) => ({ ...item, updatedAt: timestamp }))); this.repository.insertAudit({ auditLogId, entityType: "event", entityId: eventId, action: "closeout_updated", metadata: { operator: actor, eventId, itemCount: closeoutItems.length }, occurredAt: timestamp }); });
     return this.getStatistics(eventId);
   }
 }

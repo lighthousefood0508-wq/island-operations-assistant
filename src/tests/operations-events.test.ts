@@ -24,8 +24,6 @@ test("an event opens with sellable inventory and exposes remaining product snaps
   const opened = service.openEvent(event.eventId);
   assert.equal(opened.status, "open");
   assert.deepEqual(service.getCurrentProducts(), [{ ...product, remainingQuantity: 20, safetyBufferQuantity: 0, customerAvailableQuantity: 20 }]);
-  assert.equal(service.closeEvent(event.eventId).status, "closed");
-  assert.deepEqual(service.getCurrentProducts(), []);
   database.close();
 });
 

@@ -3,7 +3,7 @@ import type { ProductContractV2 } from "../../../shared/contracts/product-contra
 import type { EventProduct, EventStatus, OperationsEvent, SellableInventory, SellableInventoryView } from "../domain/types.js";
 
 type EventRow = { event_id: string; event_code: string; display_name: string; date: string; start_time: string; end_time: string; status: EventStatus; created_at: string; updated_at: string };
-type InventoryRow = { event_id: string; product_id: string; product_version_id: string; planned_quantity: number; reserved_quantity: number; sold_quantity: number; safety_buffer_quantity: number; created_at: string; updated_at: string };
+type InventoryRow = { event_id: string; product_id: string; product_version_id: string; planned_quantity: number; reserved_quantity: number; sold_quantity: number; safety_buffer_quantity: number; is_enabled: number; created_at: string; updated_at: string };
 type ProductRow = { product_id: string; product_version_id: string; category_id: string; display_category_name: string; display_category_sort_order: number; display_name: string; pos_name: string; selling_price: number; channels_json: string; is_active: number; published_at: string; contract_version: string };
 
 function mapEvent(row: EventRow): OperationsEvent {
@@ -11,7 +11,7 @@ function mapEvent(row: EventRow): OperationsEvent {
 }
 function mapInventory(row: InventoryRow): SellableInventory {
   const remainingQuantity = row.planned_quantity - row.reserved_quantity - row.sold_quantity;
-  return { eventId: row.event_id, productId: row.product_id, productVersionId: row.product_version_id, plannedQuantity: row.planned_quantity, reservedQuantity: row.reserved_quantity, soldQuantity: row.sold_quantity, safetyBufferQuantity: row.safety_buffer_quantity, remainingQuantity, customerAvailableQuantity: Math.max(0, remainingQuantity - row.safety_buffer_quantity), createdAt: row.created_at, updatedAt: row.updated_at };
+  return { eventId: row.event_id, productId: row.product_id, productVersionId: row.product_version_id, plannedQuantity: row.planned_quantity, reservedQuantity: row.reserved_quantity, soldQuantity: row.sold_quantity, safetyBufferQuantity: row.safety_buffer_quantity, isEnabled: row.is_enabled === 1, remainingQuantity, customerAvailableQuantity: Math.max(0, remainingQuantity - row.safety_buffer_quantity), createdAt: row.created_at, updatedAt: row.updated_at };
 }
 
 export class OperationsRepository {
@@ -50,7 +50,7 @@ export class OperationsRepository {
       [`opcopy_${contract.productVersionId}`, contract.productId, contract.productVersionId, contract.categoryId, contract.displayCategoryName, contract.displayCategorySortOrder, contract.displayName, contract.posName, contract.sellingPrice, JSON.stringify(contract.channels), contract.isActive ? 1 : 0, contract.publishedAt, contract.contractVersion, receivedAt]);
   }
   listInventory(eventId: string): SellableInventoryView[] {
-    const rows = this.database.queryMany<InventoryRow & Partial<ProductRow>>(`SELECT i.event_id, i.product_id, i.product_version_id, i.planned_quantity, i.reserved_quantity, i.sold_quantity, i.safety_buffer_quantity, i.created_at, i.updated_at,
+    const rows = this.database.queryMany<InventoryRow & Partial<ProductRow>>(`SELECT i.event_id, i.product_id, i.product_version_id, i.planned_quantity, i.reserved_quantity, i.sold_quantity, i.safety_buffer_quantity, i.is_enabled, i.created_at, i.updated_at,
       p.category_id, p.display_category_name, p.display_category_sort_order, p.display_name, p.pos_name, p.selling_price, p.channels_json, p.is_active, p.published_at, p.contract_version
       FROM operations_sellable_inventory i LEFT JOIN operations_product_copies p ON p.product_version_id = i.product_version_id
       WHERE i.event_id = ?
@@ -60,24 +60,41 @@ export class OperationsRepository {
       return row.contract_version ? { ...inventory, contractVersion: row.contract_version as "2", categoryId: row.category_id, displayCategoryName: row.display_category_name, displayCategorySortOrder: row.display_category_sort_order, displayName: row.display_name, posName: row.pos_name, sellingPrice: row.selling_price, channels: JSON.parse(row.channels_json as string) as string[], isActive: row.is_active === 1, publishedAt: row.published_at } : inventory;
     });
   }
+  findOperationalEvent(): OperationsEvent | undefined {
+    const row = this.database.queryOne<EventRow>("SELECT event_id, event_code, display_name, date, start_time, end_time, status, created_at, updated_at FROM operations_events WHERE status IN ('open', 'paused') ORDER BY CASE status WHEN 'open' THEN 0 ELSE 1 END LIMIT 1");
+    return row ? mapEvent(row) : undefined;
+  }
   setInventory(inventory: SellableInventory): void {
-    this.database.execute(`INSERT INTO operations_sellable_inventory (event_id, product_id, product_version_id, planned_quantity, reserved_quantity, sold_quantity, safety_buffer_quantity, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(event_id, product_version_id) DO UPDATE SET planned_quantity = excluded.planned_quantity, safety_buffer_quantity = excluded.safety_buffer_quantity, updated_at = excluded.updated_at`,
-      [inventory.eventId, inventory.productId, inventory.productVersionId, inventory.plannedQuantity, inventory.reservedQuantity, inventory.soldQuantity, inventory.safetyBufferQuantity, inventory.createdAt, inventory.updatedAt]);
+    this.database.execute(`INSERT INTO operations_sellable_inventory (event_id, product_id, product_version_id, planned_quantity, reserved_quantity, sold_quantity, safety_buffer_quantity, is_enabled, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(event_id, product_version_id) DO UPDATE SET planned_quantity = excluded.planned_quantity, safety_buffer_quantity = excluded.safety_buffer_quantity, is_enabled = excluded.is_enabled, updated_at = excluded.updated_at`,
+      [inventory.eventId, inventory.productId, inventory.productVersionId, inventory.plannedQuantity, inventory.reservedQuantity, inventory.soldQuantity, inventory.safetyBufferQuantity, inventory.isEnabled ? 1 : 0, inventory.createdAt, inventory.updatedAt]);
   }
   hasPositiveInventory(eventId: string): boolean {
-    return this.database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_sellable_inventory WHERE event_id = ? AND planned_quantity > 0", [eventId])?.count !== 0;
+    return this.database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_sellable_inventory WHERE event_id = ? AND is_enabled = 1 AND planned_quantity > 0", [eventId])?.count !== 0;
   }
   listCurrentProducts(eventId: string): EventProduct[] {
-    const rows = this.database.queryMany<ProductRow & InventoryRow>(`SELECT i.event_id, i.product_id, i.product_version_id, i.planned_quantity, i.reserved_quantity, i.sold_quantity, i.safety_buffer_quantity, i.created_at, i.updated_at,
+    const rows = this.database.queryMany<ProductRow & InventoryRow>(`SELECT i.event_id, i.product_id, i.product_version_id, i.planned_quantity, i.reserved_quantity, i.sold_quantity, i.safety_buffer_quantity, i.is_enabled, i.created_at, i.updated_at,
       p.category_id, p.display_category_name, p.display_category_sort_order, p.display_name, p.pos_name, p.selling_price, p.channels_json, p.is_active, p.published_at, p.contract_version
       FROM operations_sellable_inventory i JOIN operations_product_copies p ON p.product_version_id = i.product_version_id
-      WHERE i.event_id = ? AND p.is_active = 1
+      WHERE i.event_id = ? AND i.is_enabled = 1 AND p.is_active = 1
       ORDER BY p.display_category_sort_order, p.display_name`, [eventId]);
     return rows.map((row) => {
       const remainingQuantity = row.planned_quantity - row.reserved_quantity - row.sold_quantity;
       return { contractVersion: row.contract_version as "2", productId: row.product_id, productVersionId: row.product_version_id, categoryId: row.category_id, displayCategoryName: row.display_category_name, displayCategorySortOrder: row.display_category_sort_order, displayName: row.display_name, posName: row.pos_name, sellingPrice: row.selling_price, channels: JSON.parse(row.channels_json) as string[], isActive: row.is_active === 1, publishedAt: row.published_at, remainingQuantity, safetyBufferQuantity: row.safety_buffer_quantity, customerAvailableQuantity: Math.max(0, remainingQuantity - row.safety_buffer_quantity) };
     });
+  }
+  findInventoryAdjustmentBatch(eventId: string, idempotencyKey: string): { requestFingerprint: string } | undefined {
+    const row = this.database.queryOne<{ request_fingerprint: string }>("SELECT request_fingerprint FROM operations_inventory_adjustment_batches WHERE event_id = ? AND idempotency_key = ?", [eventId, idempotencyKey]);
+    return row ? { requestFingerprint: row.request_fingerprint } : undefined;
+  }
+  insertInventoryAdjustmentBatch(input: { batchId: string; eventId: string; idempotencyKey: string; requestFingerprint: string; operator: string; createdAt: string; auditLogId: string }): void {
+    this.database.execute("INSERT INTO operations_inventory_adjustment_batches (batch_id, event_id, idempotency_key, request_fingerprint, operator, created_at, audit_log_id) VALUES (?, ?, ?, ?, ?, ?, ?)", [input.batchId, input.eventId, input.idempotencyKey, input.requestFingerprint, input.operator, input.createdAt, input.auditLogId]);
+  }
+  insertInventoryAdjustment(input: { adjustmentId: string; batchId: string; eventId: string; productId: string; productVersionId: string; plannedBefore: number; plannedAfter: number; safetyBefore: number; safetyAfter: number; enabledBefore: boolean; enabledAfter: boolean; createdAt: string }): void {
+    this.database.execute("INSERT INTO operations_inventory_adjustments (adjustment_id, batch_id, event_id, product_id, product_version_id, planned_before, planned_after, safety_before, safety_after, enabled_before, enabled_after, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [input.adjustmentId, input.batchId, input.eventId, input.productId, input.productVersionId, input.plannedBefore, input.plannedAfter, input.safetyBefore, input.safetyAfter, input.enabledBefore ? 1 : 0, input.enabledAfter ? 1 : 0, input.createdAt]);
+  }
+  insertAudit(input: { auditLogId: string; eventId: string; action: string; metadata: Record<string, unknown>; occurredAt: string }): void {
+    this.database.execute("INSERT INTO audit_logs (audit_log_id, actor_user_id, entity_type, entity_id, action, before_json, after_json, occurred_at) VALUES (?, NULL, 'event', ?, ?, NULL, ?, ?)", [input.auditLogId, input.eventId, input.action, JSON.stringify(input.metadata), input.occurredAt]);
   }
 }

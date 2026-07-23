@@ -5,7 +5,12 @@ dist/
 !.env.example
 data/*.sqlite
 data/*.sqlite-*
-logs/
+runtime/*
+!runtime/README.md
+logs/*
+!logs/README.md
+backups/*
+!backups/README.md
 coverage/
 *.log
 playwright-report/

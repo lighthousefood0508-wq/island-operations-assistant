@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-07-23 - DECISIONS #046 ROS Self-Starting Runtime
+
+- Added ROS-only Windows start and stop scripts plus thin batch wrappers. The start path uses formal ROS build/runtime files on local port 3092, verifies central SQLite health, starts the canonical Quick Tunnel, and writes the current public links under ignored `runtime/` state.
+- Hardened ROS process ownership: stop behavior requires both the ROS-owned PID file and matching process name/start marker, so it does not sweep unrelated Node or cloudflared processes.
+- Added a Windows runtime operation guide and a local `Desert Island ROS Startup` Task Scheduler entry for current-user logon with a 30-second delay and limited privileges.
+- No Domain, API, schema, migration, contract, business rule, Legacy, n8n, Docker, or ngrok behavior changed.
+
 ## 2026-07-23 - AI Handover Integration
 
 - Added AI onboarding and handover material under `docs/bootstrap/`, including a Git-backed current handover and a copyable new-session prompt.

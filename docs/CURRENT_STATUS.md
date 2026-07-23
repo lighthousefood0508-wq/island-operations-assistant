@@ -2,6 +2,11 @@
 
 Date: 2026-07-23
 
+## ROS Runtime
+
+- DECISIONS #046 adds ROS-only Windows start and stop scripts, an ignored runtime link file, and a user-logon Task Scheduler entry delayed by 30 seconds. The runtime starts local ROS on port 3092, verifies `/health`, then creates a temporary Quick Tunnel. It records only its own Node and cloudflared PIDs, so Legacy, Legacy ngrok, Docker, n8n, and unrelated Node processes remain outside its control.
+- A real Windows sign-out/sign-in acceptance remains pending Miles. The Task Scheduler manual Run acceptance passed; see `docs/deployment/ROS_RUNTIME_WINDOWS.md` for the exact verification and rollback steps.
+
 ## Current Phase
 
 Post-DECISIONS #041A Catalog Category Automatic Code, with Back Office event-first page separation under active review.

@@ -123,7 +123,8 @@ if (Test-RosHealth) {
   Remove-Item -LiteralPath $serverLog,$serverErrorLog,$buildLog -Force -ErrorAction SilentlyContinue
   $tsc = Join-Path $root "node_modules\typescript\bin\tsc"
   if (-not (Test-Path -LiteralPath $tsc)) { throw "TypeScript is not installed. Run npm install before starting ROS." }
-  & $node $tsc "-p" "tsconfig.json" *>> $buildLog
+  $tsconfigPath = Join-Path $root "tsconfig.json"
+  & $node $tsc "-p" $tsconfigPath *>> $buildLog
   if ($LASTEXITCODE -ne 0) { throw "ROS build failed. See $buildLog" }
 
   $env:ROS_HOST = "127.0.0.1"

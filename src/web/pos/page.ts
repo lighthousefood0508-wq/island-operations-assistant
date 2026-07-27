@@ -34,7 +34,7 @@ export function renderPos(): string {
       <article class="header-metric"><span>場次狀態</span><strong id="header-status">CLOSED</strong></article>
       <article class="header-metric"><span>剩餘主餐</span><strong id="header-remaining">0</strong></article>
       <article class="header-metric"><span>待出餐</span><strong id="header-pending">0</strong></article>
-      <article class="header-metric"><span>預約數</span><strong id="header-preorder">0</strong></article>
+      <article class="header-metric"><span>未出餐預約</span><strong id="header-preorder">0</strong></article>
       <article class="header-metric"><span>目前操作者</span><strong id="header-operator">Owner</strong></article>
     </section>
     <nav class="tabs" aria-label="POS 分頁">

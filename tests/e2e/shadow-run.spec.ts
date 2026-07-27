@@ -109,6 +109,8 @@ test("shadow run syncs POS A, POS B, Kitchen, inventory, and closeout through ce
     expect(secondStatistics.body.data.closeout.cashReceived).toBe(200);
     const statisticsPage = await contextA.newPage();
     await statisticsPage.goto("/admin/statistics");
+    await expect(statisticsPage.locator("#summary")).toContainText("本場預約單");
+    await expect(statisticsPage.locator("main")).toContainText("包含已出餐");
     await expect(statisticsPage.locator("#cash")).toHaveValue("200");
     await statisticsPage.locator("#close").click();
     await expect(statisticsPage.locator("#notice")).toContainText("關場失敗：Resolve all non-terminal Orders first.");

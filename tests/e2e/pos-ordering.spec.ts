@@ -110,6 +110,7 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await expect(page.locator("#header-operator")).toContainText("Owner");
     await expect(page.locator("#header-event")).toContainText("POSUI market");
     await expect(page.locator("#header-status")).toContainText("OPEN");
+    await expect(page.locator(".header-metrics")).toContainText("未出餐預約");
 
     await expect(page.locator("#category-tabs")).toContainText("Meals");
     await expect(page.locator(`article[data-product-id="${contracts[0]?.productId}"]`)).toContainText("Rice");

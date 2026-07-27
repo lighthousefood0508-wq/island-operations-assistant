@@ -27,6 +27,7 @@ export function renderStatistics(): string {
     <section id="summary" class="summary" aria-label="本場統計摘要">
       <article class="metric"><span>狀態</span><strong>讀取中</strong></article>
     </section>
+    <p class="meta">本場預約單包含本場全部預約訂單，包含已出餐。</p>
 
     <section class="panel">
       <div class="panel-head">
@@ -128,7 +129,7 @@ export function renderStatistics(): string {
       const received=n(closeout.cashReceived)+n(closeout.linePayReceived)+n(closeout.otherReceived);
       const metrics=[
         ['中央訂單',data.orderCount??0],
-        ['預約單',data.scheduledOrderCount??0],
+        ['本場預約單',data.scheduledOrderCount??0],
         ['帳面總額',money(data.ledgerAmount)],
         ['未完成',data.unresolvedCount??0],
         ['取消',data.cancelledCount??0],

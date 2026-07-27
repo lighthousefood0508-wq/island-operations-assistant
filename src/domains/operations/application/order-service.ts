@@ -21,7 +21,7 @@ function requiredText(value: unknown, field: string): string {
 function optionalPhoneTail(value: unknown): string | null {
   const text = optionalText(value, "customerPhoneTail");
   if (text === null) return null;
-  if (!/^\d{4}$/.test(text)) throw new HttpError(400, "VALIDATION_ERROR", "customerPhoneTail must be exactly 4 digits.", { field: "customerPhoneTail" });
+  if (!/^\d{3}$/.test(text)) throw new HttpError(400, "VALIDATION_ERROR", "customerPhoneTail must be exactly 3 digits.", { field: "customerPhoneTail" });
   return text;
 }
 function optionalPaymentMethod(value: unknown): PaymentMethod | null {

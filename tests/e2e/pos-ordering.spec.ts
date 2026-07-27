@@ -84,7 +84,7 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await addToCart(page, contracts[1]?.productId as string);
     await page.locator(`input[data-note="${contracts[0]?.productId}"]`).fill("less sauce");
     await page.locator("#customer-name").fill("Miles");
-    await page.locator("#customer-phone-tail").fill("1234");
+    await page.locator("#customer-phone-tail").fill("123");
     await page.locator("#payment-method").selectOption("CASH");
     await page.locator("#order-notes").fill("counter pickup");
     await expect(page.locator("#cart-items")).toContainText("Rice");
@@ -98,14 +98,14 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await expect(page.locator(`article[data-product-id="${contracts[1]?.productId}"]`)).toContainText("3");
     const orders = await api(page, `/api/events/${eventId}/orders`);
     expect(orders.body.data[0]?.customerName).toBe("Miles");
-    expect(orders.body.data[0]?.customerPhoneTail).toBe("1234");
+    expect(orders.body.data[0]?.customerPhoneTail).toBe("123");
     expect(orders.body.data[0]?.paymentMethod).toBe("CASH");
     expect(orders.body.data[0]?.notes).toBe("counter pickup");
 
     await page.locator('button[data-tab="pending"]').click();
     await expect(page.locator("#orders")).toContainText("POSUI-001");
     await expect(page.locator("#orders")).toContainText("Miles");
-    await expect(page.locator("#orders")).toContainText("1234");
+    await expect(page.locator("#orders")).toContainText("123");
     await expect(page.locator("#orders")).toContainText("等待");
     await expect(page.locator("#orders")).toContainText("less sauce");
     await expect(page.locator("#orders")).toContainText("counter pickup");
@@ -124,10 +124,10 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await page.locator('button[data-tab="served"]').click();
     await expect(page.locator("#served-orders")).toContainText("POSUI-001");
     await expect(page.locator("#served-orders")).toContainText("Miles");
-    await expect(page.locator("#served-orders")).toContainText("1234");
+    await expect(page.locator("#served-orders")).toContainText("123");
     await page.locator("#served-search").fill("Miles");
     await expect(page.locator("#served-orders")).toContainText("POSUI-001");
-    await page.locator("#served-search").fill("1234");
+    await page.locator("#served-search").fill("123");
     await expect(page.locator("#served-orders")).toContainText("POSUI-001");
     await page.locator("#served-search").fill("POSUI-001");
     await expect(page.locator("#served-orders")).toContainText("Miles");

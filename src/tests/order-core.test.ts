@@ -23,7 +23,7 @@ function fixture(quantity = 2) {
 }
 
 function payload(eventId: string, key: string, quantity = 1) {
-  return { source: "pos", eventId, idempotencyKey: key, items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity, notes: "less sauce" }], customerName: "Miles", customerPhoneTail: "1234", paymentMethod: "CASH", notes: "counter" };
+  return { source: "pos", eventId, idempotencyKey: key, items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity, notes: "less sauce" }], customerName: "Miles", customerPhoneTail: "123", paymentMethod: "CASH", notes: "counter" };
 }
 
 test("POS order atomically creates frozen snapshots and decrements sellable quantity", () => {
@@ -35,7 +35,7 @@ test("POS order atomically creates frozen snapshots and decrements sellable quan
   assert.equal(result.order.paymentStatus, "unpaid");
   assert.equal(result.order.productionStatus, "not_started");
   assert.equal(result.order.customerName, "Miles");
-  assert.equal(result.order.customerPhoneTail, "1234");
+  assert.equal(result.order.customerPhoneTail, "123");
   assert.equal(result.order.paymentMethod, "CASH");
   assert.equal(result.order.servedAt, null);
   assert.equal(result.order.grandTotal, 180);
@@ -94,6 +94,7 @@ test("order validation rejects closed events, wrong Event snapshots, unsupported
   const { database, event, orders } = fixture(2);
   assert.throws(() => orders.createPosOrder({ ...payload(event.eventId, "source"), source: "kiosk" }), (error: unknown) => (error as { code?: string }).code === "UNSUPPORTED_ORDER_SOURCE");
   assert.throws(() => orders.createPosOrder({ ...payload(event.eventId, "phone"), customerPhoneTail: "12" }), (error: unknown) => (error as { code?: string }).code === "VALIDATION_ERROR");
+  assert.throws(() => orders.createPosOrder({ ...payload(event.eventId, "phone-long"), customerPhoneTail: "1234" }), (error: unknown) => (error as { code?: string }).code === "VALIDATION_ERROR");
   assert.throws(() => orders.createPosOrder({ ...payload(event.eventId, "pay"), paymentMethod: "CARD" }), (error: unknown) => (error as { code?: string }).code === "VALIDATION_ERROR");
   assert.throws(() => orders.createPosOrder({ ...payload(event.eventId, "qty"), items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 0, notes: null }] }), (error: unknown) => (error as { code?: string }).code === "INVALID_QUANTITY");
   assert.throws(() => orders.createPosOrder({ ...payload(event.eventId, "version"), items: [{ productId: product.productId, productVersionId: "pver_other", quantity: 1, notes: null }] }), (error: unknown) => (error as { code?: string }).code === "PRODUCT_VERSION_MISMATCH");

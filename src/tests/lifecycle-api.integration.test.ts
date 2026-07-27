@@ -22,7 +22,7 @@ async function setup(quantity = 2) {
   await request(baseUrl, `/api/admin/events/${event.body.data.eventId}/open`, "POST", {});
   return { server, baseUrl, databasePath, eventId: event.body.data.eventId, product: published.body.data.contract };
 }
-async function createOrder(baseUrl: string, eventId: string, product: any, key: string, customerName: string | null = null) { return request(baseUrl, "/api/orders", "POST", { source: "pos", eventId, idempotencyKey: key, items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }], customerName, customerPhoneTail: customerName ? "1234" : null, paymentMethod: "LINE_PAY", notes: null }); }
+async function createOrder(baseUrl: string, eventId: string, product: any, key: string, customerName: string | null = null) { return request(baseUrl, "/api/orders", "POST", { source: "pos", eventId, idempotencyKey: key, items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }], customerName, customerPhoneTail: customerName ? "123" : null, paymentMethod: "LINE_PAY", notes: null }); }
 async function serveOrder(baseUrl: string, orderId: string) {
   for (const status of ["preparing", "ready", "served"]) {
     const result = await request(baseUrl, `/api/orders/${orderId}/status`, "PATCH", { status, operator: "test" });
@@ -47,7 +47,7 @@ test("lifecycle keeps Order, Payment, and Production states separate", async () 
   assert.equal(created.body.data.orderStatus, "confirmed"); assert.equal(created.body.data.paymentStatus, "unpaid"); assert.equal(created.body.data.productionStatus, "not_started");
   const list = await request(baseUrl, `/api/events/${eventId}/orders`);
   assert.equal(list.body.data[0].customerName, "Miles");
-  assert.equal(list.body.data[0].customerPhoneTail, "1234");
+  assert.equal(list.body.data[0].customerPhoneTail, "123");
   assert.equal(list.body.data[0].paymentMethod, "LINE_PAY");
   assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "ready" })).status, 409);
   assert.equal((await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "preparing" })).body.data.productionStatus, "preparing");
@@ -238,7 +238,7 @@ test("scheduled POS order is projected to lifecycle and statistics read models",
       items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }],
       pickupTime: "18:30",
       customerName: "Miles",
-      customerPhoneTail: "1234",
+      customerPhoneTail: "123",
       paymentMethod: "CASH",
       notes: null
     });

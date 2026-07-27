@@ -81,7 +81,13 @@ async function addToCart(page: Page, productId: string) {
   await page.locator(`button[data-action="add"][data-product-id="${productId}"]`).click();
 }
 
-async function installSpeechRecorder(page: Page) {
+async function installSpeechRecorder(page: Page, fixedNow?: string) {
+  if (fixedNow) {
+    await page.addInitScript((value) => {
+      const timestamp = new Date(value).getTime();
+      Date.now = () => timestamp;
+    }, fixedNow);
+  }
   await page.addInitScript(() => {
     const spokenMessages: string[] = [];
     class RecordedUtterance {
@@ -118,7 +124,7 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
   let testError: unknown;
   try {
     await installSpeechRecorder(page);
-    await installSpeechRecorder(kitchen);
+    await installSpeechRecorder(kitchen, "2026-07-20T18:20:00");
     await page.goto("/pos");
     await kitchen.goto("/kitchen");
     for (const tab of ["onsite", "pending", "preorder", "served"]) await expect(page.locator(`button[data-tab="${tab}"]`)).toBeVisible();
@@ -197,7 +203,17 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await page.locator("#orders [data-view-order]").click();
     await expect(page.locator("#orders")).toContainText("confirmed");
     await expect(kitchen.locator("#pending")).toContainText("Miles");
+    await expect.poll(async () => kitchen.evaluate(() => (window as unknown as { __spokenMessages: string[] }).__spokenMessages.some(message => message.includes("新訂單") && message.includes("Miles")))).toBe(true);
+    await kitchen.reload();
+    await expect(kitchen.locator("#page-state")).toContainText("中央訂單已同步");
+    expect(await kitchen.evaluate(() => (window as unknown as { __spokenMessages: string[] }).__spokenMessages)).toEqual([]);
     await expect(kitchen.locator(".voice-grid")).toBeVisible();
+    await kitchen.locator(".voice-settings summary").click();
+    await expect(kitchen.locator("#voice-enabled")).toBeChecked();
+    await kitchen.locator('input[name="reminder-lead"][value="5"]').check();
+    expect(await kitchen.evaluate(() => JSON.parse(localStorage.getItem("ros.kitchen.voice.settings.v1") || "{}").reminderLeadMinutes)).toBe(5);
+    await kitchen.locator('input[name="reminder-lead"][value="10"]').check();
+    await kitchen.locator(".voice-settings summary").click();
     await kitchen.locator("#voice-work").click();
     const kitchenSpeech = await kitchen.evaluate(() => (window as unknown as { __spokenMessages: string[] }).__spokenMessages.at(-1));
     expect(kitchenSpeech).toContain("Miles");
@@ -244,6 +260,11 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await expect(page.locator("#preorder-orders")).toContainText("Lin");
     await expect(kitchen.locator("#pending")).toContainText("POSUI-002");
     await expect(kitchen.locator("#pending")).toContainText("預約");
+    await expect.poll(async () => kitchen.evaluate(() => {
+      const messages = (window as unknown as { __spokenMessages: string[] }).__spokenMessages;
+      return messages.some(message => message.includes("新訂單") && message.includes("POSUI-002"))
+        && messages.some(message => message.includes("預約提前提醒") && message.includes("Lin"));
+    })).toBe(true);
     const scheduledOrders = await api(page, `/api/events/${eventId}/orders`);
     expect(scheduledOrders.body.data.find((order: any) => order.orderNumber === "POSUI-002")).toMatchObject({
       orderStatus: "confirmed",

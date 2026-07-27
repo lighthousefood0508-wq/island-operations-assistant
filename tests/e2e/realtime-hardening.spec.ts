@@ -76,7 +76,7 @@ test("realtime clients refresh central state after order and Kitchen changes wit
     for (const device of ["POS-A", "POS-B", "Kitchen-A", "Statistics"]) await expect(monitor.locator("#devices")).toContainText(device);
 
     await posA.locator(`[data-add="${published.body.data.contract.productId}"]`).click();
-    await posA.locator("#payment-method").selectOption("CASH");
+    await posA.locator('[data-payment-method="CASH"]').click();
     await posA.locator("#create-order").click();
     await expect(posA.locator("#notice")).toContainText("SYNC-001");
     await expect(posB.locator("#orders")).toContainText("SYNC-001");
@@ -111,6 +111,8 @@ test("realtime clients refresh central state after order and Kitchen changes wit
     expect(statisticsAfterReversal.body.data.products).toEqual(statisticsBeforeServed.body.data.products);
     expect(statisticsAfterReversal.body.data.inventory).toEqual(statisticsBeforeServed.body.data.inventory);
     await kitchen.locator('[data-status="served"]').click();
+    await expect(posA.locator("#served-orders")).toContainText("已出餐");
+    await expect(posB.locator("#served-orders")).toContainText("已出餐");
 
     await posB.evaluate(() => window.dispatchEvent(new Event("focus")));
     await expect(posB.locator("#sync-last-sync")).not.toHaveText("-");

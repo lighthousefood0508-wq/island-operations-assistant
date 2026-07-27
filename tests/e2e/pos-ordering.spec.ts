@@ -122,18 +122,23 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await expect(page.locator('[data-pane="served"]')).toContainText("今日已出餐");
     await page.locator('button[data-tab="onsite"]').click();
 
-    await addToCart(page, contracts[0]?.productId as string);
+    const firstProductCard = page.locator(`article[data-product-id="${contracts[0]?.productId}"]`);
+    await firstProductCard.click();
+    await expect(firstProductCard).toContainText("購物車 1 份");
     await addToCart(page, contracts[0]?.productId as string);
     await page.locator(`[data-adjust="-1"][data-product-id="${contracts[0]?.productId}"]`).click();
     await addToCart(page, contracts[1]?.productId as string);
     await page.locator(`input[data-note="${contracts[0]?.productId}"]`).fill("less sauce");
     await page.locator("#customer-name").fill("Miles");
     await page.locator("#customer-phone-tail").fill("123");
-    await page.locator("#payment-method").selectOption("CASH");
+    await page.locator('[data-payment-method="CASH"]').click();
     await page.locator("#order-notes").fill("counter pickup");
     await expect(page.locator("#cart-items")).toContainText("Rice");
     await expect(page.locator("#cart-items")).toContainText("Shrimp");
     await expect(page.locator("#total")).toContainText("NT$400");
+    await page.locator("#cash-received").fill("1000");
+    await expect(page.locator("#cash-change-label")).toHaveText("找零");
+    await expect(page.locator("#cash-change")).toHaveText("NT$600");
     await expect(page.locator(".stat")).toHaveCount(4);
 
     await page.locator("#create-order").click();
@@ -189,7 +194,7 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await addToCart(page, contracts[0]?.productId as string);
     await page.locator("#customer-name").fill("Lin");
     await page.locator("#customer-phone-tail").fill("678");
-    await page.locator("#payment-method").selectOption("LINE_PAY");
+    await page.locator('[data-payment-method="LINE_PAY"]').click();
     await page.locator("#toggle-preorder").click();
     await expect(page.locator("#reservation-fields")).toBeVisible();
     await page.locator("#pickup-time").selectOption("18:30");
@@ -225,7 +230,7 @@ test("two POS browser contexts race for the final portion and only one creates a
   try {
     await Promise.all([first.goto("/pos"), second.goto("/pos")]);
     await Promise.all([addToCart(first, contracts[0]?.productId as string), addToCart(second, contracts[0]?.productId as string)]);
-    await Promise.all([first.locator("#payment-method").selectOption("CASH"), second.locator("#payment-method").selectOption("CASH")]);
+    await Promise.all([first.locator('[data-payment-method="CASH"]').click(), second.locator('[data-payment-method="CASH"]').click()]);
     const firstSubmit = first.locator("#create-order");
     const secondSubmit = second.locator("#create-order");
     await Promise.all([expect(firstSubmit).toBeVisible(), expect(secondSubmit).toBeVisible()]);

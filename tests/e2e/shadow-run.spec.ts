@@ -71,7 +71,7 @@ test("shadow run syncs POS A, POS B, Kitchen, inventory, and closeout through ce
     await expect(posA.locator("#connection-status")).toContainText("Connected");
     await expect(kitchen.locator("#connection-status")).toContainText("Connected");
     await posA.locator(`[data-add="${published.body.data.contract.productId}"]`).click();
-    await posA.locator("#payment-method").selectOption("CASH");
+    await posA.locator('[data-payment-method="CASH"]').click();
     await posA.locator("#create-order").click();
     await expect(posA.locator("#notice")).toContainText("SHADOW-001");
     await expect(posB.locator("#orders")).toContainText("SHADOW-001");

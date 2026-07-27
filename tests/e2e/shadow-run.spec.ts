@@ -5,16 +5,43 @@ async function api(page: any, path: string, method = "GET", body?: unknown) {
   return { status: response.status(), body: await response.json() };
 }
 
+function assertApiSuccess(result: { status: number; body: unknown }, label: string): void {
+  if (result.status < 200 || result.status >= 300) {
+    throw new Error(`${label} failed: status=${result.status}; body=${JSON.stringify(result.body)}`);
+  }
+}
+
 async function closeEvent(page: any, eventId: string) {
   const orders = await api(page, `/api/events/${eventId}/orders`);
+  assertApiSuccess(orders, `Shadow Event orders eventId=${eventId}`);
   for (const order of orders.body.data) {
     if (order.orderStatus === "confirmed") {
-      await api(page, `/api/orders/${order.orderId}/no-show`, "POST", {});
-      await api(page, `/api/orders/${order.orderId}/release-inventory`, "POST", { confirmed: true });
+      const noShow = await api(page, `/api/orders/${order.orderId}/no-show`, "POST", {});
+      assertApiSuccess(noShow, `Shadow Event no-show orderId=${order.orderId}`);
+      if (order.productionStatus === "not_started") {
+        const released = await api(page, `/api/orders/${order.orderId}/release-inventory`, "POST", { confirmed: true });
+        assertApiSuccess(released, `Shadow Event release orderId=${order.orderId}`);
+      }
     }
   }
+  const statistics = await api(page, `/api/events/${eventId}/statistics`);
+  assertApiSuccess(statistics, `Shadow Event statistics eventId=${eventId}`);
+  const currentCloseout = statistics.body.data.closeout;
+  const closeout = await api(page, `/api/events/${eventId}/closeout`, "PUT", {
+    cashReceived: currentCloseout?.cashReceived ?? 0,
+    linePayReceived: currentCloseout?.linePayReceived ?? 0,
+    otherReceived: currentCloseout?.otherReceived ?? 0,
+    wasteAmount: currentCloseout?.wasteAmount ?? 0,
+    notes: currentCloseout?.notes ?? "",
+    operator: "e2e",
+    items: statistics.body.data.inventory.map((item: any) => ({
+      productVersionId: item.productVersionId,
+      wasteQuantity: 0
+    }))
+  });
+  assertApiSuccess(closeout, `Shadow Event closeout eventId=${eventId}`);
   const result = await api(page, `/api/events/${eventId}/close`, "POST", { confirmed: true });
-  if (result.status < 200 || result.status >= 300) throw new Error(`Shadow Event cleanup failed: status=${result.status}; eventId=${eventId}; body=${JSON.stringify(result.body)}`);
+  assertApiSuccess(result, `Shadow Event close eventId=${eventId}`);
 }
 
 test("shadow run syncs POS A, POS B, Kitchen, inventory, and closeout through central SQLite", async ({ browser }) => {
@@ -24,6 +51,7 @@ test("shadow run syncs POS A, POS B, Kitchen, inventory, and closeout through ce
   const eventCode = "SHADOW";
   let eventId: string | null = null;
   let eventOpened = false;
+  let testError: unknown;
 
   try {
     const category = await api(setup, "/api/admin/categories", "POST", { displayName: "Shadow", sortOrder: 1 });
@@ -62,18 +90,43 @@ test("shadow run syncs POS A, POS B, Kitchen, inventory, and closeout through ce
     expect(race.map(x => x.status).sort()).toEqual([201, 409]);
     const statistics = await api(posA, `/api/events/${eventId}/statistics`);
     expect(statistics.body.data.orderCount).toBe(2);
-    await api(posA, `/api/events/${eventId}/closeout`, "PUT", { cashReceived: 200, linePayReceived: 0, otherReceived: 0, wasteAmount: 0, notes: "shadow" });
+    const closeout = await api(posA, `/api/events/${eventId}/closeout`, "PUT", {
+      cashReceived: 200,
+      linePayReceived: 0,
+      otherReceived: 0,
+      wasteAmount: 0,
+      notes: "shadow",
+      operator: "e2e",
+      items: statistics.body.data.inventory.map((item: any) => ({
+        productVersionId: item.productVersionId,
+        wasteQuantity: 0
+      }))
+    });
+    assertApiSuccess(closeout, `Shadow Event closeout eventId=${eventId}`);
     const secondStatistics = await api(posB, `/api/events/${eventId}/statistics`);
     expect(secondStatistics.body.data.closeout.cashReceived).toBe(200);
+  } catch (error) {
+    testError = error;
+    throw error;
   } finally {
+    const cleanupErrors: unknown[] = [];
     try {
       if (eventOpened && eventId) {
         await closeEvent(setup, eventId);
         const current = await api(setup, "/api/events/current");
         if (current.status !== 200 || current.body.data !== null) throw new Error(`Shadow Event cleanup left an OPEN Event: body=${JSON.stringify(current.body)}`);
       }
-    } finally {
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+    try {
       await Promise.all(contexts.map(context => context.close()));
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+    if (cleanupErrors.length > 0) {
+      if (testError) throw new AggregateError([testError, ...cleanupErrors], "Shadow test and cleanup both failed.");
+      throw new AggregateError(cleanupErrors, "Shadow cleanup failed.");
     }
   }
 });

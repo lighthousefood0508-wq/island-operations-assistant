@@ -6,6 +6,12 @@ async function api(page: Page, path: string, method = "GET", body?: unknown): Pr
   return { status: response.status(), body: payload };
 }
 
+function assertApiSuccess(result: { status: number; body: unknown }, label: string): void {
+  if (result.status < 200 || result.status >= 300) {
+    throw new Error(`${label} failed: status=${result.status}; body=${JSON.stringify(result.body)}`);
+  }
+}
+
 async function addProduct(page: Page, categoryId: string, input: { name: string; posName: string; price: number }) {
   const product = await api(page, "/api/admin/products", "POST", { internalName: input.name, categoryId, displayName: input.name, posName: input.posName, sellingPrice: input.price, channels: ["pos"] });
   const published = await api(page, `/api/admin/products/${product.body.data.productId}/publish`, "POST", {});
@@ -18,19 +24,57 @@ async function setupOpenEvent(page: Page, eventCode: string, products: readonly 
   for (const product of products) contracts.push(await addProduct(page, category.body.data.categoryId, product));
   const event = await api(page, "/api/admin/events", "POST", { eventCode, displayName: `${eventCode} market`, date: "2026-07-20", startTime: "17:00", endTime: "22:00" });
   for (let index = 0; index < contracts.length; index += 1) await api(page, `/api/admin/events/${event.body.data.eventId}/sellable-inventory`, "PUT", { productVersionId: contracts[index]?.productVersionId, plannedQuantity: products[index]?.quantity });
-  await api(page, `/api/admin/events/${event.body.data.eventId}/open`, "POST", {});
+  const opened = await api(page, `/api/admin/events/${event.body.data.eventId}/open`, "POST", {});
+  assertApiSuccess(opened, `POS Event open eventId=${event.body.data.eventId}; eventCode=${eventCode}`);
   return { eventId: event.body.data.eventId, contracts };
 }
 
 async function closeEvent(page: Page, eventId: string) {
   const orders = await api(page, `/api/events/${eventId}/orders`);
+  assertApiSuccess(orders, `POS Event orders eventId=${eventId}`);
   for (const order of orders.body.data) {
     if (order.orderStatus === "confirmed") {
-      await api(page, `/api/orders/${order.orderId}/no-show`, "POST", {});
-      if (order.productionStatus === "not_started") await api(page, `/api/orders/${order.orderId}/release-inventory`, "POST", { confirmed: true });
+      const noShow = await api(page, `/api/orders/${order.orderId}/no-show`, "POST", {});
+      assertApiSuccess(noShow, `POS Event no-show orderId=${order.orderId}`);
+      if (order.productionStatus === "not_started") {
+        const released = await api(page, `/api/orders/${order.orderId}/release-inventory`, "POST", { confirmed: true });
+        assertApiSuccess(released, `POS Event release orderId=${order.orderId}`);
+      }
     }
   }
-  await api(page, `/api/events/${eventId}/close`, "POST", { confirmed: true });
+  const statistics = await api(page, `/api/events/${eventId}/statistics`);
+  assertApiSuccess(statistics, `POS Event statistics eventId=${eventId}`);
+  const currentCloseout = statistics.body.data.closeout;
+  const closeout = await api(page, `/api/events/${eventId}/closeout`, "PUT", {
+    cashReceived: currentCloseout?.cashReceived ?? 0,
+    linePayReceived: currentCloseout?.linePayReceived ?? 0,
+    otherReceived: currentCloseout?.otherReceived ?? 0,
+    wasteAmount: currentCloseout?.wasteAmount ?? 0,
+    notes: currentCloseout?.notes ?? "",
+    operator: "e2e",
+    items: statistics.body.data.inventory.map((item: any) => ({
+      productVersionId: item.productVersionId,
+      wasteQuantity: 0
+    }))
+  });
+  assertApiSuccess(closeout, `POS Event closeout eventId=${eventId}`);
+  const closed = await api(page, `/api/events/${eventId}/close`, "POST", { confirmed: true });
+  assertApiSuccess(closed, `POS Event close eventId=${eventId}`);
+}
+
+async function completeCleanup(primaryError: unknown, actions: readonly (() => Promise<unknown>)[]): Promise<void> {
+  const cleanupErrors: unknown[] = [];
+  for (const action of actions) {
+    try {
+      await action();
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+  }
+  if (cleanupErrors.length > 0) {
+    if (primaryError) throw new AggregateError([primaryError, ...cleanupErrors], "POS test and cleanup both failed.");
+    throw new AggregateError(cleanupErrors, "POS cleanup failed.");
+  }
 }
 
 async function addToCart(page: Page, productId: string) {
@@ -45,6 +89,7 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
   ]);
   const kitchenContext = await browser.newContext();
   const kitchen = await kitchenContext.newPage();
+  let testError: unknown;
   try {
     await page.goto("/pos");
     await kitchen.goto("/kitchen");
@@ -134,9 +179,14 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
 
     await page.goto("/pos?debug=1");
     await expect(page.locator("#sync-debug")).toBeVisible();
+  } catch (error) {
+    testError = error;
+    throw error;
   } finally {
-    await kitchenContext.close();
-    await closeEvent(page, eventId);
+    await completeCleanup(testError, [
+      () => kitchenContext.close(),
+      () => closeEvent(page, eventId)
+    ]);
   }
 });
 
@@ -146,6 +196,7 @@ test("two POS browser contexts race for the final portion and only one creates a
   const secondContext: BrowserContext = await browser.newContext();
   const first = await firstContext.newPage();
   const second = await secondContext.newPage();
+  let testError: unknown;
   try {
     await Promise.all([first.goto("/pos"), second.goto("/pos")]);
     await Promise.all([addToCart(first, contracts[0]?.productId as string), addToCart(second, contracts[0]?.productId as string)]);
@@ -167,11 +218,18 @@ test("two POS browser contexts race for the final portion and only one creates a
     const orders = await api(page, `/api/events/${eventId}/orders`);
     expect(orders.body.data).toHaveLength(1);
     expect(orders.body.data[0]?.orderNumber).toBe("RACEUI-001");
+  } catch (error) {
+    testError = error;
+    throw error;
   } finally {
-    await Promise.all([firstContext.close(), secondContext.close()]);
-    await closeEvent(page, eventId);
-    const current = await api(page, "/api/events/current");
-    expect(current.status).toBe(200);
-    expect(current.body.data).toBeNull();
+    await completeCleanup(testError, [
+      async () => { await Promise.all([firstContext.close(), secondContext.close()]); },
+      () => closeEvent(page, eventId),
+      async () => {
+        const current = await api(page, "/api/events/current");
+        expect(current.status).toBe(200);
+        expect(current.body.data).toBeNull();
+      }
+    ]);
   }
 });

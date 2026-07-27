@@ -22,6 +22,21 @@ async function createDraft(page: Page, input: { internalName: string; categoryNa
 
 async function publish(page: Page) { await page.locator("#publish").click(); }
 
+async function saveZeroCloseout(page: Page, eventId: string) {
+  const statistics = await (await page.request.get(`/api/events/${eventId}/statistics`)).json();
+  const response = await page.request.put(`/api/events/${eventId}/closeout`, {
+    data: {
+      cashReceived: 0,
+      linePayReceived: 0,
+      otherReceived: 0,
+      wasteAmount: 0,
+      notes: "",
+      items: statistics.data.inventory.map((item: any) => ({ productVersionId: item.productVersionId, wasteQuantity: 0 }))
+    }
+  });
+  expect(response.ok()).toBeTruthy();
+}
+
 test.describe.configure({ mode: "serial" });
 
 test("Admin publication flows through Event inventory to the POS short-name display", async ({ page, browser }) => {
@@ -38,13 +53,28 @@ test("Admin publication flows through Event inventory to the POS short-name disp
   await page.locator("#event-start").fill("17:00");
   await page.locator("#event-end").fill("22:00");
   await page.locator("#event-form button[type=submit]").click();
-  await page.locator("#inventory-product").selectOption({ index: 1 });
-  await page.locator("#planned-quantity").fill("20");
-  await page.locator("#inventory-form button[type=submit]").click();
+  await expect(page.locator("#event-id")).not.toHaveValue("");
+  const eventId = await page.locator("#event-id").inputValue();
+  await page.locator("#published-product").selectOption({ index: 1 });
+  await page.locator("#new-planned").fill("20");
+  await page.locator("#add-product-form button[type=submit]").click();
+  const saveResponsePromise = page.waitForResponse(response =>
+    response.request().method() === "PUT"
+    && new URL(response.url()).pathname === `/api/admin/events/${eventId}/sellable-inventory`
+  );
+  await page.locator("#save-all").click();
+  const saveResponse = await saveResponsePromise;
+  const saveBody = await saveResponse.json();
+  if (!saveResponse.ok()) {
+    throw new Error(`Catalog Event inventory save failed: status=${saveResponse.status()}; eventId=${eventId}; body=${JSON.stringify(saveBody)}`);
+  }
   const openResponsePromise = page.waitForResponse(response => response.url().includes("/api/admin/events/") && response.url().endsWith("/open") && response.request().method() === "POST");
   await page.locator("#open-event").click();
   const openResponse = await openResponsePromise;
-  expect(openResponse.ok()).toBeTruthy();
+  const openBody = await openResponse.json();
+  if (!openResponse.ok()) {
+    throw new Error(`Catalog Event open failed: status=${openResponse.status()}; eventCode=E2E; body=${JSON.stringify(openBody)}`);
+  }
 
   await page.goto("/pos");
   await expect(page.locator("#products")).toContainText("Rice");
@@ -57,7 +87,10 @@ test("Admin publication flows through Event inventory to the POS short-name disp
   expect(await freshPage.evaluate(() => window.localStorage.length)).toBe(0);
   await freshContext.close();
 
-  await page.request.post(`/api/events/${(await (await page.request.get("/api/events/current")).json()).data.eventId}/close`, { data: { confirmed: true } });
+  const currentEventId = (await (await page.request.get("/api/events/current")).json()).data.eventId;
+  await saveZeroCloseout(page, currentEventId);
+  const closeResponse = await page.request.post(`/api/events/${currentEventId}/close`, { data: { confirmed: true } });
+  expect(closeResponse.ok()).toBeTruthy();
   await page.goto("/pos");
   await expect(page.locator("#empty")).not.toBeEmpty();
 });

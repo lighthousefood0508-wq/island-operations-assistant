@@ -5,16 +5,43 @@ async function api(page: any, path: string, method = "GET", body?: unknown) {
   return { status: response.status(), body: await response.json() };
 }
 
+function assertApiSuccess(result: { status: number; body: unknown }, label: string): void {
+  if (result.status < 200 || result.status >= 300) {
+    throw new Error(`${label} failed: status=${result.status}; body=${JSON.stringify(result.body)}`);
+  }
+}
+
 async function closeEvent(page: any, eventId: string) {
   const orders = await api(page, `/api/events/${eventId}/orders`);
+  assertApiSuccess(orders, `Realtime Event orders eventId=${eventId}`);
   for (const order of orders.body.data) {
     if (order.orderStatus === "confirmed") {
-      await api(page, `/api/orders/${order.orderId}/no-show`, "POST", {});
-      await api(page, `/api/orders/${order.orderId}/release-inventory`, "POST", { confirmed: true });
+      const noShow = await api(page, `/api/orders/${order.orderId}/no-show`, "POST", {});
+      assertApiSuccess(noShow, `Realtime Event no-show orderId=${order.orderId}`);
+      if (order.productionStatus === "not_started") {
+        const released = await api(page, `/api/orders/${order.orderId}/release-inventory`, "POST", { confirmed: true });
+        assertApiSuccess(released, `Realtime Event release orderId=${order.orderId}`);
+      }
     }
   }
+  const statistics = await api(page, `/api/events/${eventId}/statistics`);
+  assertApiSuccess(statistics, `Realtime Event statistics eventId=${eventId}`);
+  const currentCloseout = statistics.body.data.closeout;
+  const closeout = await api(page, `/api/events/${eventId}/closeout`, "PUT", {
+    cashReceived: currentCloseout?.cashReceived ?? 0,
+    linePayReceived: currentCloseout?.linePayReceived ?? 0,
+    otherReceived: currentCloseout?.otherReceived ?? 0,
+    wasteAmount: currentCloseout?.wasteAmount ?? 0,
+    notes: currentCloseout?.notes ?? "",
+    operator: "e2e",
+    items: statistics.body.data.inventory.map((item: any) => ({
+      productVersionId: item.productVersionId,
+      wasteQuantity: 0
+    }))
+  });
+  assertApiSuccess(closeout, `Realtime Event closeout eventId=${eventId}`);
   const result = await api(page, `/api/events/${eventId}/close`, "POST", { confirmed: true });
-  if (result.status < 200 || result.status >= 300) throw new Error(`Realtime Event cleanup failed: status=${result.status}; eventId=${eventId}; body=${JSON.stringify(result.body)}`);
+  assertApiSuccess(result, `Realtime Event close eventId=${eventId}`);
 }
 
 test("realtime clients refresh central state after order and Kitchen changes without reload", async ({ browser }) => {
@@ -23,6 +50,7 @@ test("realtime clients refresh central state after order and Kitchen changes wit
   const setup = await setupContext.newPage();
   let eventId: string | null = null;
   let eventOpened = false;
+  let testError: unknown;
 
   try {
     const category = await api(setup, "/api/admin/categories", "POST", { displayName: "Realtime", sortOrder: 1 });
@@ -71,15 +99,28 @@ test("realtime clients refresh central state after order and Kitchen changes wit
     await posB.evaluate(() => window.dispatchEvent(new Event("focus")));
     await expect(posB.locator("#sync-last-sync")).not.toHaveText("-");
     await expect(posB.locator("#sync-event")).toHaveText(eventId);
+  } catch (error) {
+    testError = error;
+    throw error;
   } finally {
+    const cleanupErrors: unknown[] = [];
     try {
       if (eventOpened && eventId) {
         await closeEvent(setup, eventId);
         const current = await api(setup, "/api/events/current");
         if (current.status !== 200 || current.body.data !== null) throw new Error(`Realtime Event cleanup left an OPEN Event: body=${JSON.stringify(current.body)}`);
       }
-    } finally {
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+    try {
       await Promise.all(contexts.map(context => context.close()));
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+    if (cleanupErrors.length > 0) {
+      if (testError) throw new AggregateError([testError, ...cleanupErrors], "Realtime test and cleanup both failed.");
+      throw new AggregateError(cleanupErrors, "Realtime cleanup failed.");
     }
   }
 });

@@ -163,6 +163,8 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await page.locator("#orders [data-view-order]").click();
     await expect(page.locator("#orders")).toContainText("confirmed");
     await expect(kitchen.locator("#pending")).toContainText("Miles");
+    await expect(kitchen.locator(".voice-grid")).toHaveCount(0);
+    await expect(kitchen.locator("#page-state")).toContainText("中央訂單已同步");
     await kitchen.locator(".system-menu summary").click();
     await expect(kitchen.locator('.system-links a[href="/pos"]')).toBeVisible();
     await expect(kitchen.locator('.system-links a[href="/admin"]')).toBeVisible();
@@ -204,6 +206,8 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await expect(page.locator("#preorder-orders")).toContainText("POSUI-002");
     await expect(page.locator("#preorder-orders")).toContainText("預約");
     await expect(page.locator("#preorder-orders")).toContainText("Lin");
+    await expect(kitchen.locator("#pending")).toContainText("POSUI-002");
+    await expect(kitchen.locator("#pending")).toContainText("預約");
     const scheduledOrders = await api(page, `/api/events/${eventId}/orders`);
     expect(scheduledOrders.body.data.find((order: any) => order.orderNumber === "POSUI-002")?.scheduledPickupAt).toContain("2026-07-20T18:30:00");
 

@@ -4,13 +4,15 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import test from "node:test";
 import { createRosServer } from "../server/index.js";
+import { createDatabase } from "../shared/database/database-provider.js";
 
 async function request(baseUrl: string, pathName: string, method = "GET", body?: unknown): Promise<{ status: number; body: any }> {
   const response = await fetch(`${baseUrl}${pathName}`, { method, headers: body ? { "content-type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
   return { status: response.status, body: await response.json() };
 }
 async function setup(quantity = 2) {
-  const server = createRosServer({ host: "127.0.0.1", port: 0, databasePath: path.resolve("data", `lifecycle-${randomUUID()}.sqlite`) }); server.listen(0, "127.0.0.1"); await once(server, "listening");
+  const databasePath = path.resolve("data", `lifecycle-${randomUUID()}.sqlite`);
+  const server = createRosServer({ host: "127.0.0.1", port: 0, databasePath }); server.listen(0, "127.0.0.1"); await once(server, "listening");
   const address = server.address(); assert.ok(address && typeof address !== "string"); const baseUrl = `http://127.0.0.1:${address.port}`;
   const category = await request(baseUrl, "/api/admin/categories", "POST", { displayName: "Meal", sortOrder: 1 });
   const product = await request(baseUrl, "/api/admin/products", "POST", { internalName: "Meal", categoryId: category.body.data.categoryId, displayName: "Meal", posName: "Meal", sellingPrice: 100, channels: ["pos"] });
@@ -18,9 +20,23 @@ async function setup(quantity = 2) {
   const event = await request(baseUrl, "/api/admin/events", "POST", { eventCode: "LIFE", displayName: "Lifecycle", date: "2026-07-20", startTime: "17:00", endTime: "22:00" });
   await request(baseUrl, `/api/admin/events/${event.body.data.eventId}/sellable-inventory`, "PUT", { productVersionId: published.body.data.contract.productVersionId, plannedQuantity: quantity });
   await request(baseUrl, `/api/admin/events/${event.body.data.eventId}/open`, "POST", {});
-  return { server, baseUrl, eventId: event.body.data.eventId, product: published.body.data.contract };
+  return { server, baseUrl, databasePath, eventId: event.body.data.eventId, product: published.body.data.contract };
 }
 async function createOrder(baseUrl: string, eventId: string, product: any, key: string, customerName: string | null = null) { return request(baseUrl, "/api/orders", "POST", { source: "pos", eventId, idempotencyKey: key, items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }], customerName, customerPhoneTail: customerName ? "1234" : null, paymentMethod: "LINE_PAY", notes: null }); }
+async function serveOrder(baseUrl: string, orderId: string) {
+  for (const status of ["preparing", "ready", "served"]) {
+    const result = await request(baseUrl, `/api/orders/${orderId}/status`, "PATCH", { status, operator: "test" });
+    assert.equal(result.status, 200);
+  }
+}
+async function revertCompletion(baseUrl: string, orderId: string, deviceId = "Kitchen-A") {
+  return request(baseUrl, `/api/orders/${orderId}/production/revert-completion`, "POST", {
+    confirmed: true,
+    reason: "accidental_completion",
+    operator: "kitchen",
+    deviceId
+  });
+}
 async function saveZeroCloseout(baseUrl: string, eventId: string) {
   const statistics = await request(baseUrl, `/api/events/${eventId}/statistics`);
   return request(baseUrl, `/api/events/${eventId}/closeout`, "PUT", { cashReceived: 0, linePayReceived: 0, otherReceived: 0, wasteAmount: 0, notes: "", items: statistics.body.data.inventory.map((item: any) => ({ productVersionId: item.productVersionId, wasteQuantity: 0 })) });
@@ -42,6 +58,174 @@ test("lifecycle keeps Order, Payment, and Production states separate", async () 
   assert.match((await request(baseUrl, `/api/events/${eventId}/orders`)).body.data[0].servedAt, /^20/);
   const incomplete = await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "completed" }); assert.equal(incomplete.status, 409); assert.equal(incomplete.body.error.code, "ORDER_COMPLETION_REQUIREMENTS_NOT_MET");
   server.close(); await once(server, "close");
+});
+
+test("production completion reversal restores the audited predecessor and preserves Order, Payment, Inventory, and Statistics", async () => {
+  const { server, baseUrl, databasePath, eventId, product } = await setup(2);
+  try {
+    const created = await createOrder(baseUrl, eventId, product, "revert-success", "Miles");
+    const orderId = created.body.data.orderId;
+    const beforeStatistics = (await request(baseUrl, `/api/events/${eventId}/statistics`)).body.data;
+    const beforeProducts = (await request(baseUrl, "/api/events/current/products")).body.data;
+    await serveOrder(baseUrl, orderId);
+    const served = await request(baseUrl, `/api/orders/${orderId}`);
+    const originalServedAt = served.body.data.servedAt;
+    const unconfirmed = await request(baseUrl, `/api/orders/${orderId}/production/revert-completion`, "POST", {
+      confirmed: false,
+      reason: "accidental_completion",
+      operator: "kitchen",
+      deviceId: "Kitchen-A"
+    });
+    assert.equal(unconfirmed.status, 400);
+    assert.equal(unconfirmed.body.error.code, "REVERSAL_CONFIRMATION_REQUIRED");
+    const paused = await request(baseUrl, `/api/admin/events/${eventId}/pause`, "POST", {});
+    assert.equal(paused.status, 200);
+    assert.equal(paused.body.data.status, "paused");
+
+    const reverted = await revertCompletion(baseUrl, orderId);
+    assert.equal(reverted.status, 200);
+    assert.equal(reverted.body.data.productionStatus, "ready");
+    assert.equal(reverted.body.data.servedAt, null);
+    assert.equal(reverted.body.data.orderStatus, created.body.data.orderStatus);
+    assert.equal(reverted.body.data.paymentStatus, created.body.data.paymentStatus);
+    assert.equal(reverted.body.data.paymentMethod, created.body.data.paymentMethod);
+    assert.equal(reverted.body.data.grandTotal, created.body.data.grandTotal);
+
+    const afterStatistics = (await request(baseUrl, `/api/events/${eventId}/statistics`)).body.data;
+    const afterProducts = (await request(baseUrl, "/api/events/current/products")).body.data;
+    assert.equal(afterStatistics.ledgerAmount, beforeStatistics.ledgerAmount);
+    assert.deepEqual(afterStatistics.products, beforeStatistics.products);
+    assert.deepEqual(afterStatistics.inventory, beforeStatistics.inventory);
+    assert.deepEqual(afterProducts, beforeProducts);
+
+    const database = createDatabase({ host: "127.0.0.1", port: 0, databasePath });
+    try {
+      const servedAudits = database.queryMany<{ after_json: string; occurred_at: string }>("SELECT after_json, occurred_at FROM audit_logs WHERE entity_id = ? AND action = 'production_status_changed' AND after_json LIKE '%\"to\":\"served\"%'", [orderId]);
+      assert.equal(servedAudits.length, 1);
+      assert.equal(servedAudits[0]?.occurred_at, originalServedAt);
+      const reversalAudits = database.queryMany<{ after_json: string }>("SELECT after_json FROM audit_logs WHERE entity_id = ? AND action = 'production_completion_reverted'", [orderId]);
+      assert.equal(reversalAudits.length, 1);
+      assert.deepEqual(JSON.parse(reversalAudits[0]?.after_json ?? "{}"), {
+        from: "served",
+        to: "ready",
+        reason: "accidental_completion",
+        originalServedAt,
+        operator: "kitchen",
+        deviceId: "Kitchen-A",
+        identityTrust: "client_reported",
+        eventId,
+        orderId
+      });
+    } finally {
+      database.close();
+    }
+
+    const blockedClose = await request(baseUrl, `/api/events/${eventId}/close`, "POST", { confirmed: true });
+    assert.equal(blockedClose.status, 409);
+    assert.equal(blockedClose.body.error.code, "EVENT_CLOSE_BLOCKED");
+  } finally {
+    server.close();
+    await once(server, "close");
+  }
+});
+
+test("production completion reversal rejects missing or invalid history without leaving an Audit", async () => {
+  for (const scenario of ["missing", "invalid"] as const) {
+    const { server, baseUrl, databasePath, eventId, product } = await setup(1);
+    try {
+      const created = await createOrder(baseUrl, eventId, product, `revert-${scenario}`);
+      const orderId = created.body.data.orderId;
+      await serveOrder(baseUrl, orderId);
+      const database = createDatabase({ host: "127.0.0.1", port: 0, databasePath });
+      try {
+        if (scenario === "missing") {
+          database.execute("DELETE FROM audit_logs WHERE entity_id = ? AND action = 'production_status_changed' AND after_json LIKE '%\"to\":\"served\"%'", [orderId]);
+        } else {
+          database.execute("UPDATE audit_logs SET after_json = ? WHERE entity_id = ? AND action = 'production_status_changed' AND after_json LIKE '%\"to\":\"served\"%'", [JSON.stringify({ from: "served", to: "served" }), orderId]);
+        }
+      } finally {
+        database.close();
+      }
+
+      const result = await revertCompletion(baseUrl, orderId);
+      assert.equal(result.status, 409);
+      assert.equal(result.body.error.code, scenario === "missing" ? "REVERSAL_HISTORY_MISSING" : "INVALID_PREVIOUS_PRODUCTION_STATUS");
+      const unchanged = await request(baseUrl, `/api/orders/${orderId}`);
+      assert.equal(unchanged.body.data.productionStatus, "served");
+      assert.match(unchanged.body.data.servedAt, /^20/);
+      const auditDatabase = createDatabase({ host: "127.0.0.1", port: 0, databasePath });
+      try {
+        assert.equal(auditDatabase.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM audit_logs WHERE entity_id = ? AND action = 'production_completion_reverted'", [orderId])?.count, 0);
+      } finally {
+        auditDatabase.close();
+      }
+    } finally {
+      server.close();
+      await once(server, "close");
+    }
+  }
+});
+
+test("production completion reversal enforces Order and Event safety conditions", async () => {
+  const cases = [
+    { name: "not served", arrange: async () => {}, code: "ORDER_NOT_SERVED" },
+    { name: "cancelled", arrange: async (baseUrl: string, orderId: string) => { await serveOrder(baseUrl, orderId); await request(baseUrl, `/api/orders/${orderId}/no-show`, "POST", {}); }, code: "ORDER_NOT_SERVED" },
+    { name: "completed", arrange: async (baseUrl: string, orderId: string, databasePath: string) => { await serveOrder(baseUrl, orderId); const database = createDatabase({ host: "127.0.0.1", port: 0, databasePath }); try { database.execute("UPDATE operations_orders SET payment_status = 'paid', paid_total = grand_total WHERE order_id = ?", [orderId]); } finally { database.close(); } const completed = await request(baseUrl, `/api/orders/${orderId}/status`, "PATCH", { status: "completed" }); assert.equal(completed.status, 200); }, code: "ORDER_ALREADY_COMPLETED" },
+    { name: "closed event", arrange: async (baseUrl: string, orderId: string, databasePath: string, eventId: string) => { await serveOrder(baseUrl, orderId); const database = createDatabase({ host: "127.0.0.1", port: 0, databasePath }); try { database.execute("UPDATE operations_events SET status = 'closed' WHERE event_id = ?", [eventId]); } finally { database.close(); } }, code: "EVENT_NOT_ACTIVE" }
+  ];
+  for (const scenario of cases) {
+    const { server, baseUrl, databasePath, eventId, product } = await setup(1);
+    try {
+      const created = await createOrder(baseUrl, eventId, product, `revert-${scenario.name}`);
+      await scenario.arrange(baseUrl, created.body.data.orderId, databasePath, eventId);
+      const result = await revertCompletion(baseUrl, created.body.data.orderId);
+      assert.equal(result.status, 409);
+      assert.equal(result.body.error.code, scenario.code);
+    } finally {
+      server.close();
+      await once(server, "close");
+    }
+  }
+});
+
+test("production completion reversal is conditional, concurrent-safe, and persistent across restart", async () => {
+  const { server, baseUrl, databasePath, eventId, product } = await setup(1);
+  let activeServer = server;
+  try {
+    const created = await createOrder(baseUrl, eventId, product, "revert-concurrent");
+    const orderId = created.body.data.orderId;
+    await serveOrder(baseUrl, orderId);
+    const [first, second] = await Promise.all([
+      revertCompletion(baseUrl, orderId, "Kitchen-A"),
+      revertCompletion(baseUrl, orderId, "POS-A")
+    ]);
+    assert.deepEqual([first.status, second.status].sort(), [200, 409]);
+    const failed = first.status === 409 ? first : second;
+    assert.ok(["ORDER_NOT_SERVED", "PRODUCTION_CONCURRENTLY_CHANGED"].includes(failed.body.error.code));
+
+    const database = createDatabase({ host: "127.0.0.1", port: 0, databasePath });
+    try {
+      assert.equal(database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM audit_logs WHERE entity_id = ? AND action = 'production_completion_reverted'", [orderId])?.count, 1);
+    } finally {
+      database.close();
+    }
+
+    activeServer.close();
+    await once(activeServer, "close");
+    activeServer = createRosServer({ host: "127.0.0.1", port: 0, databasePath });
+    activeServer.listen(0, "127.0.0.1");
+    await once(activeServer, "listening");
+    const address = activeServer.address();
+    assert.ok(address && typeof address !== "string");
+    const restarted = await request(`http://127.0.0.1:${address.port}`, `/api/orders/${orderId}`);
+    assert.equal(restarted.body.data.productionStatus, "ready");
+    assert.equal(restarted.body.data.servedAt, null);
+  } finally {
+    if (activeServer.listening) {
+      activeServer.close();
+      await once(activeServer, "close");
+    }
+  }
 });
 
 test("scheduled POS order is projected to lifecycle and statistics read models", async () => {

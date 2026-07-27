@@ -124,6 +124,8 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "GET" && orderMatch?.[1]) return success(response, 200, services.orders.getOrder(decodeURIComponent(orderMatch[1])));
     const statusMatch = pathname.match(/^\/api\/orders\/([^/]+)\/status$/);
     if (request.method === "PATCH" && statusMatch?.[1]) { const order = services.lifecycle.changeStatus(decodeURIComponent(statusMatch[1]), await readJson(request)); events.publish(order.orderStatus === "completed" ? "order.completed" : "order.production_changed", order.eventId); return success(response, 200, order); }
+    const revertProductionMatch = pathname.match(/^\/api\/orders\/([^/]+)\/production\/revert-completion$/);
+    if (request.method === "POST" && revertProductionMatch?.[1]) { const order = services.lifecycle.revertProductionCompletion(decodeURIComponent(revertProductionMatch[1]), await readJson(request)); events.publish("order.production_changed", order.eventId); return success(response, 200, order); }
     const noShowMatch = pathname.match(/^\/api\/orders\/([^/]+)\/no-show$/);
     if (request.method === "POST" && noShowMatch?.[1]) { const order = services.lifecycle.markNoShow(decodeURIComponent(noShowMatch[1]), await readJson(request)); events.publish("order.production_changed", order.eventId); return success(response, 200, order); }
     const releaseMatch = pathname.match(/^\/api\/orders\/([^/]+)\/release-inventory$/);

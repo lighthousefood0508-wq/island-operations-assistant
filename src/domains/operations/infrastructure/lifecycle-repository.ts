@@ -6,6 +6,7 @@ type EventRow = { event_id: string; event_code: string; display_name: string; da
 type ClosureRow = { daily_report_json: string };
 type CloseoutRow = { cash_received: number; line_pay_received: number; other_received: number; waste_amount: number; notes: string; updated_at: string };
 type CloseoutItemRow = { product_id: string; product_version_id: string; remaining_quantity: number; waste_quantity: number; retained_quantity: number; updated_at: string };
+type AuditRow = { after_json: string | null };
 
 export type LifecycleOrder = Readonly<{ orderId: string; orderNumber: string; eventId: string; source: string; createdAt: string; scheduledPickupAt: string | null; customerName: string | null; customerPhoneTail: string | null; paymentMethod: PaymentMethod | null; notes: string | null; orderStatus: OrderStatus; paymentStatus: PaymentStatus; productionStatus: ProductionStatus; cancellationReason: string | null; grandTotal: number; servedAt: string | null; items: readonly Readonly<{ posName: string; quantity: number; notes: string | null }>[] }>;
 
@@ -21,6 +22,19 @@ export class LifecycleRepository {
   }
   private mapOrder(row: OrderRow): LifecycleOrder { return { orderId: row.order_id, orderNumber: row.order_number, eventId: row.event_id, source: row.source, createdAt: row.created_at, scheduledPickupAt: row.scheduled_pickup_at, customerName: row.customer_name, customerPhoneTail: row.customer_phone_tail, paymentMethod: row.payment_method, notes: row.notes, orderStatus: row.order_status, paymentStatus: row.payment_status, productionStatus: row.production_status, cancellationReason: row.cancellation_reason, grandTotal: row.grand_total, servedAt: row.served_at, items: this.database.queryMany<{ pos_name_snapshot: string; quantity: number; notes: string | null }>("SELECT pos_name_snapshot, quantity, notes FROM operations_order_items WHERE order_id = ? ORDER BY rowid", [row.order_id]).map((item) => ({ posName: item.pos_name_snapshot, quantity: item.quantity, notes: item.notes })) }; }
   updateProductionStatus(orderId: string, from: ProductionStatus, to: ProductionStatus, timestamp: string): boolean { return this.database.execute("UPDATE operations_orders SET production_status = ?, served_at = CASE WHEN ? = 'served' THEN ? ELSE served_at END WHERE order_id = ? AND production_status = ?", [to, to, timestamp, orderId, from]).changes === 1; }
+  findProductionTransitionAudit(orderId: string, occurredAt: string): Record<string, unknown> | undefined {
+    const row = this.database.queryOne<AuditRow>("SELECT after_json FROM audit_logs WHERE entity_type = 'order' AND entity_id = ? AND action = 'production_status_changed' AND occurred_at = ? ORDER BY rowid DESC LIMIT 1", [orderId, occurredAt]);
+    if (!row?.after_json) return undefined;
+    try {
+      const metadata: unknown = JSON.parse(row.after_json);
+      return metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata as Record<string, unknown> : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  revertProductionCompletion(orderId: string, previous: ProductionStatus, originalServedAt: string): boolean {
+    return this.database.execute("UPDATE operations_orders SET production_status = ?, served_at = NULL WHERE order_id = ? AND order_status = 'confirmed' AND production_status = 'served' AND served_at = ?", [previous, orderId, originalServedAt]).changes === 1;
+  }
   completeOrder(orderId: string, timestamp: string): boolean { return this.database.execute("UPDATE operations_orders SET order_status = 'completed', status = 'completed', completed_at = ? WHERE order_id = ? AND order_status = 'confirmed' AND payment_status = 'paid' AND production_status = 'served'", [timestamp, orderId]).changes === 1; }
   cancelOrder(orderId: string, from: OrderStatus, reason: string | null, timestamp: string): boolean { return this.database.execute("UPDATE operations_orders SET order_status = 'cancelled', status = 'cancelled', cancellation_reason = ?, cancelled_at = ? WHERE order_id = ? AND order_status = ?", [reason, timestamp, orderId, from]).changes === 1; }
   insertAudit(input: { auditLogId: string; entityType: "order" | "event"; entityId: string; action: string; metadata: Record<string, unknown>; occurredAt: string }): void {

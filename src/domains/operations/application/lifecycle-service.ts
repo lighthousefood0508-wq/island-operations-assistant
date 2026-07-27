@@ -13,7 +13,9 @@ const productionTransitions: Readonly<Record<ProductionStatus, readonly Producti
 };
 function now(): string { return new Date().toISOString(); }
 function operator(value: unknown): string { return typeof value === "string" && value.trim() ? value.trim() : "local-pos"; }
+function deviceId(value: unknown): string { return typeof value === "string" && value.trim() ? value.trim() : "unknown"; }
 function terminal(status: "draft" | "submitted" | "confirmed" | "completed" | "cancelled"): boolean { return status === "completed" || status === "cancelled"; }
+function isProductionStatus(value: unknown): value is ProductionStatus { return typeof value === "string" && Object.hasOwn(productionTransitions, value); }
 
 export class LifecycleService {
   constructor(private readonly repository: LifecycleRepository) {}
@@ -25,6 +27,46 @@ export class LifecycleService {
     if (target === "completed") return this.completeOrder(orderId, actor);
     if (target === "cancelled") return this.cancelOrder(orderId, actor, null, "status_changed");
     return this.transitionProduction(orderId, target as ProductionStatus, actor);
+  }
+  revertProductionCompletion(orderId: string, input: unknown): LifecycleOrder {
+    const value = input as Record<string, unknown>;
+    if (value?.confirmed !== true) throw new HttpError(400, "REVERSAL_CONFIRMATION_REQUIRED", "Production completion reversal requires confirmed=true.");
+    if (value?.reason !== "accidental_completion") throw new HttpError(400, "VALIDATION_ERROR", "Production completion reversal requires reason=accidental_completion.");
+    const actor = operator(value?.operator);
+    const device = deviceId(value?.deviceId);
+    return this.repository.transactionImmediate(() => {
+      const order = this.repository.findOrder(orderId);
+      if (!order) throw new HttpError(404, "ORDER_NOT_FOUND", "Order was not found.");
+      if (order.orderStatus === "completed") throw new HttpError(409, "ORDER_ALREADY_COMPLETED", "A completed Order cannot be reverted by a Production-only action.");
+      if (order.orderStatus !== "confirmed" || order.productionStatus !== "served" || !order.servedAt) throw new HttpError(409, "ORDER_NOT_SERVED", "Only a confirmed served Order can revert Production completion.");
+      const event = this.repository.findEvent(order.eventId);
+      if (!event || (event.status !== "open" && event.status !== "paused")) throw new HttpError(409, "EVENT_NOT_ACTIVE", "Production completion can only be reverted while the Event is open or paused.");
+      const originalAudit = this.repository.findProductionTransitionAudit(orderId, order.servedAt);
+      if (!originalAudit || originalAudit.to !== "served") throw new HttpError(409, "REVERSAL_HISTORY_MISSING", "The original served transition could not be verified.");
+      const previous = originalAudit.from;
+      if (!isProductionStatus(previous) || !productionTransitions[previous].includes("served")) throw new HttpError(409, "INVALID_PREVIOUS_PRODUCTION_STATUS", "The previous Production status is not a legal predecessor of served.");
+      const timestamp = now();
+      if (!this.repository.revertProductionCompletion(orderId, previous, order.servedAt)) throw new HttpError(409, "PRODUCTION_CONCURRENTLY_CHANGED", "Production changed concurrently; refresh before retrying.");
+      this.repository.insertAudit({
+        auditLogId: createId("audit_"),
+        entityType: "order",
+        entityId: orderId,
+        action: "production_completion_reverted",
+        metadata: {
+          from: "served",
+          to: previous,
+          reason: "accidental_completion",
+          originalServedAt: order.servedAt,
+          operator: actor,
+          deviceId: device,
+          identityTrust: "client_reported",
+          eventId: order.eventId,
+          orderId
+        },
+        occurredAt: timestamp
+      });
+      return { ...order, productionStatus: previous, servedAt: null };
+    });
   }
   markNoShow(orderId: string, input: unknown): LifecycleOrder { return this.cancelOrder(orderId, operator((input as Record<string, unknown>)?.operator), "no_show", "order.no_show"); }
   private transitionProduction(orderId: string, target: ProductionStatus, actor: string): LifecycleOrder {

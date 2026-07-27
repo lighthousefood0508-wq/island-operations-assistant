@@ -175,6 +175,15 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await expect(page.locator("#served-orders")).toContainText("POSUI-001");
     await page.locator("#served-search").fill("POSUI-001");
     await expect(page.locator("#served-orders")).toContainText("Miles");
+    page.once("dialog", dialog => dialog.accept());
+    await page.locator('#served-orders [data-revert-production]').click();
+    await page.locator('button[data-tab="pending"]').click();
+    await expect(page.locator("#orders")).toContainText("POSUI-001");
+    await expect(page.locator("#orders")).toContainText("可取餐");
+    await expect(kitchen.locator("#pending")).toContainText("POSUI-001");
+    await page.locator('#orders [data-order-action="served"]').click();
+    await page.locator('button[data-tab="served"]').click();
+    await expect(page.locator("#served-orders")).toContainText("POSUI-001");
 
     await page.locator('button[data-tab="onsite"]').click();
     await addToCart(page, contracts[0]?.productId as string);

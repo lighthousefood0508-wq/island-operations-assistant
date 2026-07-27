@@ -105,6 +105,27 @@ test("shadow run syncs POS A, POS B, Kitchen, inventory, and closeout through ce
     assertApiSuccess(closeout, `Shadow Event closeout eventId=${eventId}`);
     const secondStatistics = await api(posB, `/api/events/${eventId}/statistics`);
     expect(secondStatistics.body.data.closeout.cashReceived).toBe(200);
+    const statisticsPage = await contextA.newPage();
+    await statisticsPage.goto("/admin/statistics");
+    await expect(statisticsPage.locator("#cash")).toHaveValue("200");
+    await statisticsPage.locator("#close").click();
+    await expect(statisticsPage.locator("#notice")).toContainText("關場失敗：Resolve all non-terminal Orders first.");
+    await expect(statisticsPage.locator("#notice")).toContainText("未完成訂單：2 筆");
+    const refreshedCloseout = await api(posB, `/api/events/${eventId}/closeout`, "PUT", closeout.body.data.closeout ? {
+      cashReceived: closeout.body.data.closeout.cashReceived,
+      linePayReceived: closeout.body.data.closeout.linePayReceived,
+      otherReceived: closeout.body.data.closeout.otherReceived,
+      wasteAmount: closeout.body.data.closeout.wasteAmount,
+      notes: closeout.body.data.closeout.notes,
+      operator: "e2e",
+      items: closeout.body.data.closeoutItems.map((item: any) => ({
+        productVersionId: item.productVersionId,
+        wasteQuantity: item.wasteQuantity
+      }))
+    } : {});
+    assertApiSuccess(refreshedCloseout, `Shadow Event closeout refresh eventId=${eventId}`);
+    await expect(statisticsPage.locator("#notice")).toContainText("未完成訂單：2 筆");
+    await expect(statisticsPage.locator("#cash")).toHaveValue("200");
   } catch (error) {
     testError = error;
     throw error;

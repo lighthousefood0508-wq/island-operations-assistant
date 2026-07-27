@@ -81,9 +81,11 @@ test("shadow run syncs POS A, POS B, Kitchen, inventory, and closeout through ce
     await kitchen.locator('[data-status="ready"]').click();
     await expect(posB.locator("#orders")).toContainText("可取餐");
     await kitchen.locator('[data-status="served"]').click();
-    await expect(posA.locator("#served-orders")).toContainText("已出餐");
+    await expect(posA.locator("#served-orders")).toContainText("已完成");
+    await expect(posA.locator("#served-orders")).toContainText("completed");
+    await expect(posA.locator("#served-orders")).toContainText("paid");
     await kitchen.reload();
-    await expect(kitchen.locator("#ready")).toContainText("SHADOW-001");
+    await expect(kitchen.locator("#ready")).not.toContainText("SHADOW-001");
     const raceA = api(posA, "/api/orders", "POST", { source: "pos", eventId, idempotencyKey: "race-a", items: [{ productId: published.body.data.contract.productId, productVersionId: published.body.data.contract.productVersionId, quantity: 1, notes: null }], customerName: null, notes: null });
     const raceB = api(posB, "/api/orders", "POST", { source: "pos", eventId, idempotencyKey: "race-b", items: [{ productId: published.body.data.contract.productId, productVersionId: published.body.data.contract.productVersionId, quantity: 1, notes: null }], customerName: null, notes: null });
     const race = await Promise.all([raceA, raceB]);
@@ -110,7 +112,7 @@ test("shadow run syncs POS A, POS B, Kitchen, inventory, and closeout through ce
     await expect(statisticsPage.locator("#cash")).toHaveValue("200");
     await statisticsPage.locator("#close").click();
     await expect(statisticsPage.locator("#notice")).toContainText("關場失敗：Resolve all non-terminal Orders first.");
-    await expect(statisticsPage.locator("#notice")).toContainText("未完成訂單：2 筆");
+    await expect(statisticsPage.locator("#notice")).toContainText("未完成訂單：1 筆");
     const refreshedCloseout = await api(posB, `/api/events/${eventId}/closeout`, "PUT", closeout.body.data.closeout ? {
       cashReceived: closeout.body.data.closeout.cashReceived,
       linePayReceived: closeout.body.data.closeout.linePayReceived,
@@ -124,7 +126,7 @@ test("shadow run syncs POS A, POS B, Kitchen, inventory, and closeout through ce
       }))
     } : {});
     assertApiSuccess(refreshedCloseout, `Shadow Event closeout refresh eventId=${eventId}`);
-    await expect(statisticsPage.locator("#notice")).toContainText("未完成訂單：2 筆");
+    await expect(statisticsPage.locator("#notice")).toContainText("未完成訂單：1 筆");
     await expect(statisticsPage.locator("#cash")).toHaveValue("200");
   } catch (error) {
     testError = error;

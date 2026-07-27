@@ -149,6 +149,8 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     expect(orders.body.data[0]?.customerName).toBe("Miles");
     expect(orders.body.data[0]?.customerPhoneTail).toBe("123");
     expect(orders.body.data[0]?.paymentMethod).toBe("CASH");
+    expect(orders.body.data[0]?.paymentStatus).toBe("paid");
+    expect(orders.body.data[0]?.paidTotal).toBe(400);
     expect(orders.body.data[0]?.notes).toBe("counter pickup");
 
     await page.locator('button[data-tab="pending"]').click();
@@ -182,15 +184,13 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await expect(page.locator("#served-orders")).toContainText("POSUI-001");
     await page.locator("#served-search").fill("POSUI-001");
     await expect(page.locator("#served-orders")).toContainText("Miles");
-    page.once("dialog", dialog => dialog.accept());
-    await page.locator('#served-orders [data-revert-production]').click();
-    await page.locator('button[data-tab="pending"]').click();
-    await expect(page.locator("#orders")).toContainText("POSUI-001");
-    await expect(page.locator("#orders")).toContainText("可取餐");
-    await expect(kitchen.locator("#pending")).toContainText("POSUI-001");
-    await page.locator('#orders [data-order-action="served"]').click();
-    await page.locator('button[data-tab="served"]').click();
-    await expect(page.locator("#served-orders")).toContainText("POSUI-001");
+    await expect(page.locator('#served-orders [data-revert-production]')).toHaveCount(0);
+    const completedOnsiteOrders = await api(page, `/api/events/${eventId}/orders`);
+    expect(completedOnsiteOrders.body.data.find((order: any) => order.orderNumber === "POSUI-001")).toMatchObject({
+      orderStatus: "completed",
+      paymentStatus: "paid",
+      productionStatus: "served"
+    });
 
     await page.locator('button[data-tab="onsite"]').click();
     await addToCart(page, contracts[0]?.productId as string);
@@ -209,7 +209,48 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await expect(kitchen.locator("#pending")).toContainText("POSUI-002");
     await expect(kitchen.locator("#pending")).toContainText("預約");
     const scheduledOrders = await api(page, `/api/events/${eventId}/orders`);
+    expect(scheduledOrders.body.data.find((order: any) => order.orderNumber === "POSUI-002")).toMatchObject({
+      orderStatus: "confirmed",
+      paymentStatus: "unpaid",
+      paymentMethod: "LINE_PAY"
+    });
     expect(scheduledOrders.body.data.find((order: any) => order.orderNumber === "POSUI-002")?.scheduledPickupAt).toContain("2026-07-20T18:30:00");
+
+    await page.locator('#preorder-orders [data-order-action="start"]').click();
+    await page.locator('#preorder-orders [data-order-action="served"]').click();
+    await page.locator('button[data-tab="served"]').click();
+    await page.locator("#served-search").fill("");
+    await expect(page.locator('#served-orders [data-confirm-payment]')).toBeVisible();
+    await expect(page.locator('#served-orders [data-collection-method="LINE_PAY"]')).toHaveAttribute("aria-pressed", "true");
+
+    page.once("dialog", dialog => dialog.accept());
+    await page.locator('#served-orders [data-revert-production]').click();
+    await page.locator('button[data-tab="preorder"]').click();
+    await expect(page.locator("#preorder-orders")).toContainText("POSUI-002");
+    await expect(page.locator("#preorder-orders")).toContainText("可取餐");
+    await page.locator('#preorder-orders [data-order-action="served"]').click();
+    await page.locator('button[data-tab="served"]').click();
+    await page.locator('#served-orders [data-collection-method="LINE_PAY"]').click();
+    await page.locator('#served-orders [data-confirm-payment]').click();
+    await expect(page.locator("#notice")).toContainText("POSUI-002 已確認收款 NT$180");
+    await expect.poll(async () => {
+      const currentOrders = await api(page, `/api/events/${eventId}/orders`);
+      return currentOrders.body.data.find((order: any) => order.orderNumber === "POSUI-002");
+    }).toMatchObject({
+      orderStatus: "completed",
+      paymentStatus: "paid",
+      paymentMethod: "LINE_PAY",
+      paidTotal: 180,
+      productionStatus: "served"
+    });
+    const statistics = await api(page, `/api/events/${eventId}/statistics`);
+    expect(statistics.body.data).toMatchObject({
+      ledgerAmount: 580,
+      receivedAmount: 580,
+      cashReceivedAmount: 400,
+      linePayReceivedAmount: 180,
+      unresolvedCount: 0
+    });
 
     await page.goto("/pos?debug=1");
     await expect(page.locator("#sync-debug")).toBeVisible();

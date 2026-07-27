@@ -77,21 +77,23 @@ test("realtime clients refresh central state after order and Kitchen changes wit
 
     await posA.locator(`[data-add="${published.body.data.contract.productId}"]`).click();
     await posA.locator('[data-payment-method="CASH"]').click();
+    await posA.locator("#toggle-preorder").click();
+    await posA.locator("#pickup-time").selectOption("18:00");
     await posA.locator("#create-order").click();
     await expect(posA.locator("#notice")).toContainText("SYNC-001");
-    await expect(posB.locator("#orders")).toContainText("SYNC-001");
+    await expect(posB.locator("#preorder-orders")).toContainText("SYNC-001");
     await expect(kitchen.locator("#pending")).toContainText("SYNC-001");
     await expect(statistics.locator("#summary")).toContainText("中央訂單");
     await expect(statistics.locator("#summary")).toContainText("1");
     await expect(posB.locator("#sync-last-event")).toHaveText(/order\.created|inventory\.changed/);
 
     await kitchen.locator('[data-status="preparing"]').click();
-    await expect(posA.locator("#orders")).toContainText("製作中");
-    await expect(posB.locator("#orders")).toContainText("製作中");
+    await expect(posA.locator("#preorder-orders")).toContainText("製作中");
+    await expect(posB.locator("#preorder-orders")).toContainText("製作中");
     await expect(statistics.locator("#sync-last-event")).toHaveText(/order\.production_changed/);
     await kitchen.locator('[data-status="ready"]').click();
-    await expect(posA.locator("#orders")).toContainText("可取餐");
-    await expect(posB.locator("#orders")).toContainText("可取餐");
+    await expect(posA.locator("#preorder-orders")).toContainText("可取餐");
+    await expect(posB.locator("#preorder-orders")).toContainText("可取餐");
     const statisticsBeforeServed = await api(setup, `/api/events/${eventId}/statistics`);
     assertApiSuccess(statisticsBeforeServed, `Realtime statistics before served eventId=${eventId}`);
     await kitchen.locator('[data-status="served"]').click();
@@ -101,8 +103,8 @@ test("realtime clients refresh central state after order and Kitchen changes wit
 
     kitchen.once("dialog", dialog => dialog.accept());
     await kitchen.locator('[data-revert-production]').click();
-    await expect(posA.locator("#orders")).toContainText("可取餐");
-    await expect(posB.locator("#orders")).toContainText("可取餐");
+    await expect(posA.locator("#preorder-orders")).toContainText("可取餐");
+    await expect(posB.locator("#preorder-orders")).toContainText("可取餐");
     await expect(kitchen.locator("#pending")).toContainText("SYNC-001");
     await expect(kitchen.locator("#ready")).not.toContainText("SYNC-001");
     const statisticsAfterReversal = await api(setup, `/api/events/${eventId}/statistics`);
@@ -113,6 +115,12 @@ test("realtime clients refresh central state after order and Kitchen changes wit
     await kitchen.locator('[data-status="served"]').click();
     await expect(posA.locator("#served-orders")).toContainText("已出餐");
     await expect(posB.locator("#served-orders")).toContainText("已出餐");
+    await posA.locator('button[data-tab="served"]').click();
+    await posA.locator('#served-orders [data-collection-method="CASH"]').click();
+    await posA.locator("#served-orders [data-confirm-payment]").click();
+    await expect(posB.locator("#served-orders")).toContainText("completed");
+    await expect(posB.locator("#served-orders")).toContainText("paid");
+    await expect(statistics.locator("#sync-last-event")).toHaveText(/payment\.confirmed|order\.completed/);
 
     await posB.evaluate(() => window.dispatchEvent(new Event("focus")));
     await expect(posB.locator("#sync-last-sync")).not.toHaveText("-");

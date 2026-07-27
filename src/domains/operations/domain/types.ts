@@ -46,6 +46,7 @@ export type CreatePosOrderInput = Readonly<{
   eventId: string;
   idempotencyKey: string;
   items: readonly PosOrderItemInput[];
+  scheduledPickupAt: string | null;
   customerName: string | null;
   customerPhoneTail: string | null;
   paymentMethod: PaymentMethod | null;
@@ -77,6 +78,7 @@ export type OperationsOrder = Readonly<{
   paymentStatus: PaymentStatus;
   productionStatus: ProductionStatus;
   cancellationReason: string | null;
+  scheduledPickupAt: string | null;
   customerName: string | null;
   customerPhoneTail: string | null;
   paymentMethod: PaymentMethod | null;

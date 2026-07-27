@@ -45,6 +45,17 @@ test("POS order atomically creates frozen snapshots and decrements sellable quan
   database.close();
 });
 
+test("scheduled POS order stores its pickup time and uses the same sellable quantity", () => {
+  const { database, event, orders, inventory } = fixture(2);
+  const result = orders.createPosOrder({ ...payload(event.eventId, "terminal-preorder-1"), pickupTime: "18:30" });
+
+  assert.equal(result.order.source, "pos");
+  assert.equal(result.order.scheduledPickupAt, "2026-07-20T18:30:00+08:00");
+  assert.deepEqual(inventory.getInventoryState(event.eventId, product.productVersionId), { soldQuantity: 1, remainingQuantity: 1 });
+  assert.equal(database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM audit_logs WHERE action = 'order_created' AND entity_id = ?", [result.order.orderId])?.count, 1);
+  database.close();
+});
+
 test("idempotent replay returns the original order without a second deduction or audit record", () => {
   const { database, event, orders, inventory } = fixture(2);
   const first = orders.createPosOrder(payload(event.eventId, "terminal-a-1"));

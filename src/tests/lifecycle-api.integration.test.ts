@@ -44,6 +44,36 @@ test("lifecycle keeps Order, Payment, and Production states separate", async () 
   server.close(); await once(server, "close");
 });
 
+test("scheduled POS order is projected to lifecycle and statistics read models", async () => {
+  const { server, baseUrl, eventId, product } = await setup();
+  try {
+    const created = await request(baseUrl, "/api/orders", "POST", {
+      source: "pos",
+      eventId,
+      idempotencyKey: "scheduled-life-a",
+      items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }],
+      pickupTime: "18:30",
+      customerName: "Miles",
+      customerPhoneTail: "1234",
+      paymentMethod: "CASH",
+      notes: null
+    });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data.source, "pos");
+    assert.equal(created.body.data.scheduledPickupAt, "2026-07-20T18:30:00+08:00");
+
+    const list = await request(baseUrl, `/api/events/${eventId}/orders`);
+    assert.equal(list.body.data[0].scheduledPickupAt, "2026-07-20T18:30:00+08:00");
+
+    const statistics = await request(baseUrl, `/api/events/${eventId}/statistics`);
+    assert.equal(statistics.body.data.orderCount, 1);
+    assert.equal(statistics.body.data.scheduledOrderCount, 1);
+    assert.equal(statistics.body.data.inventory[0].remainingQuantity, 1);
+  } finally {
+    server.close();
+    await once(server, "close");
+  }
+});
 test("manual no-show release is confirmed, idempotent, and restores inventory once", async () => {
   const { server, baseUrl, eventId, product } = await setup(1); const order = await createOrder(baseUrl, eventId, product, "no-show"); const id = order.body.data.orderId;
   const noShow = await request(baseUrl, `/api/orders/${id}/no-show`, "POST", {}); assert.equal(noShow.body.data.orderStatus, "cancelled"); assert.equal(noShow.body.data.cancellationReason, "no_show");

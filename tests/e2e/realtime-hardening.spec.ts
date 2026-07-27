@@ -99,14 +99,14 @@ test("realtime clients refresh central state after order and Kitchen changes wit
     await kitchen.locator('[data-status="served"]').click();
     await expect(posA.locator("#served-orders")).toContainText("已出餐");
     await expect(posB.locator("#served-orders")).toContainText("已出餐");
-    await expect(kitchen.locator("#ready")).toContainText("SYNC-001");
+    await expect(kitchen.locator("#served")).toContainText("SYNC-001");
 
     kitchen.once("dialog", dialog => dialog.accept());
     await kitchen.locator('[data-revert-production]').click();
     await expect(posA.locator("#preorder-orders")).toContainText("可取餐");
     await expect(posB.locator("#preorder-orders")).toContainText("可取餐");
-    await expect(kitchen.locator("#pending")).toContainText("SYNC-001");
-    await expect(kitchen.locator("#ready")).not.toContainText("SYNC-001");
+    await expect(kitchen.locator("#ready")).toContainText("SYNC-001");
+    await expect(kitchen.locator("#served")).not.toContainText("SYNC-001");
     const statisticsAfterReversal = await api(setup, `/api/events/${eventId}/statistics`);
     assertApiSuccess(statisticsAfterReversal, `Realtime statistics after reversal eventId=${eventId}`);
     expect(statisticsAfterReversal.body.data.ledgerAmount).toBe(statisticsBeforeServed.body.data.ledgerAmount);

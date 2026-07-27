@@ -83,6 +83,18 @@ test("realtime clients refresh central state after order and Kitchen changes wit
     await expect(posA.locator("#notice")).toContainText("SYNC-001");
     await expect(posB.locator("#preorder-orders")).toContainText("SYNC-001");
     await expect(kitchen.locator("#pending")).toContainText("SYNC-001");
+    await kitchen.locator('[data-order-id]').first().evaluate((element) => {
+      (window as unknown as { __stableKitchenCard: Element }).__stableKitchenCard = element;
+    });
+    const stableRefresh = kitchen.waitForResponse(response =>
+      response.request().method() === "GET"
+      && response.url().includes(`/api/events/${eventId}/orders`)
+    );
+    await kitchen.evaluate(() => (window as unknown as { __rosRealtime: { refresh(): void } }).__rosRealtime.refresh());
+    await stableRefresh;
+    expect(await kitchen.locator('[data-order-id]').first().evaluate((element) =>
+      element === (window as unknown as { __stableKitchenCard: Element }).__stableKitchenCard
+    )).toBe(true);
     await expect(statistics.locator("#summary")).toContainText("中央訂單");
     await expect(statistics.locator("#summary")).toContainText("1");
     await expect(posB.locator("#sync-last-event")).toHaveText(/order\.created|inventory\.changed/);

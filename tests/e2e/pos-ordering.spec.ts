@@ -93,8 +93,7 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
   try {
     await page.goto("/pos");
     await kitchen.goto("/kitchen");
-    for (const tab of ["onsite", "pending", "served"]) await expect(page.locator(`button[data-tab="${tab}"]`)).toBeVisible();
-    await expect(page.locator('button[data-tab="preorder"]')).toHaveCount(0);
+    for (const tab of ["onsite", "pending", "preorder", "served"]) await expect(page.locator(`button[data-tab="${tab}"]`)).toBeVisible();
     await expect(page.locator('button[data-tab="customer"]')).toHaveCount(0);
     await expect(page.getByRole("button", { name: "庫存設定" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "今日統計" })).toHaveCount(0);
@@ -176,6 +175,23 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await expect(page.locator("#served-orders")).toContainText("POSUI-001");
     await page.locator("#served-search").fill("POSUI-001");
     await expect(page.locator("#served-orders")).toContainText("Miles");
+
+    await page.locator('button[data-tab="onsite"]').click();
+    await addToCart(page, contracts[0]?.productId as string);
+    await page.locator("#customer-name").fill("Lin");
+    await page.locator("#customer-phone-tail").fill("678");
+    await page.locator("#payment-method").selectOption("LINE_PAY");
+    await page.locator("#toggle-preorder").click();
+    await expect(page.locator("#reservation-fields")).toBeVisible();
+    await page.locator("#pickup-time").selectOption("18:30");
+    await page.locator("#create-order").click();
+    await expect(page.locator("#notice")).toContainText("預約單 POSUI-002 建立成功");
+    await page.locator('button[data-tab="preorder"]').click();
+    await expect(page.locator("#preorder-orders")).toContainText("POSUI-002");
+    await expect(page.locator("#preorder-orders")).toContainText("預約");
+    await expect(page.locator("#preorder-orders")).toContainText("Lin");
+    const scheduledOrders = await api(page, `/api/events/${eventId}/orders`);
+    expect(scheduledOrders.body.data.find((order: any) => order.orderNumber === "POSUI-002")?.scheduledPickupAt).toContain("2026-07-20T18:30:00");
 
     await page.goto("/pos?debug=1");
     await expect(page.locator("#sync-debug")).toBeVisible();

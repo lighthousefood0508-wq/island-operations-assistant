@@ -81,6 +81,32 @@ async function addToCart(page: Page, productId: string) {
   await page.locator(`button[data-action="add"][data-product-id="${productId}"]`).click();
 }
 
+async function installSpeechRecorder(page: Page) {
+  await page.addInitScript(() => {
+    const spokenMessages: string[] = [];
+    class RecordedUtterance {
+      text: string;
+      lang = "";
+      rate = 1;
+      pitch = 1;
+      voice: unknown = null;
+      constructor(text: string) {
+        this.text = text;
+      }
+    }
+    Object.defineProperty(window, "SpeechSynthesisUtterance", { configurable: true, value: RecordedUtterance });
+    Object.defineProperty(window, "speechSynthesis", {
+      configurable: true,
+      value: {
+        cancel() {},
+        getVoices() { return [{ lang: "zh-TW" }]; },
+        speak(utterance: RecordedUtterance) { spokenMessages.push(utterance.text); }
+      }
+    });
+    Object.defineProperty(window, "__spokenMessages", { configurable: true, value: spokenMessages });
+  });
+}
+
 test("POS keeps front-office tabs, creates a central Order, and completes the active order loop", async ({ page, browser }) => {
   const { eventId, contracts } = await setupOpenEvent(page, "POSUI", [
     { name: "Rice bowl", posName: "Rice", price: 180, quantity: 5 },
@@ -91,6 +117,8 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
   const kitchen = await kitchenContext.newPage();
   let testError: unknown;
   try {
+    await installSpeechRecorder(page);
+    await installSpeechRecorder(kitchen);
     await page.goto("/pos");
     await kitchen.goto("/kitchen");
     for (const tab of ["onsite", "pending", "preorder", "served"]) await expect(page.locator(`button[data-tab="${tab}"]`)).toBeVisible();
@@ -117,6 +145,9 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await expect(page.locator(`article[data-product-id="${contracts[1]?.productId}"]`)).toContainText("Shrimp");
     await expect(page.locator(`article[data-product-id="${contracts[2]?.productId}"]`)).toHaveClass(/sold-out/);
     await expect(page.locator(`article[data-product-id="${contracts[2]?.productId}"] button`)).toBeDisabled();
+    await expect(page.locator(".voice-grid")).toBeVisible();
+    await page.locator("#voice-remaining").click();
+    expect(await page.evaluate(() => (window as unknown as { __spokenMessages: string[] }).__spokenMessages.at(-1))).toContain("Rice可訂 5 份");
 
     await page.locator('button[data-tab="served"]').click();
     await expect(page.locator('[data-pane="served"]')).toBeVisible();
@@ -166,7 +197,11 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await page.locator("#orders [data-view-order]").click();
     await expect(page.locator("#orders")).toContainText("confirmed");
     await expect(kitchen.locator("#pending")).toContainText("Miles");
-    await expect(kitchen.locator(".voice-grid")).toHaveCount(0);
+    await expect(kitchen.locator(".voice-grid")).toBeVisible();
+    await kitchen.locator("#voice-work").click();
+    const kitchenSpeech = await kitchen.evaluate(() => (window as unknown as { __spokenMessages: string[] }).__spokenMessages.at(-1));
+    expect(kitchenSpeech).toContain("Miles");
+    expect(kitchenSpeech).toContain("Rice 1 份");
     await expect(kitchen.locator("#page-state")).toContainText("中央訂單已同步");
     await kitchen.locator(".system-menu summary").click();
     await expect(kitchen.locator('.system-links a[href="/pos"]')).toBeVisible();

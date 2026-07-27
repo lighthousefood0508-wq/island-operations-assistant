@@ -76,6 +76,11 @@ export class LifecycleService {
       const timestamp = now();
       if (!this.repository.updateProductionStatus(orderId, order.productionStatus, target, timestamp)) throw new HttpError(409, "ORDER_CONCURRENTLY_CHANGED", "Order changed concurrently; refresh and retry.");
       this.repository.insertAudit({ auditLogId: createId("audit_"), entityType: "order", entityId: orderId, action: "production_status_changed", metadata: { operator: actor, eventId: order.eventId, orderId, from: order.productionStatus, to: target }, occurredAt: timestamp });
+      if (target === "served" && order.paymentStatus === "paid") {
+        if (!this.repository.completeOrder(orderId, timestamp)) throw new HttpError(409, "ORDER_CONCURRENTLY_CHANGED", "Paid served Order could not complete because its state changed concurrently.");
+        this.repository.insertAudit({ auditLogId: createId("audit_"), entityType: "order", entityId: orderId, action: "order_status_changed", metadata: { operator: actor, eventId: order.eventId, orderId, from: "confirmed", to: "completed", trigger: "paid_production_served" }, occurredAt: timestamp });
+        return { ...order, orderStatus: "completed", productionStatus: target, servedAt: timestamp };
+      }
       return { ...order, productionStatus: target, servedAt: target === "served" ? timestamp : order.servedAt };
     });
   }

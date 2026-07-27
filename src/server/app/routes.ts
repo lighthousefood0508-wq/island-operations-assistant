@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { CatalogService } from "../../domains/catalog/index.js";
-import { LifecycleService, OperationsService, OrderService } from "../../domains/operations/index.js";
+import { LifecycleService, OperationsService, OrderService, PaymentService } from "../../domains/operations/index.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { SseHub } from "../events/sse.js";
 import { renderAnalysisPlaceholder } from "../../web/analysis/page.js";
@@ -16,7 +16,7 @@ import { renderLifecycle } from "../../web/lifecycle/page.js";
 import { renderStatistics } from "../../web/statistics/page.js";
 import { renderDevicesDebug } from "../../web/devices/page.js";
 
-type Services = Readonly<{ catalog: CatalogService; operations: OperationsService; orders: OrderService; lifecycle: LifecycleService }>;
+type Services = Readonly<{ catalog: CatalogService; operations: OperationsService; orders: OrderService; payments: PaymentService; lifecycle: LifecycleService }>;
 
 function sendJson(response: ServerResponse, status: number, payload: unknown): void {
   response.writeHead(status, { "content-type": "application/json; charset=utf-8" });
@@ -118,10 +118,20 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "POST" && pathname === "/api/orders") {
       const result = services.orders.createPosOrder(await readJson(request));
       events.publish("order.created", result.order.eventId); events.publish("inventory.changed", result.order.eventId);
+      if (!result.replayed && result.order.paymentStatus === "paid") events.publish("payment.confirmed", result.order.eventId);
       return success(response, result.replayed ? 200 : 201, result.order);
     }
     const orderMatch = pathname.match(/^\/api\/orders\/([^/]+)$/);
     if (request.method === "GET" && orderMatch?.[1]) return success(response, 200, services.orders.getOrder(decodeURIComponent(orderMatch[1])));
+    const paymentConfirmMatch = pathname.match(/^\/api\/orders\/([^/]+)\/payment\/confirm$/);
+    if (request.method === "POST" && paymentConfirmMatch?.[1]) {
+      const result = services.payments.confirmPayment(decodeURIComponent(paymentConfirmMatch[1]), await readJson(request));
+      if (!result.replayed) {
+        events.publish("payment.confirmed", result.order.eventId);
+        events.publish("order.completed", result.order.eventId);
+      }
+      return success(response, 200, result);
+    }
     const statusMatch = pathname.match(/^\/api\/orders\/([^/]+)\/status$/);
     if (request.method === "PATCH" && statusMatch?.[1]) { const order = services.lifecycle.changeStatus(decodeURIComponent(statusMatch[1]), await readJson(request)); events.publish(order.orderStatus === "completed" ? "order.completed" : "order.production_changed", order.eventId); return success(response, 200, order); }
     const revertProductionMatch = pathname.match(/^\/api\/orders\/([^/]+)\/production\/revert-completion$/);

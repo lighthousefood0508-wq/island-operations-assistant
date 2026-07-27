@@ -37,6 +37,17 @@ async function revertCompletion(baseUrl: string, orderId: string, deviceId = "Ki
     deviceId
   });
 }
+async function confirmPayment(baseUrl: string, orderId: string, key: string, overrides: Record<string, unknown> = {}) {
+  return request(baseUrl, `/api/orders/${orderId}/payment/confirm`, "POST", {
+    confirmed: true,
+    paymentMethod: "CASH",
+    expectedAmount: 100,
+    idempotencyKey: key,
+    operator: "Owner",
+    deviceId: "POS-A",
+    ...overrides
+  });
+}
 async function saveZeroCloseout(baseUrl: string, eventId: string) {
   const statistics = await request(baseUrl, `/api/events/${eventId}/statistics`);
   return request(baseUrl, `/api/events/${eventId}/closeout`, "PUT", { cashReceived: 0, linePayReceived: 0, otherReceived: 0, wasteAmount: 0, notes: "", items: statistics.body.data.inventory.map((item: any) => ({ productVersionId: item.productVersionId, wasteQuantity: 0 })) });
@@ -58,6 +69,182 @@ test("lifecycle keeps Order, Payment, and Production states separate", async () 
   assert.match((await request(baseUrl, `/api/events/${eventId}/orders`)).body.data[0].servedAt, /^20/);
   const incomplete = await request(baseUrl, `/api/orders/${id}/status`, "PATCH", { status: "completed" }); assert.equal(incomplete.status, 409); assert.equal(incomplete.body.error.code, "ORDER_COMPLETION_REQUIREMENTS_NOT_MET");
   server.close(); await once(server, "close");
+});
+
+test("served reservation payment is authoritative, idempotent, audited, projected, and unblocks close", async () => {
+  const { server, baseUrl, databasePath, eventId, product } = await setup();
+  try {
+    const created = await request(baseUrl, "/api/orders", "POST", {
+      source: "pos",
+      eventId,
+      idempotencyKey: "reservation-payment",
+      items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }],
+      pickupTime: "18:30",
+      paymentCollected: false,
+      customerName: "Miles",
+      customerPhoneTail: "123",
+      paymentMethod: "LINE_PAY",
+      notes: null
+    });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data.paymentStatus, "unpaid");
+    await serveOrder(baseUrl, created.body.data.orderId);
+
+    const paid = await confirmPayment(baseUrl, created.body.data.orderId, "payment-one");
+    assert.equal(paid.status, 200);
+    assert.equal(paid.body.data.replayed, false);
+    assert.equal(paid.body.data.order.paymentStatus, "paid");
+    assert.equal(paid.body.data.order.orderStatus, "completed");
+    assert.equal(paid.body.data.order.paidTotal, 100);
+    assert.equal(paid.body.data.payment.paymentMethod, "CASH");
+    assert.match(paid.body.data.payment.paidAt, /^20/);
+
+    const replay = await confirmPayment(baseUrl, created.body.data.orderId, "payment-one");
+    assert.equal(replay.status, 200);
+    assert.equal(replay.body.data.replayed, true);
+    const conflict = await confirmPayment(baseUrl, created.body.data.orderId, "payment-one", { paymentMethod: "LINE_PAY" });
+    assert.equal(conflict.status, 409);
+    assert.equal(conflict.body.error.code, "IDEMPOTENCY_KEY_REUSED");
+    const duplicate = await confirmPayment(baseUrl, created.body.data.orderId, "payment-two");
+    assert.equal(duplicate.status, 409);
+    assert.equal(duplicate.body.error.code, "PAYMENT_ALREADY_CONFIRMED");
+
+    const statistics = await request(baseUrl, `/api/events/${eventId}/statistics`);
+    assert.equal(statistics.body.data.ledgerAmount, 100);
+    assert.equal(statistics.body.data.receivedAmount, 100);
+    assert.equal(statistics.body.data.cashReceivedAmount, 100);
+    assert.equal(statistics.body.data.linePayReceivedAmount, 0);
+    assert.equal(statistics.body.data.unresolvedCount, 0);
+    const closeout = await saveZeroCloseout(baseUrl, eventId);
+    assert.equal(closeout.status, 200);
+    const closed = await request(baseUrl, `/api/events/${eventId}/close`, "POST", { confirmed: true, operator: "Owner" });
+    assert.equal(closed.status, 200);
+    assert.equal(closed.body.data.report.payments.cash, 100);
+
+    const database = createDatabase({ host: "127.0.0.1", port: 0, databasePath });
+    try {
+      assert.equal(database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_payments WHERE order_id = ?", [created.body.data.orderId])?.count, 1);
+      const audit = database.queryOne<{ after_json: string }>("SELECT after_json FROM audit_logs WHERE entity_id = ? AND action = 'payment_confirmed'", [created.body.data.orderId]);
+      assert.ok(audit);
+      assert.deepEqual(JSON.parse(audit.after_json), {
+        orderId: created.body.data.orderId,
+        eventId,
+        paymentId: paid.body.data.payment.paymentId,
+        paymentMethod: "CASH",
+        amount: 100,
+        paidAt: paid.body.data.payment.paidAt,
+        operator: "Owner",
+        deviceId: "POS-A",
+        identityTrust: "client_reported",
+        fromPaymentStatus: "unpaid",
+        toPaymentStatus: "paid",
+        fromOrderStatus: "confirmed",
+        toOrderStatus: "completed"
+      });
+    } finally {
+      database.close();
+    }
+  } finally {
+    const closed = once(server, "close");
+    server.closeAllConnections();
+    server.close();
+    await closed;
+  }
+});
+
+test("payment confirmation rejects invalid lifecycle and amount states", async () => {
+  const { server, baseUrl, eventId, product } = await setup(5);
+  try {
+    const unserved = await createOrder(baseUrl, eventId, product, "pay-unserved");
+    assert.equal((await confirmPayment(baseUrl, unserved.body.data.orderId, "pay-unserved")).body.error.code, "ORDER_NOT_SERVED");
+    await serveOrder(baseUrl, unserved.body.data.orderId);
+    assert.equal((await confirmPayment(baseUrl, unserved.body.data.orderId, "pay-mismatch", { expectedAmount: 99 })).body.error.code, "PAYMENT_AMOUNT_MISMATCH");
+
+    const cancelled = await createOrder(baseUrl, eventId, product, "pay-cancelled");
+    await request(baseUrl, `/api/orders/${cancelled.body.data.orderId}/status`, "PATCH", { status: "cancelled" });
+    assert.equal((await confirmPayment(baseUrl, cancelled.body.data.orderId, "pay-cancelled")).body.error.code, "ORDER_NOT_PAYABLE");
+
+    const noShow = await createOrder(baseUrl, eventId, product, "pay-no-show");
+    await request(baseUrl, `/api/orders/${noShow.body.data.orderId}/no-show`, "POST", {});
+    assert.equal((await confirmPayment(baseUrl, noShow.body.data.orderId, "pay-no-show")).body.error.code, "ORDER_NOT_PAYABLE");
+    assert.equal((await confirmPayment(baseUrl, "missing-order", "pay-missing")).body.error.code, "ORDER_NOT_FOUND");
+  } finally {
+    const closed = once(server, "close");
+    server.closeAllConnections();
+    server.close();
+    await closed;
+  }
+});
+
+test("concurrent payment confirmation succeeds once and transaction failure rolls back all payment state", async () => {
+  const { server, baseUrl, databasePath, eventId, product } = await setup(3);
+  try {
+    const concurrent = await createOrder(baseUrl, eventId, product, "pay-concurrent");
+    await serveOrder(baseUrl, concurrent.body.data.orderId);
+    const results = await Promise.all([
+      confirmPayment(baseUrl, concurrent.body.data.orderId, "pay-device-a", { deviceId: "POS-A" }),
+      confirmPayment(baseUrl, concurrent.body.data.orderId, "pay-device-b", { deviceId: "POS-B" })
+    ]);
+    assert.deepEqual(results.map((result) => result.status).sort(), [200, 409]);
+    assert.equal(results.find((result) => result.status === 409)?.body.error.code, "PAYMENT_ALREADY_CONFIRMED");
+
+    const rollback = await createOrder(baseUrl, eventId, product, "pay-rollback");
+    await serveOrder(baseUrl, rollback.body.data.orderId);
+    const database = createDatabase({ host: "127.0.0.1", port: 0, databasePath });
+    try {
+      database.execute(`CREATE TRIGGER reject_payment_audit BEFORE INSERT ON audit_logs
+        WHEN NEW.action = 'payment_confirmed' BEGIN SELECT RAISE(ABORT, 'test payment audit failure'); END`);
+    } finally {
+      database.close();
+    }
+    const failed = await confirmPayment(baseUrl, rollback.body.data.orderId, "pay-rollback");
+    assert.equal(failed.status, 500);
+    const verify = createDatabase({ host: "127.0.0.1", port: 0, databasePath });
+    try {
+      const order = verify.queryOne<{ order_status: string; payment_status: string; paid_total: number }>("SELECT order_status, payment_status, paid_total FROM operations_orders WHERE order_id = ?", [rollback.body.data.orderId]);
+      assert.deepEqual(order, { order_status: "confirmed", payment_status: "unpaid", paid_total: 0 });
+      assert.equal(verify.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_payments WHERE order_id = ?", [rollback.body.data.orderId])?.count, 0);
+    } finally {
+      verify.close();
+    }
+  } finally {
+    const closed = once(server, "close");
+    server.closeAllConnections();
+    server.close();
+    await closed;
+  }
+});
+
+test("paid onsite order completes automatically when Production becomes served", async () => {
+  const { server, baseUrl, eventId, product } = await setup();
+  try {
+    const created = await request(baseUrl, "/api/orders", "POST", {
+      source: "pos",
+      eventId,
+      idempotencyKey: "onsite-paid-api",
+      items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }],
+      paymentCollected: true,
+      customerName: "Miles",
+      customerPhoneTail: "123",
+      paymentMethod: "LINE_PAY",
+      operator: "Owner",
+      deviceId: "POS-A",
+      notes: null
+    });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.data.paymentStatus, "paid");
+    assert.equal(created.body.data.orderStatus, "confirmed");
+    await serveOrder(baseUrl, created.body.data.orderId);
+    const completed = await request(baseUrl, `/api/orders/${created.body.data.orderId}`);
+    assert.equal(completed.body.data.productionStatus, "served");
+    assert.equal(completed.body.data.orderStatus, "completed");
+    assert.equal(completed.body.data.paymentStatus, "paid");
+  } finally {
+    const closed = once(server, "close");
+    server.closeAllConnections();
+    server.close();
+    await closed;
+  }
 });
 
 test("production completion reversal restores the audited predecessor and preserves Order, Payment, Inventory, and Statistics", async () => {

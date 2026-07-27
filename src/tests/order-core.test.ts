@@ -6,6 +6,7 @@ import { OrderService } from "../domains/operations/application/order-service.js
 import { OperationsService } from "../domains/operations/application/operations-service.js";
 import { OrderRepository } from "../domains/operations/infrastructure/order-repository.js";
 import { OperationsRepository } from "../domains/operations/infrastructure/operations-repository.js";
+import { PaymentRepository } from "../domains/operations/infrastructure/payment-repository.js";
 import { createDatabase } from "../shared/database/database-provider.js";
 import { runMigrations } from "../shared/database/migrate.js";
 
@@ -15,7 +16,7 @@ function fixture(quantity = 2) {
   const database = createDatabase({ host: "127.0.0.1", port: 0, databasePath: path.resolve("data", `order-core-${randomUUID()}.sqlite`) });
   runMigrations(database);
   const operations = new OperationsService(new OperationsRepository(database));
-  const orders = new OrderService(new OrderRepository(database));
+  const orders = new OrderService(new OrderRepository(database), new PaymentRepository(database));
   const event = operations.createEvent({ eventCode: "YONG", displayName: "Night market", date: "2026-07-20", startTime: "17:00", endTime: "22:00" });
   operations.setSellableInventory(event.eventId, product, { plannedQuantity: quantity });
   operations.openEvent(event.eventId);
@@ -53,6 +54,37 @@ test("scheduled POS order stores its pickup time and uses the same sellable quan
   assert.equal(result.order.scheduledPickupAt, "2026-07-20T18:30:00+08:00");
   assert.deepEqual(inventory.getInventoryState(event.eventId, product.productVersionId), { soldQuantity: 1, remainingQuantity: 1 });
   assert.equal(database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM audit_logs WHERE action = 'order_created' AND entity_id = ?", [result.order.orderId])?.count, 1);
+  database.close();
+});
+
+test("onsite POS order records its authoritative payment in the order transaction", () => {
+  const { database, event, orders } = fixture(2);
+  const result = orders.createPosOrder({
+    ...payload(event.eventId, "onsite-paid"),
+    paymentCollected: true,
+    operator: "Owner",
+    deviceId: "POS-A"
+  });
+
+  assert.equal(result.order.orderStatus, "confirmed");
+  assert.equal(result.order.paymentStatus, "paid");
+  assert.equal(result.order.productionStatus, "not_started");
+  assert.equal(result.order.paidTotal, result.order.grandTotal);
+  const payment = database.queryOne<{ payment_method: string; payment_status: string; amount: number; operator: string; device_id: string }>("SELECT payment_method, payment_status, amount, operator, device_id FROM operations_payments WHERE order_id = ?", [result.order.orderId]);
+  assert.deepEqual(payment, { payment_method: "CASH", payment_status: "paid", amount: 180, operator: "Owner", device_id: "POS-A" });
+  assert.equal(database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM audit_logs WHERE entity_id = ? AND action = 'payment_confirmed'", [result.order.orderId])?.count, 1);
+  database.close();
+});
+
+test("scheduled POS orders cannot be marked paid during creation", () => {
+  const { database, event, orders } = fixture(2);
+  assert.throws(() => orders.createPosOrder({
+    ...payload(event.eventId, "scheduled-prepay"),
+    pickupTime: "18:30",
+    paymentCollected: true
+  }), (error: unknown) => (error as { code?: string }).code === "RESERVATION_PREPAY_NOT_SUPPORTED");
+  assert.equal(database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_orders")?.count, 0);
+  assert.equal(database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_payments")?.count, 0);
   database.close();
 });
 

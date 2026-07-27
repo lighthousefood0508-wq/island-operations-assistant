@@ -3,6 +3,7 @@ import { HttpError } from "../../../shared/errors/http-error.js";
 import { createId } from "../../../shared/utils/ids.js";
 import type { CreatePosOrderInput, OperationsOrder, PaymentMethod, PosOrderItemInput } from "../domain/types.js";
 import { OrderRepository, type OrderProductSnapshot } from "../infrastructure/order-repository.js";
+import { PaymentRepository } from "../infrastructure/payment-repository.js";
 
 type CreateOrderResult = Readonly<{ order: OperationsOrder; replayed: boolean }>;
 
@@ -28,6 +29,17 @@ function optionalPaymentMethod(value: unknown): PaymentMethod | null {
   const text = optionalText(value, "paymentMethod");
   if (text === null) return null;
   if (text !== "CASH" && text !== "LINE_PAY") throw new HttpError(400, "VALIDATION_ERROR", "paymentMethod must be CASH or LINE_PAY.", { field: "paymentMethod" });
+  return text;
+}
+function optionalCollected(value: unknown): boolean {
+  if (value === undefined) return false;
+  if (typeof value !== "boolean") throw new HttpError(400, "VALIDATION_ERROR", "paymentCollected must be a boolean.", { field: "paymentCollected" });
+  return value;
+}
+function clientText(value: unknown, field: string, fallback: string): string {
+  if (value === undefined || value === null || value === "") return fallback;
+  const text = requiredText(value, field);
+  if (text.length > 100) throw new HttpError(400, "VALIDATION_ERROR", `${field} is too long.`, { field });
   return text;
 }
 function nextDate(date: string): string {
@@ -62,7 +74,7 @@ function parseInput(value: unknown): CreatePosOrderInput {
   if (!Array.isArray(record.items) || record.items.length === 0) throw new HttpError(400, "VALIDATION_ERROR", "items must not be empty.", { field: "items" });
   const idempotencyKey = requiredText(record.idempotencyKey, "idempotencyKey");
   if (idempotencyKey.length > 200) throw new HttpError(400, "VALIDATION_ERROR", "idempotencyKey is too long.", { field: "idempotencyKey" });
-  return { source: "pos", eventId: requiredText(record.eventId, "eventId"), idempotencyKey, items: record.items.map(parseItem), scheduledPickupAt: null, customerName: optionalText(record.customerName, "customerName"), customerPhoneTail: optionalPhoneTail(record.customerPhoneTail), paymentMethod: optionalPaymentMethod(record.paymentMethod), notes: optionalText(record.notes, "notes") };
+  return { source: "pos", eventId: requiredText(record.eventId, "eventId"), idempotencyKey, items: record.items.map(parseItem), scheduledPickupAt: null, paymentCollected: optionalCollected(record.paymentCollected), customerName: optionalText(record.customerName, "customerName"), customerPhoneTail: optionalPhoneTail(record.customerPhoneTail), paymentMethod: optionalPaymentMethod(record.paymentMethod), operator: clientText(record.operator, "operator", "local-pos"), deviceId: clientText(record.deviceId, "deviceId", "POS"), notes: optionalText(record.notes, "notes") };
 }
 
 function normalizeItems(items: readonly PosOrderItemInput[]): PosOrderItemInput[] {
@@ -76,7 +88,7 @@ function normalizeItems(items: readonly PosOrderItemInput[]): PosOrderItemInput[
 }
 
 function fingerprint(input: CreatePosOrderInput, items: readonly PosOrderItemInput[]): string {
-  return createHash("sha256").update(JSON.stringify({ source: input.source, eventId: input.eventId, items, scheduledPickupAt: input.scheduledPickupAt, customerName: input.customerName, customerPhoneTail: input.customerPhoneTail, paymentMethod: input.paymentMethod, notes: input.notes })).digest("hex");
+  return createHash("sha256").update(JSON.stringify({ source: input.source, eventId: input.eventId, items, scheduledPickupAt: input.scheduledPickupAt, paymentCollected: input.paymentCollected, customerName: input.customerName, customerPhoneTail: input.customerPhoneTail, paymentMethod: input.paymentMethod, operator: input.operator, deviceId: input.deviceId, notes: input.notes })).digest("hex");
 }
 
 function requirePosChannel(snapshot: OrderProductSnapshot): void {
@@ -85,7 +97,7 @@ function requirePosChannel(snapshot: OrderProductSnapshot): void {
 }
 
 export class OrderService {
-  constructor(private readonly repository: OrderRepository) {}
+  constructor(private readonly repository: OrderRepository, private readonly payments: PaymentRepository) {}
 
   createPosOrder(payload: unknown): CreateOrderResult {
     const parsed = parseInput(payload);
@@ -95,6 +107,8 @@ export class OrderService {
       const event = this.repository.findEvent(parsed.eventId);
       if (!event) throw new HttpError(404, "EVENT_NOT_FOUND", "Event was not found.");
       const input = { ...parsed, scheduledPickupAt: scheduledPickupAt((payload as Record<string, unknown>).pickupTime, event) };
+      if (input.scheduledPickupAt && input.paymentCollected) throw new HttpError(400, "RESERVATION_PREPAY_NOT_SUPPORTED", "Scheduled pickup Orders cannot be marked paid at creation in this phase.");
+      if (input.paymentCollected && !input.paymentMethod) throw new HttpError(400, "PAYMENT_METHOD_REQUIRED", "Collected onsite payment requires paymentMethod.");
       const requestFingerprint = fingerprint(input, items);
       const existing = this.repository.findIdempotency(input.eventId, input.source, input.idempotencyKey);
       if (existing) {
@@ -123,10 +137,47 @@ export class OrderService {
       const orderId = createId("order_");
       const orderNumber = `${event.event_code}-${String(this.repository.nextOrderSequence(input.eventId, timestamp)).padStart(3, "0")}`;
       const subtotal = resolved.reduce((total, entry) => total + entry.snapshot.sellingPrice * entry.item.quantity, 0);
-      this.repository.insertOrder({ orderId, eventId: input.eventId, orderNumber, idempotencyKey: input.idempotencyKey, fingerprint: requestFingerprint, scheduledPickupAt: input.scheduledPickupAt, customerName: input.customerName, customerPhoneTail: input.customerPhoneTail, paymentMethod: input.paymentMethod, notes: input.notes, subtotal, createdAt: timestamp });
+      const paymentStatus = input.paymentCollected ? "paid" : "unpaid";
+      this.repository.insertOrder({ orderId, eventId: input.eventId, orderNumber, idempotencyKey: input.idempotencyKey, fingerprint: requestFingerprint, scheduledPickupAt: input.scheduledPickupAt, customerName: input.customerName, customerPhoneTail: input.customerPhoneTail, paymentMethod: input.paymentMethod, paymentStatus, paidTotal: input.paymentCollected ? subtotal : 0, notes: input.notes, subtotal, createdAt: timestamp });
       for (const { item, snapshot } of resolved) this.repository.insertOrderItem({ orderItemId: createId("order_item_"), orderId, item, snapshot, createdAt: timestamp });
       this.repository.insertIdempotency(input.eventId, input.idempotencyKey, requestFingerprint, orderId, timestamp);
       this.repository.insertAudit(orderId, input.eventId, orderNumber, resolved.reduce((total, entry) => total + entry.item.quantity, 0), subtotal, input.scheduledPickupAt, timestamp);
+      if (input.paymentCollected && input.paymentMethod) {
+        const paymentId = createId("payment_");
+        const auditLogId = createId("audit_");
+        this.payments.insertAudit({
+          auditLogId,
+          entityId: orderId,
+          action: "payment_confirmed",
+          metadata: {
+            orderId,
+            eventId: input.eventId,
+            paymentId,
+            paymentMethod: input.paymentMethod,
+            amount: subtotal,
+            paidAt: timestamp,
+            operator: input.operator,
+            deviceId: input.deviceId,
+            identityTrust: "client_reported",
+            source: "onsite_order_creation",
+            fromPaymentStatus: "unpaid",
+            toPaymentStatus: "paid"
+          },
+          occurredAt: timestamp
+        });
+        this.payments.insertPayment({
+          paymentId,
+          orderId,
+          paymentMethod: input.paymentMethod,
+          amount: subtotal,
+          paidAt: timestamp,
+          idempotencyKey: `order-payment:${requestFingerprint}`,
+          requestFingerprint,
+          operator: input.operator,
+          deviceId: input.deviceId,
+          auditLogId
+        });
+      }
       const order = this.repository.getOrder(orderId);
       if (!order) throw new Error("Created order could not be loaded.");
       return { order, replayed: false };

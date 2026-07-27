@@ -47,9 +47,12 @@ export type CreatePosOrderInput = Readonly<{
   idempotencyKey: string;
   items: readonly PosOrderItemInput[];
   scheduledPickupAt: string | null;
+  paymentCollected: boolean;
   customerName: string | null;
   customerPhoneTail: string | null;
   paymentMethod: PaymentMethod | null;
+  operator: string;
+  deviceId: string;
   notes: string | null;
 }>;
 
@@ -86,6 +89,7 @@ export type OperationsOrder = Readonly<{
   subtotal: number;
   discountTotal: number;
   grandTotal: number;
+  paidTotal: number;
   createdAt: string;
   confirmedAt: string;
   servedAt: string | null;
@@ -100,6 +104,24 @@ export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
 export const PAYMENT_METHODS = ["CASH", "LINE_PAY"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+export type OperationsPayment = Readonly<{
+  paymentId: string;
+  orderId: string;
+  paymentMethod: PaymentMethod;
+  paymentStatus: "paid";
+  amount: number;
+  paidAt: string;
+  operator: string;
+  deviceId: string;
+  identityTrust: "client_reported";
+}>;
+
+export type ConfirmPaymentResult = Readonly<{
+  order: OperationsOrder;
+  payment: OperationsPayment;
+  replayed: boolean;
+}>;
 
 export const PRODUCTION_STATUSES = ["not_started", "queued", "preparing", "ready", "served", "cancelled"] as const;
 export type ProductionStatus = (typeof PRODUCTION_STATUSES)[number];

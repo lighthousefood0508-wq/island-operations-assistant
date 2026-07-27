@@ -54,6 +54,10 @@ Architecture Owner decisions override AI suggestions, inferred plans, and prior 
 
 If a requested change may alter architecture, domain boundaries, contracts, schema, business rules, or workflow ownership, stop and request explicit Architecture Owner approval before implementation.
 
+## Architecture Owner Memory
+
+Read [09_AI_MEMORY.md](09_AI_MEMORY.md) as required product context before proposing design, UI, workflow, or business-rule changes. It records how Miles evaluates real food-truck operation; it is subordinate to `CONSTITUTION.md`, accepted ADRs, and explicit Architecture Owner Decisions.
+
 ## Event-First Workflow
 
 ROS is event-first.

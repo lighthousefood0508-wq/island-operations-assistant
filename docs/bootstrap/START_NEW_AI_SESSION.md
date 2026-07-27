@@ -10,6 +10,8 @@ Before doing anything, read in this authority order:
 2. Relevant accepted ADRs and Architecture Owner Decisions
 3. AGENTS.md
 4. Every document under docs/bootstrap/
+   - In particular, docs/bootstrap/09_AI_MEMORY.md before making a product, UI, workflow, or business-rule recommendation.
+   - If this is a ChatGPT Reviewer session, read docs/bootstrap/GPT_REVIEWER_ONBOARDING.md and remain in reviewer/advisor mode unless Miles explicitly asks for implementation.
 5. docs/bootstrap/CURRENT_AI_HANDOVER.md
 
 CONSTITUTION.md is the highest rule. Bootstrap documents are onboarding material and cannot override the Constitution, accepted ADRs, or Architecture Owner Decisions.

@@ -112,3 +112,19 @@ test("Published Product Contract filters channels for POS", () => {
   assert.equal("description" in (products[0] ?? {}), false);
   database.close();
 });
+
+test("Catalog permanently deletes only products that have never been published", () => {
+  const { database, service } = createCatalogFixture();
+  const category = service.createCategory({ displayName: "Delete safety" });
+  const draft = service.createProduct({ internalName: "Disposable draft", categoryId: category.categoryId });
+  assert.deepEqual(service.deleteProduct(draft.productId), { productId: draft.productId, deleted: true });
+  assert.throws(() => service.getProduct(draft.productId), (error) => error instanceof HttpError && error.code === "product_not_found");
+  assert.equal(database.queryOne<{ action: string }>("SELECT action FROM audit_logs WHERE entity_id = ? AND action = 'product.deleted'", [draft.productId])?.action, "product.deleted");
+
+  const published = service.createProduct({ internalName: "Published history", categoryId: category.categoryId, displayName: "Published history", posName: "History", sellingPrice: 100, channels: ["pos"] });
+  service.publishProduct(published.productId);
+  service.updateProduct(published.productId, { status: "inactive" });
+  assert.throws(() => service.deleteProduct(published.productId), (error) => error instanceof HttpError && error.code === "published_product_delete_forbidden");
+  assert.equal(service.getProduct(published.productId).versions.length, 1);
+  database.close();
+});

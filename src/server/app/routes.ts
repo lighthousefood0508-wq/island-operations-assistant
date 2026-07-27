@@ -108,6 +108,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     const productMatch = pathname.match(/^\/api\/admin\/products\/([^/]+)$/);
     if (request.method === "GET" && productMatch?.[1]) return success(response, 200, services.catalog.getProduct(decodeURIComponent(productMatch[1])));
     if (request.method === "PATCH" && productMatch?.[1]) return success(response, 200, services.catalog.updateProduct(decodeURIComponent(productMatch[1]), await readJson(request) as never));
+    if (request.method === "DELETE" && productMatch?.[1]) return success(response, 200, services.catalog.deleteProduct(decodeURIComponent(productMatch[1])));
     const publishMatch = pathname.match(/^\/api\/admin\/products\/([^/]+)\/publish$/);
     if (request.method === "POST" && publishMatch?.[1]) return success(response, 200, services.catalog.publishProduct(decodeURIComponent(publishMatch[1])));
 

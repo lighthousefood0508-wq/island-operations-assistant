@@ -76,3 +76,28 @@ test("Admin publish flows through Product Contract API for POS", async () => {
   server.close();
   await once(server, "close");
 });
+
+test("Product API deletes an unpublished draft and protects published history", async () => {
+  const server = createRosServer({ host: "127.0.0.1", port: 0, databasePath: path.resolve("data", `catalog-api-delete-${randomUUID()}.sqlite`) });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const category = await request(baseUrl, "/api/admin/categories", "POST", { displayName: "Delete safety" });
+
+  const draft = await request(baseUrl, "/api/admin/products", "POST", { internalName: "Disposable draft", categoryId: category.body.data.categoryId });
+  const deleted = await request(baseUrl, `/api/admin/products/${draft.body.data.productId}`, "DELETE");
+  assert.equal(deleted.status, 200);
+  assert.deepEqual(deleted.body.data, { productId: draft.body.data.productId, deleted: true });
+  assert.equal((await request(baseUrl, `/api/admin/products/${draft.body.data.productId}`)).status, 404);
+
+  const product = await request(baseUrl, "/api/admin/products", "POST", { internalName: "Published history", categoryId: category.body.data.categoryId, displayName: "Published history", posName: "History", sellingPrice: 100, channels: ["pos"] });
+  await request(baseUrl, `/api/admin/products/${product.body.data.productId}/publish`, "POST", {});
+  const rejected = await request(baseUrl, `/api/admin/products/${product.body.data.productId}`, "DELETE");
+  assert.equal(rejected.status, 409);
+  assert.equal(rejected.body.error.code, "published_product_delete_forbidden");
+
+  server.close();
+  await once(server, "close");
+});

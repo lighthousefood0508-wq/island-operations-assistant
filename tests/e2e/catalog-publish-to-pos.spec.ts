@@ -123,3 +123,35 @@ test("inactive categories and kiosk-only products stay out of POS", async ({ pag
   await page.goto("/pos");
   await expect(page.locator("#products")).not.toContainText("Kiosk");
 });
+
+test("Catalog Admin focuses editing, restores inactive products, and deletes only unpublished drafts", async ({ page }) => {
+  await createCategory(page, "Catalog actions");
+  await createDraft(page, { internalName: "Temporary meal", categoryName: "Catalog actions", displayName: "Temporary meal", posName: "Temporary", price: "90", channels: ["pos"] });
+  await expect(page.locator("#product-id")).not.toHaveValue("");
+  const productId = await page.locator("#product-id").inputValue();
+
+  await page.locator("#clear-product").click();
+  await page.locator(`[data-product="${productId}"]`).click();
+  await expect(page.locator("#product-form-title")).toHaveText("編輯品項：Temporary meal");
+  await expect(page.locator("#save-product")).toHaveText("儲存修改");
+  await expect(page.locator("#clear-product")).toHaveText("取消編輯");
+  await expect(page.locator("#internal-name")).toBeFocused();
+
+  page.once("dialog", dialog => dialog.accept());
+  await page.locator(`[data-deactivate-product="${productId}"]`).click();
+  await expect(page.locator(`[data-restore-product="${productId}"]`)).toBeVisible();
+  await page.locator(`[data-restore-product="${productId}"]`).click();
+  await expect(page.locator(`[data-deactivate-product="${productId}"]`)).toBeVisible();
+
+  page.once("dialog", dialog => dialog.accept());
+  await page.locator(`[data-delete-product="${productId}"]`).click();
+  await expect(page.locator(`[data-product="${productId}"]`)).toHaveCount(0);
+  await expect(page.locator("#notice")).toContainText("未發布商品已永久刪除");
+  await expect(page.locator("#product-id")).toHaveValue("");
+
+  await createDraft(page, { internalName: "Permanent history", categoryName: "Catalog actions", displayName: "Permanent history", posName: "Permanent", price: "100", channels: ["pos"] });
+  await expect(page.locator("#product-id")).not.toHaveValue("");
+  const publishedId = await page.locator("#product-id").inputValue();
+  await publish(page);
+  await expect(page.locator(`[data-delete-product="${publishedId}"]`)).toHaveCount(0);
+});

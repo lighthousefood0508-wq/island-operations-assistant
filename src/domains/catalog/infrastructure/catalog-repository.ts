@@ -68,6 +68,12 @@ export class CatalogRepository {
     }
   }
 
+  deleteUnpublishedProduct(productId: string): void {
+    this.database.execute("DELETE FROM catalog_product_draft_channels WHERE product_id = ?", [productId]);
+    this.database.execute("DELETE FROM catalog_product_drafts WHERE product_id = ?", [productId]);
+    this.database.execute("DELETE FROM catalog_products WHERE product_id = ?", [productId]);
+  }
+
   findProduct(productId: string): CatalogProduct | undefined {
     const product = this.database.queryOne<ProductRow>("SELECT product_id, internal_name, category_id, status, created_at, updated_at FROM catalog_products WHERE product_id = ?", [productId]);
     return product ? this.hydrateProduct(product) : undefined;

@@ -126,6 +126,18 @@ export class CatalogService {
     return this.getProduct(productId);
   }
 
+  deleteProduct(productId: string): { productId: string; deleted: true } {
+    const product = this.getProduct(productId);
+    if (product.versions.length > 0) {
+      throw new HttpError(409, "published_product_delete_forbidden", "Published products cannot be permanently deleted. Deactivate the product instead.");
+    }
+    this.repository.transaction(() => {
+      this.audit("product", productId, "product.deleted", product);
+      this.repository.deleteUnpublishedProduct(productId);
+    });
+    return { productId, deleted: true };
+  }
+
   publishProduct(productId: string): { product: CatalogProduct; contract: ProductContractV2; version: ProductVersion } {
     const product = this.getProduct(productId);
     const category = this.requireCategory(product.categoryId);

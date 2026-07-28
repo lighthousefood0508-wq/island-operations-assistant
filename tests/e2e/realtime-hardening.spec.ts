@@ -111,6 +111,7 @@ test("realtime clients refresh central state after order and Kitchen changes wit
     await kitchen.locator('[data-status="served"]').click();
     await expect(posA.locator("#served-orders")).toContainText("已出餐");
     await expect(posB.locator("#served-orders")).toContainText("已出餐");
+    await kitchen.locator('[data-kitchen-tab="served"]').click();
     await expect(kitchen.locator("#served")).toContainText("SYNC-001");
 
     kitchen.once("dialog", dialog => dialog.accept());
@@ -124,6 +125,7 @@ test("realtime clients refresh central state after order and Kitchen changes wit
     expect(statisticsAfterReversal.body.data.ledgerAmount).toBe(statisticsBeforeServed.body.data.ledgerAmount);
     expect(statisticsAfterReversal.body.data.products).toEqual(statisticsBeforeServed.body.data.products);
     expect(statisticsAfterReversal.body.data.inventory).toEqual(statisticsBeforeServed.body.data.inventory);
+    await kitchen.locator('[data-kitchen-tab="upcoming"]').click();
     await kitchen.locator('[data-status="served"]').click();
     await expect(posA.locator("#served-orders")).toContainText("已出餐");
     await expect(posB.locator("#served-orders")).toContainText("已出餐");

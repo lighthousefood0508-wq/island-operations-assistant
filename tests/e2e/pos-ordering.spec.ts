@@ -123,6 +123,7 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
   const kitchen = await kitchenContext.newPage();
   let testError: unknown;
   try {
+    await kitchen.setViewportSize({ width: 800, height: 960 });
     await installSpeechRecorder(page);
     await installSpeechRecorder(kitchen, "2026-07-20T18:20:00");
     await page.goto("/pos");
@@ -203,11 +204,17 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await page.locator("#orders [data-view-order]").click();
     await expect(page.locator("#orders")).toContainText("confirmed");
     await expect(kitchen.locator("#pending")).toContainText("Miles");
+    await expect(kitchen.locator("#clock")).toHaveText(/^\d{2}:\d{2}$/);
+    await expect(kitchen.locator(".voice-grid")).toBeVisible();
+    await expect(kitchen.locator(".production-summary")).toBeVisible();
+    const summaryBox = await kitchen.locator(".production-summary").boundingBox();
+    expect(summaryBox && summaryBox.y + summaryBox.height).toBeLessThanOrEqual(960);
+    await expect(kitchen.locator("#production-totals")).toContainText("Rice");
+    await expect(kitchen.locator("#production-totals")).toContainText("1 份");
     await expect.poll(async () => kitchen.evaluate(() => (window as unknown as { __spokenMessages: string[] }).__spokenMessages.some(message => message.includes("新訂單") && message.includes("Miles")))).toBe(true);
     await kitchen.reload();
     await expect(kitchen.locator("#page-state")).toContainText("中央訂單已同步");
     expect(await kitchen.evaluate(() => (window as unknown as { __spokenMessages: string[] }).__spokenMessages)).toEqual([]);
-    await expect(kitchen.locator(".voice-grid")).toBeVisible();
     await kitchen.locator(".voice-settings summary").click();
     await expect(kitchen.locator("#voice-enabled")).toBeChecked();
     await kitchen.locator('input[name="reminder-lead"][value="5"]').check();
@@ -216,7 +223,7 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await kitchen.locator(".voice-settings summary").click();
     await kitchen.locator("#voice-work").click();
     const kitchenSpeech = await kitchen.evaluate(() => (window as unknown as { __spokenMessages: string[] }).__spokenMessages.at(-1));
-    expect(kitchenSpeech).toContain("Miles");
+    expect(kitchenSpeech).toContain("三十分鐘內需要製作");
     expect(kitchenSpeech).toContain("Rice 1 份");
     await expect(kitchen.locator("#page-state")).toContainText("中央訂單已同步");
     await kitchen.locator(".system-menu summary").click();

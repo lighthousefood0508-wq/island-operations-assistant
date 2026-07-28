@@ -74,3 +74,23 @@ export type {
   RecipeSupersessionAuditRecord,
   RecipeVersionRecord
 } from "./persistence/records.js";
+export {
+  InvalidRecipeEvent,
+  RecipeEventAlreadyConsumed
+} from "./events/errors.js";
+export {
+  RECIPE_EVENT_TYPES,
+  RECIPE_EVENT_VERSION,
+  type RecipeDomainEvent,
+  type RecipeDomainEventEnvelope,
+  type RecipeDraftCreatedPayload,
+  type RecipeDraftCreatedV1,
+  type RecipeEventContext,
+  type RecipeEventType,
+  type RecipePublishedPayload,
+  type RecipePublishedV1,
+  type RecipeSupersededPayload,
+  type RecipeSupersededV1
+} from "./events/recipe-domain-events.js";
+export { RecipeEventCollection } from "./events/recipe-event-collection.js";
+export { RecipeEventFactory } from "./events/recipe-event-factory.js";

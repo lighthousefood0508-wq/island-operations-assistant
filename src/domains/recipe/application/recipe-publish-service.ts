@@ -24,29 +24,70 @@ import type {
 } from "../domain/recipe-repository.js";
 import { Unit } from "../domain/unit.js";
 import { VersionNumber } from "../domain/version-number.js";
+import { RecipeEventCollection } from "../events/recipe-event-collection.js";
+import { RecipeEventFactory } from "../events/recipe-event-factory.js";
+import type { RecipeEventContext } from "../events/recipe-domain-events.js";
 
 export type RecipePublishResult = Readonly<{
   snapshot: PublishedRecipeSnapshot;
   aggregateVersion: number;
+  events: RecipeEventCollection;
 }>;
 
 export type RecipeDraftCreationResult = Readonly<{
   draft: RecipeAggregate;
   aggregateVersion: number;
+  events: RecipeEventCollection;
 }>;
 
 export type RecipeSupersessionResult = Readonly<{
   supersededSnapshot: PublishedRecipeSnapshot;
   currentPublishedSnapshot: PublishedRecipeSnapshot;
   aggregateVersion: number;
+  events: RecipeEventCollection;
 }>;
 
 export class RecipePublishService {
   constructor(
     private readonly repository: VersionedRecipeRepository,
     private readonly validator = new RecipePublishValidator(),
-    private readonly snapshotBuilder = new RecipeSnapshotBuilder()
+    private readonly snapshotBuilder = new RecipeSnapshotBuilder(),
+    private readonly eventFactory = new RecipeEventFactory()
   ) {}
+
+  createDraft(input: {
+    recipeId: RecipeId;
+    draftId: RecipeDraftId;
+    name: string;
+    createdBy: string;
+    createdAt: string;
+    eventContext?: RecipeEventContext;
+  }): RecipeDraftCreationResult {
+    this.eventFactory.validateContext(input.eventContext);
+    const draft = RecipeAggregate.createDraft({
+      recipeId: input.recipeId,
+      draftId: input.draftId,
+      name: input.name,
+      createdBy: input.createdBy,
+      createdAt: input.createdAt
+    });
+    this.repository.save(draft);
+    const aggregateVersion = this.requireRecipe(input.recipeId).aggregateVersion;
+    const event = this.eventFactory.draftCreated({
+      recipeId: input.recipeId.value,
+      draftId: input.draftId.value,
+      sourceVersionId: null,
+      aggregateVersion,
+      createdAt: input.createdAt,
+      createdBy: input.createdBy,
+      context: input.eventContext
+    });
+    return Object.freeze({
+      draft,
+      aggregateVersion,
+      events: RecipeEventCollection.create([event])
+    });
+  }
 
   publish(input: {
     recipeId: RecipeId;
@@ -55,7 +96,9 @@ export class RecipePublishService {
     expectedAggregateVersion: number;
     publishedBy: string;
     publishedAt: string;
+    eventContext?: RecipeEventContext;
   }): RecipePublishResult {
+    this.eventFactory.validateContext(input.eventContext);
     const stored = this.requireRecipe(input.recipeId);
     if (stored.aggregate.state !== "Draft") {
       throw new InvalidPublishState(stored.aggregate.state);
@@ -76,13 +119,20 @@ export class RecipePublishService {
       publishedBy: input.publishedBy,
       publishedAt: input.publishedAt
     });
+    const snapshot = this.snapshotBuilder.build(stored.aggregate);
     const aggregateVersion = this.repository.saveWithExpectedVersion(
       stored.aggregate,
       input.expectedAggregateVersion
     );
+    const event = this.eventFactory.published({
+      snapshot,
+      aggregateVersion,
+      context: input.eventContext
+    });
     return Object.freeze({
-      snapshot: this.snapshotBuilder.build(stored.aggregate),
-      aggregateVersion
+      snapshot,
+      aggregateVersion,
+      events: RecipeEventCollection.create([event])
     });
   }
 
@@ -93,7 +143,9 @@ export class RecipePublishService {
     expectedAggregateVersion: number;
     createdBy: string;
     createdAt: string;
+    eventContext?: RecipeEventContext;
   }): RecipeDraftCreationResult {
+    this.eventFactory.validateContext(input.eventContext);
     const source = this.repository.findPublishedVersion(
       input.recipeId,
       input.sourceRecipeVersionId
@@ -159,7 +211,20 @@ export class RecipePublishService {
       draft,
       input.expectedAggregateVersion
     );
-    return Object.freeze({ draft, aggregateVersion });
+    const event = this.eventFactory.draftCreated({
+      recipeId: input.recipeId.value,
+      draftId: input.newDraftId.value,
+      sourceVersionId: input.sourceRecipeVersionId.value,
+      aggregateVersion,
+      createdAt: input.createdAt,
+      createdBy: input.createdBy,
+      context: input.eventContext
+    });
+    return Object.freeze({
+      draft,
+      aggregateVersion,
+      events: RecipeEventCollection.create([event])
+    });
   }
 
   supersede(input: {
@@ -170,7 +235,9 @@ export class RecipePublishService {
     actor: string;
     occurredAt: string;
     reason: string;
+    eventContext?: RecipeEventContext;
   }): RecipeSupersessionResult {
+    this.eventFactory.validateContext(input.eventContext);
     if (input.supersededRecipeVersionId.equals(input.supersededByRecipeVersionId)) {
       throw new InvalidSupersession("A Recipe Version cannot supersede itself.");
     }
@@ -203,14 +270,27 @@ export class RecipePublishService {
       supersededAt: input.occurredAt,
       reason: input.reason
     });
+    const supersededSnapshot = this.snapshotBuilder.build(previous.aggregate);
+    const currentPublishedSnapshot = this.snapshotBuilder.build(current.aggregate);
     const aggregateVersion = this.repository.saveWithExpectedVersion(
       previous.aggregate,
       input.expectedAggregateVersion
     );
+    const event = this.eventFactory.superseded({
+      recipeId: input.recipeId.value,
+      supersededVersionId: input.supersededRecipeVersionId.value,
+      supersedingVersionId: input.supersededByRecipeVersionId.value,
+      aggregateVersion,
+      supersededAt: input.occurredAt,
+      supersededBy: input.actor,
+      reason: input.reason,
+      context: input.eventContext
+    });
     return Object.freeze({
-      supersededSnapshot: this.snapshotBuilder.build(previous.aggregate),
-      currentPublishedSnapshot: this.snapshotBuilder.build(current.aggregate),
-      aggregateVersion
+      supersededSnapshot,
+      currentPublishedSnapshot,
+      aggregateVersion,
+      events: RecipeEventCollection.create([event])
     });
   }
 

@@ -47,3 +47,20 @@ export {
   type CostRepository,
   type EffectiveIngredientCostQuoteLookup
 } from "./domain/cost-repository.js";
+export {
+  CostPersistenceError,
+  CostPersistenceFailure,
+  DuplicateIngredientCostQuote,
+  ImmutableIngredientCostQuoteViolation,
+  IngredientCostQuotePersistenceNotFound,
+  InvalidCostPersistenceState
+} from "./persistence/errors.js";
+export {
+  CostPersistenceMapper,
+  type SupersedingQuoteResolver
+} from "./persistence/cost-persistence-mapper.js";
+export type {
+  IngredientCostQuoteRecord,
+  IngredientCostQuoteRow
+} from "./persistence/records.js";
+export { SqliteCostRepository } from "./infrastructure/sqlite-cost-repository.js";

@@ -2,6 +2,83 @@
 
 ## Approval Register
 
+- **DECISIONS #051 - Authorize PR-COST-003 Cost Quote Lifecycle Service**
+  - **Status**: APPROVED on 2026-07-29 by Architecture Owner Miles / Lin Zi-Mao.
+  - **Context**: PR-COST-001 established the Cost Domain foundation and PR-COST-002 established its SQLite persistence. Quote creation and replacement now require one Cost-owned application use case that applies lifecycle, overlap, concurrency, retry, and transaction rules without moving business authority into the Repository or expanding into Recipe cost evaluation.
+  - **Decision**: Approve implementation of **PR-COST-003 - Cost Quote Lifecycle Service** only. The slice is application orchestration for recording an initial `IngredientCostQuote` and atomically replacing an authoritative Quote with a new Quote. It is not Cost Evaluation, an API, UI, runtime integration, or another Aggregate.
+  - **Authorized Scope**:
+    - A Cost Quote Lifecycle Service and the minimal command/result types required for the two approved use cases.
+    - Orchestration through the existing Cost-owned `CostRepository` Port.
+    - A minimal Cost-owned Unit-of-Work Port and SQLite implementation needed to make the replacement use case atomic. This is a transaction boundary contract, not a new transaction framework; the Domain must not import `DatabaseAdapter`, `better-sqlite3`, or an Infrastructure implementation.
+    - Expected-version concurrency, formal lifecycle errors, overlap and ambiguity prevention, exact-retry handling, Domain-focused unit tests, and only the Infrastructure integration tests necessary to prove atomicity, rollback, and multiple-connection behavior.
+    - Minimal Cost public exports required by this PR.
+  - **Lifecycle Authority**:
+    - `IngredientCostQuote` and its Value Objects retain authority for identity, exact numeric evidence, Currency, Unit, Effective Period validity, lifecycle state, Aggregate version, supersession evidence, and Domain invariants.
+    - The Lifecycle Service validates the command, loads relevant Quote history, prevents overlapping authority, invokes the Aggregate transition, coordinates Repository writes, and returns a typed result.
+    - The Repository remains responsible only for persistence, hydration, conditional version writes, duplicate identity detection, and technical transaction mechanics. It must not choose business winners or redefine lifecycle rules.
+  - **Use Case - Record Initial Quote**:
+    - The caller supplies quote identity, Ingredient identity, amount, purchase quantity, unit, source, effective period, `recordedAt`, and actor identity.
+    - The Service creates a `Recorded` Quote at Aggregate version 0 and persists it with `CostRepository.save()`.
+    - The proposed authoritative interval must not overlap any existing authoritative interval for the same Ingredient.
+    - An exact retry using the same quote identity and exactly the same authoritative facts may return an explicit already-applied result. Reuse of the identity with different facts is a duplicate-identity conflict and must not mutate persistence.
+    - The Service must not obtain the current time or synthesize actor or evidence.
+  - **Use Case - Replace Effective Quote**:
+    - The caller supplies the old Quote identity, complete new Quote facts and identity, expected old Aggregate version, `supersededAt`, and actor identity.
+    - The Service must load the old Quote, reject a missing or already superseded Quote, verify expected version, verify matching Ingredient identity, and reject reuse of the old Quote identity.
+    - The replacement cutover is explicit: the new Quote's `effectiveFrom` must equal `supersededAt`. The old Quote's original Effective Period remains immutable; its authority is clipped by the appended supersession fact.
+    - The new Quote's `effectiveTo` may differ from the old Quote's `effectiveTo`, but must satisfy Domain period validity and must not overlap another authoritative interval for the Ingredient after projecting the old Quote's supersession at the cutover.
+    - The Service creates the new Quote at version 0, appends supersession evidence to the old Quote, saves the new Quote, and conditionally persists the old Quote through `saveWithExpectedVersion`.
+    - Both writes are one Unit-of-Work transaction. Any failure rolls back both writes. There must never be an orphan new Quote or an old Quote marked superseded without its replacement.
+  - **Effective Period Rules**:
+    - Effective periods remain start-inclusive and end-exclusive: `effectiveFrom <= instant < effectiveTo`; absent `effectiveTo` is open-ended.
+    - A Quote's authoritative interval is its Effective Period clipped at `supersededAt`, when present: the old Quote is authoritative before but not at the supersession instant.
+    - Two intervals overlap when they share any instant. Adjacent boundaries are allowed; partial, full, nested, and open-ended overlap are rejected.
+    - Initial past or future periods are permitted when caller-supplied and non-overlapping. The Service does not compare them with a hidden system clock.
+    - For replacement, `new.effectiveFrom = supersededAt` is mandatory. This makes the cutover deterministic without rewriting the old `effectiveTo`.
+    - `ORDER BY ... LIMIT 1`, insertion order, `recordedAt`, version, or identity must never choose a winner among overlapping Quotes.
+  - **Supersession Rules**:
+    - Supersession is append-first and preserves the old Quote row and its amount, quantity, unit, source, Effective Period, and recorded evidence.
+    - The appended fact contains `supersededAt`, `supersededByQuoteId`, `supersededByActor`, and the incremented Aggregate version under expected-version control.
+    - A replacement Quote must have a distinct identity and the same Ingredient identity. An already superseded Quote cannot be superseded by a different Quote.
+    - Hard delete, row replacement, evidence overwrite, and mutable `is_current` authority remain prohibited.
+  - **Transaction Boundary**:
+    - Record-initial is one insert and relies on the Repository's duplicate and constraint enforcement.
+    - Replace-effective is one business transaction containing the overlap check, new Quote insert, old Quote conditional supersession write, and final result.
+    - The Application Service depends on a Cost-owned Unit-of-Work Port. Infrastructure supplies the SQLite transaction implementation using the existing shared transaction mechanism. No second transaction framework is authorized.
+    - A Domain or business error is preserved. A technical transaction failure is wrapped using the approved persistence/application error semantics and never reported as silent success.
+  - **Concurrency Rules**:
+    - A stale expected version fails formally and leaves both Quotes unchanged.
+    - Concurrent creation with the same new quote identity allows at most one success; the other call receives an exact already-applied result only when every authoritative fact is identical, otherwise duplicate conflict.
+    - Concurrent attempts to replace the same old Quote with different new Quotes allow at most one complete transaction. The loser receives version or lifecycle conflict and leaves no partial row.
+    - No last-write-wins behavior is permitted.
+  - **Retry and Idempotency**:
+    - An exact replay of a completed record-initial command may return an explicit already-applied result after verifying complete persisted equality.
+    - An exact replay of a completed replacement may return an explicit already-applied result only when the old Quote points to the same new Quote, all supersession facts match, the new Quote facts match, and the persisted versions represent the completed operation.
+    - A reused identity, changed payload, changed actor/time, different replacement, or incomplete persisted state is a typed conflict. Retry must never silently create another Quote.
+  - **Time Authority**: `recordedAt`, `effectiveFrom`, optional `effectiveTo`, and `supersededAt` are caller-supplied canonical ISO UTC instants. `Date.now()`, implicit `new Date()`, SQLite current time, triggers, and database defaults must not create business time. Recorded and effective time remain distinct.
+  - **Actor Authority**: Commands require a stable, non-blank caller-supplied actor identity. The Service must not substitute `"system"`, `"admin"`, a UI display name, or a nullable actor. This PR does not create Accounts, Authentication, or Authorization.
+  - **Error Semantics**:
+    - Reuse existing typed Domain and Persistence errors where their semantics match.
+    - Add only the minimal missing typed errors and stable codes for Quote not found, duplicate identity, Ingredient mismatch, illegal lifecycle, invalid period, overlap, ambiguity, version conflict, already superseded, invalid persistence state, transaction failure, and technical persistence failure.
+    - Errors must not be swallowed, converted to ambiguous success, or exposed as raw database exceptions.
+  - **Required Tests**:
+    - Initial record success, version 0, `Recorded` state, complete actor/time evidence, duplicate identity, invalid period, invalid numeric evidence, overlap rejection, and exact retry.
+    - Replacement success, immutable old evidence, same Ingredient, version increment, complete supersession evidence, new Quote version 0, already superseded, missing old Quote, identity mismatch, wrong expected version, duplicate new identity, and ambiguous existing history.
+    - Start-inclusive/end-exclusive behavior; open-ended, adjacent, partial, full, nested, past, future, and two-open-ended periods; exact supersession boundary.
+    - SQLite multi-connection stale writers, different replacements for one old Quote, duplicate new identity, exact retry, full rollback, and absence of both orphan new Quotes and incomplete supersession.
+    - Persistence technical and constraint failures, plus strict TypeScript, Cost Domain, Cost Persistence, Recipe Domain/Persistence/Publish/Events, Architecture Guard, and migration smoke regression.
+  - **Architecture Constraints**:
+    - Dependency direction remains Infrastructure -> Application / Cost-owned Ports -> Cost Domain.
+    - The Service must not become a God Service, duplicate Aggregate validation, or move overlap winner logic into SQL or a Repository.
+    - Domain code must not import SQLite transactions. Infrastructure must not define a second Quote model as business authority.
+    - No Recipe, Operations, POS, Kitchen, Voice, Supplier, Purchase, Inventory, API, UI, runtime, Event Bus, Broker, Outbox, or Legacy BOM dependency is authorized.
+    - PR-COST-003 must complete the full `Repository Working Guide v1` Architecture Gate before Owner merge approval.
+  - **Future Compatibility**: The command and Port boundaries must not prevent later Supplier references, Purchase evidence, Inventory receiving, Unit Conversion, multi-currency, Cost Evaluation, Recipe Snapshots, Batch Cost, reporting, API/UI, multi-device, offline synchronization, or Authentication/Authorization. This requirement does not authorize speculative abstractions or implementation of those capabilities.
+  - **Explicitly Deferred**: Recipe cost evaluation; BOM traversal; Cost calculation or Snapshot; historical Recipe costing; margin and selling price; Supplier Aggregate/CRUD; Purchase Order; receiving; Inventory, Batch, or Lot; Unit or Currency conversion; exchange rates; tax; API/HTTP; UI; POS; KDS; Kitchen; Voice; Reporting; AI Copilot; runtime wiring; background jobs; Domain Events; Account, Password, Authentication, and Authorization.
+  - **Architecture Gate Requirement**: Before Safe Commit, the PR report must apply every section of `Repository Working Guide v1`, including lifecycle-service size, Domain/Repository authority, Unit-of-Work ownership, partial-write risk, overlap ambiguity, query count and history-loading risk, clock/actor/error leakage, deferred-scope checks, "Top 10 Reasons to Reject This PR," and future refactor opportunities. The final gate must be `PASS`, `PASS WITH DOCUMENTED RISKS`, or `BLOCKED`; only an Owner-approved passing result may proceed to Safe Commit.
+  - **Consequences**: Cost gains one approved application orchestration boundary and one minimal transaction Port for Quote lifecycle operations. Exact evidence, append-first history, ambiguity detection, and optimistic concurrency remain authoritative. The implementation will require careful overlap checks and atomic two-row persistence, and may load Ingredient Quote history in v1 as a documented performance tradeoff unless the Architecture Gate identifies it as unsafe.
+  - **Non-Goals and relationship to prior Decisions**: DECISIONS #048 remains the ownership and governance authority; #049 remains the Cost Domain Foundation authorization; #050 remains the Cost Persistence authorization. This Decision adds only PR-COST-003 lifecycle orchestration and does not rewrite or remove those Decisions, approve PR-COST-004, or authorize any deferred capability.
+
 - **DECISIONS #050 — Authorize PR-COST-002 Cost Persistence**
   - **Status**: APPROVED on 2026-07-29 by Architecture Owner Miles / Lin Zi-Mao.
   - **Context**: PR-COST-001 established and safely committed the Cost-owned pure Domain foundation and Repository Port. The next implementation slice requires a limited SQLite Persistence Adapter and schema for Ingredient Cost Quote evidence without expanding into Recipe costing or another business capability.

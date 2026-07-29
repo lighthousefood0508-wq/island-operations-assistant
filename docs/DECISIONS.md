@@ -2,6 +2,97 @@
 
 ## Approval Register
 
+- **DECISIONS #052 - Authorize PR-COST-004 Recipe Cost Evaluation Service**
+  - **Status**: APPROVED on 2026-07-29 by Architecture Owner Miles / Lin Zi-Mao.
+  - **Context**: PR-COST-001 established the Cost Domain foundation, PR-COST-002 established Cost Quote persistence, and PR-COST-003 established the Quote lifecycle. The next bounded slice requires a read-only Cost-owned use case that evaluates one immutable Recipe Version against the authoritative Ingredient Cost Quotes at a caller-provided effective time. The result is exact and traceable but ephemeral: it is not a Cost Snapshot or persisted historical authority.
+  - **Single Responsibility**: Approve implementation of **PR-COST-004 - Recipe Cost Evaluation Service** only. Given one versioned `RecipeCostingContractV1` and one caller-provided `effectiveAt`, the Service produces a complete, precise, traceable, non-persisted `STANDARD_RECIPE` Cost Evaluation. It does not approve Recipe ownership changes, Cost Snapshot, arbitrary production scaling, API/UI/runtime integration, or another Aggregate.
+  - **Recipe Authority and Contract**:
+    - Recipe remains authoritative for Recipe identity, Recipe Version identity, Product/Product Version references, Published/Superseded state, ordered Recipe Lines, exact quantities, Unit and measurement dimension, Standard Output, Standard Yield, publication evidence, and the versioned Recipe Costing Contract.
+    - Authorize the minimal Recipe-owned `RecipeCostingContractV1`. It contains `contractVersion: 1`; Recipe, Recipe Version and Version Number; Product and Product Version identities; `Published` or `Superseded` state; ordered Recipe Lines with Ingredient identity, exact quantity coefficient/scale, Unit code and measurement dimension; Standard Output; Standard Yield; and publication evidence.
+    - The Contract contains no Quote, price, Currency, purchase amount/quantity, selected cost, line/total cost, margin, mutable Recipe Aggregate, Recipe Repository, database row, or Infrastructure metadata.
+    - The current Recipe model has no stable Recipe Line identity. v1 therefore preserves the immutable ordered Contract line position and representation as line-level traceability evidence; it must not invent a persistence identity. A stable Recipe Line ID requires a future Owner Decision.
+    - Cost must not import Recipe Aggregate internals, Recipe Repository, Recipe persistence, or query `recipe_*` tables, and must not reconstruct or mutate a Recipe Version.
+  - **Cost Authority**:
+    - Cost owns effective-time Quote selection, missing and ambiguity semantics, Currency consistency and supported-Currency policy, Unit compatibility, exact rational arithmetic, line cost, Standard batch cost, per-Standard-Yield cost, Evaluation result invariants, and valuation/calculation policy identity.
+    - `valuationPolicy` is `VAL-1`; `roundingPolicy` is `NONE_EXACT`.
+    - The Repository persists and retrieves Quote evidence and participates in consistent-read mechanics only. It must not read Recipe persistence, aggregate Recipe Lines, calculate Recipe cost, round results, or choose an ambiguity winner.
+  - **Command and Currency Authority**:
+    - `EvaluateRecipeCostCommand` accepts only `recipe: RecipeCostingContractV1` and caller-provided canonical UTC `effectiveAt`. A future evaluation-policy selector requires separate governance; v1 has none.
+    - The Command contains no desired/result Currency, conversion target, exchange rate, line cost, total cost, or caller-calculated value.
+    - Quote evidence owns each Currency fact. Cost valuation policy owns the v1 supported-Currency rule. Caller owns neither.
+    - The Service first selects all required Quotes, reads their formal Currency evidence, verifies that all selected Quotes use the same Currency, and derives the Result Currency from that evidence.
+    - v1 supports TWD only. Mixed selected Currencies fail with `RecipeCostCurrencyMismatch`; a consistent non-TWD set fails with `UnsupportedRecipeCostCurrency`. Currency conversion and caller override are prohibited.
+  - **Duplicate Ingredient Lines and Line Traceability**:
+    - The same `ingredientId` may legally appear on multiple ordered Recipe Lines, including different stages, sections, additions, or uses. Cost must not reject, omit, or classify these Lines as duplicate commands.
+    - Every Line retains its original Contract position, exact quantity, Unit and dimension, records the selected Quote identity/evidence, and produces its own exact line cost. Result ordering is identical to Contract ordering.
+    - Multiple Lines for the same Ingredient at one `effectiveAt` may reuse one selected Quote lookup result. This is an optimization only: it must not change the winner, merge trace output, modify quantities, reorder Lines, or omit any Line.
+    - `standardBatchCost` is the exact sum of every Line result, including repeated Ingredient Lines.
+  - **Effective Quote Selection**:
+    - For every unique Ingredient, the Service uses the existing Cost Quote authority at `effectiveAt`: `effectiveFrom` is inclusive, `effectiveTo` is exclusive, and an old Quote ceases to be authoritative at `supersededAt`.
+    - Future Quotes are excluded; open-ended Quotes are supported; historical superseded Quotes remain usable only within their authority interval; a zero-price Quote is valid and is not missing.
+    - No Quote yields `MissingIngredientCost`. Multiple authoritative Quotes yield the existing `AmbiguousEffectiveIngredientCostQuote`.
+    - Latest recorded time, highest Aggregate version, newest/lexically sorted identity, insertion order, Repository return order, or another hidden fallback must never select a winner. Missing cost must never become zero.
+  - **Unit Policy v1**:
+    - Recipe Line Unit code must exactly equal Quote purchase Unit code, and measurement dimension must be compatible with the Recipe Contract.
+    - v1 implements no Unit Conversion and assumes no `kg -> g`, `台斤 -> g`, `L -> ml`, name-derived, text-derived, or implicit ratio.
+    - A mismatch fails closed with `RecipeCostUnitConversionRequired` or an approved equivalent stable error code. This is a Cost v1 calculability limitation, not a declaration that the Recipe is invalid.
+  - **Exact Calculation Policy**:
+    - With matching Units, `lineCost = purchaseAmount * recipeLineQuantity / purchaseQuantity`.
+    - Arithmetic uses exact integer/rational values only. Denominator is positive; numerator and denominator use canonical integer representation; fractions are reduced by greatest common divisor; zero has one canonical representation.
+    - No JavaScript floating point, `parseFloat`, SQLite `REAL`, implicit division/rounding, or displayed rounded value may become authority.
+    - `standardBatchCost` is the exact sum of all Line costs. `perStandardYieldCost = standardBatchCost / standardYield`; Standard Yield must be positive and retain exact evidence.
+    - PR-COST-004 performs no display or settlement rounding. Equivalent fractions such as `2/4` and `1/2` must not coexist in authoritative results.
+  - **Evaluation Determinism**:
+    - Identical Recipe Costing Contract version and facts, Recipe/Product identities and versions, ordered Line evidence, Standard Output/Yield, `effectiveAt`, VAL-1 policy version, and selected Quote facts/lifecycle evidence must produce identical Result Currency, Quote selection per Line, canonical line-cost fractions, Standard batch/per-Yield costs, ordering, policy identifiers, and traceability evidence.
+    - Result Line order follows the formal Recipe Contract order. v1 uses the ordered Contract position because no stable persisted Recipe Line ID currently exists. Ingredient ID, Quote ID, amount, database row ID, or another derived value must not reorder the result.
+    - Results must not vary with SQLite row order, Repository return order, insertion order, accidental Map/Set or object-property iteration, current clock, random identity, process locale, floating-point behavior, display rounding, latest-recorded/highest-version/lexical-identity winner, or hidden fallback.
+    - Determinism never converts ambiguity into a winner. Multiple authoritative Quotes remain the typed ambiguity failure.
+  - **Result Authority**:
+    - The immutable Evaluation Result is explicitly marked `basis: STANDARD_RECIPE`, `valuationPolicy: VAL-1`, and `roundingPolicy: NONE_EXACT`.
+    - It includes Recipe/Product identities and versions, `effectiveAt`, Currency derived from selected Quotes, ordered line-level Recipe and Quote evidence, exact line costs, exact Standard batch cost, Standard Output/Yield evidence, and exact per-Standard-Yield cost.
+    - The Result is an immediate calculation, is not persisted, creates no Snapshot identity or historical authority, and does not replace the future Cost Snapshot Domain. A future recomputation is guaranteed equal only when all Recipe and Quote evidence and policies are identical.
+  - **Read Consistency**:
+    - Authorize a Cost-owned `CostEvaluationReadUnitOfWork`. Every Quote read for one Evaluation must occur within one consistent SQLite read transaction/snapshot.
+    - It performs no writes, must not reuse the Lifecycle write Unit-of-Work as a conceptual shortcut, and must not acquire an unnecessary write lock through `BEGIN IMMEDIATE`.
+    - Implementation preflight must prove the actual read-snapshot semantics supported by the existing `DatabaseAdapter` and SQLite adapter. Assumed consistency without Repository evidence is insufficient.
+    - No Evaluation table, persistence, Quote mutation, Snapshot row, cache authority, event, or outbox is authorized.
+  - **Error Semantics**:
+    - Authorized stable failures include `InvalidRecipeCostingContract`, `UnsupportedRecipeCostingContractVersion`, `MissingIngredientCost`, existing `AmbiguousEffectiveIngredientCostQuote`, `RecipeCostCurrencyMismatch`, `UnsupportedRecipeCostCurrency`, `RecipeCostUnitConversionRequired`, `InvalidRecipeCostEvaluation`, `RecipeCostArithmeticFailure`, and existing typed persistence/technical failures. Equivalent classes may share taxonomy, but stable code distinctions must remain.
+    - Raw SQLite messages must not cross the boundary. Missing is not zero; ambiguity is not a winner; unsupported Currency is not TWD; Unit mismatch is not implicit conversion.
+    - Failure of any Line fails the complete formal Evaluation. Typed diagnostic evidence may identify failures, but no partial total may be returned as a completed authoritative result.
+  - **Authorized Scope**:
+    - Minimal Recipe Costing Contract v1 and validation; Evaluate Recipe Cost command; immutable Evaluation Result; VAL-1; exact rational primitive/arithmetic; effective-time Quote selection; Currency derivation/consistency and TWD-only policy; legal repeated Ingredient Lines with ordered line-level traceability; Standard batch/per-Standard-Yield costs; typed failures; Cost Evaluation Read Unit-of-Work Port and proven SQLite consistent-read implementation; pure Domain/Application tests; minimal SQLite integration tests; and minimal Recipe/Cost public exports.
+  - **Suggested Implementation Allowlist**:
+    - `src/domains/recipe/contracts/recipe-costing-contract.ts`
+    - `src/domains/recipe/index.ts`
+    - `src/domains/cost/domain/exact-ratio.ts`
+    - `src/domains/cost/domain/recipe-cost-evaluation.ts`
+    - `src/domains/cost/domain/cost-evaluation-unit-of-work.ts`
+    - `src/domains/cost/application/recipe-cost-evaluation-service.ts`
+    - `src/domains/cost/application/errors.ts`
+    - `src/domains/cost/infrastructure/sqlite-cost-evaluation-unit-of-work.ts`
+    - `src/domains/cost/index.ts`
+    - `src/tests/recipe-costing-contract.test.ts`
+    - `src/tests/cost-evaluation.test.ts`
+    - `src/tests/cost-evaluation.integration.test.ts`
+    - This is governance guidance only. Implementation must first audit current files/imports and propose a final exact allowlist. No migration is authorized.
+  - **Required Implementation Test Matrix**:
+    - Contract: Published accepted; historical Superseded accepted; Draft and unsupported version rejected; invalid Recipe/Product version relation and invalid/empty Line evidence rejected according to formal Contract invariants; repeated Ingredient Lines accepted; Contract order preserved.
+    - Quote authority: start inclusive/end exclusive; supersession boundary; future exclusion; open-ended support; typed missing/ambiguity; zero-price validity.
+    - Currency: Command has no Currency; all-TWD accepted; mixed rejected; consistent non-TWD rejected by policy; Result Currency derived from Quotes; no caller override.
+    - Unit: exact match accepted; Unit/dimension mismatch fails; no implicit conversion.
+    - Repeated Lines: same Ingredient on multiple Lines accepted; selected Quote reused consistently; every Line result/evidence retained; no silent merge; all Line costs included; order preserved.
+    - Exact arithmetic: `TWD 800 / 2400g * 600g = TWD 200`; Standard Yield 3 yields exact `200/3`; canonical reduction, positive denominator and canonical zero; no float or implicit rounding.
+    - Determinism: identical evidence produces identical result; candidate/row/insertion order variation does not change success or ambiguity; Line order follows Contract; ambiguity is never sorted into a winner; exact fractions remain canonical.
+    - Read consistency: all Quote reads use one snapshot; concurrent lifecycle changes cannot create mixed-time Evaluation; no `BEGIN IMMEDIATE`, Evaluation persistence, or Snapshot row.
+    - Regression: Recipe, Cost Domain/Persistence/Lifecycle, Architecture Guard, strict TypeScript, migration smoke, and diff checks.
+  - **Top Rejection Reasons**:
+    - Reject if Cost imports Recipe internals; Command exposes caller Currency authority; mixed Currencies are silently accepted; repeated Ingredient Lines are rejected/omitted; Repository chooses an ambiguity winner; missing cost becomes zero; floating-point/rounded values become authority; Quote reads do not share one consistent snapshot; Result is persisted or presented as Snapshot; Unit mismatch receives implicit conversion; output depends on row/lookup/insertion order; or scope expands into API, UI, Margin, Snapshot, or runtime.
+  - **Explicitly Deferred**:
+    - Cost Snapshot; Evaluation persistence; Purchase/Purchase Order; Inventory; Supplier Domain; API; UI; runtime wiring; Reporting; AI; Forecast; Margin Analysis; POS; Recipe Event Consumer; Domain Events; Outbox; selling price; tax; labor; overhead; Waste; Yield Loss; Actual Batch Cost; Currency conversion; Unit Conversion implementation; arbitrary production scaling; Evaluation cache; Batch Quote query optimization; Measurement Contract refactor; cross-Currency valuation; and PR-COST-005.
+  - **Relationship to Existing Decisions**: DECISIONS #048 ownership remains effective; #049 Cost Foundation remains effective; #050 Cost Persistence remains effective; and #051 Quote Lifecycle remains effective. This Decision adds only Recipe Cost Evaluation and its minimal read/Contract boundary. It does not modify, delete, or reinterpret #048-#051.
+  - **Implementation Gate**: Before implementation, perform the read-only Repository/DatabaseAdapter snapshot-semantics audit and final allowlist audit required above. Before Safe Commit, complete Repository Working Guide v1 Architecture Gate, including deterministic evidence, Currency authority, repeated-Line traceability, exact arithmetic, read consistency, N+1/history-loading risk, no-persistence proof, all required tests, and deferred-scope checks.
+
 - **DECISIONS #051 - Authorize PR-COST-003 Cost Quote Lifecycle Service**
   - **Status**: APPROVED on 2026-07-29 by Architecture Owner Miles / Lin Zi-Mao.
   - **Context**: PR-COST-001 established the Cost Domain foundation and PR-COST-002 established its SQLite persistence. Quote creation and replacement now require one Cost-owned application use case that applies lifecycle, overlap, concurrency, retry, and transaction rules without moving business authority into the Repository or expanding into Recipe cost evaluation.

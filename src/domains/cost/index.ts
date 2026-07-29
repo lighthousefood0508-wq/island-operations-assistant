@@ -47,6 +47,23 @@ export {
   type CostRepository,
   type EffectiveIngredientCostQuoteLookup
 } from "./domain/cost-repository.js";
+export type { CostQuoteUnitOfWork } from "./domain/cost-unit-of-work.js";
+export {
+  CostQuoteLifecycleError,
+  IngredientCostQuoteEffectivePeriodOverlap,
+  IngredientCostQuoteIdentityConflict,
+  IngredientCostQuoteIngredientMismatch,
+  IngredientCostQuoteLifecycleNotFound,
+  IngredientCostQuoteRetryConflict,
+  InvalidIngredientCostQuoteReplacement
+} from "./application/errors.js";
+export {
+  CostQuoteLifecycleService,
+  type RecordInitialIngredientCostQuoteCommand,
+  type RecordInitialIngredientCostQuoteResult,
+  type ReplaceEffectiveIngredientCostQuoteCommand,
+  type ReplaceEffectiveIngredientCostQuoteResult
+} from "./application/cost-quote-lifecycle-service.js";
 export {
   CostPersistenceError,
   CostPersistenceFailure,
@@ -64,3 +81,4 @@ export type {
   IngredientCostQuoteRow
 } from "./persistence/records.js";
 export { SqliteCostRepository } from "./infrastructure/sqlite-cost-repository.js";
+export { SqliteCostQuoteUnitOfWork } from "./infrastructure/sqlite-cost-unit-of-work.js";

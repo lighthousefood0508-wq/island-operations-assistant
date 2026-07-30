@@ -86,12 +86,19 @@ The E2E environment previously left stale test processes holding `data/e2e-test.
 ## 6. Domain Boundaries
 
 - Catalog owns categories, product data, selling price, description, channels, drafts, and published versions.
+- Canonical Ingredient Identity Authority owns `ing_<uuid>` and Ingredient Measurement Profile identity, binding, lifecycle, immutable versions, Active uniqueness, and history.
+- Measurement Foundation owns dimensions, stable unit identity, exact conversions, locale policy, canonical normalization and evidence, precision/no-rounding, and Profile validation semantics.
+- Canonical Ingredient and Measurement capabilities are currently hosted in Recipe Core; hosting does not make them Recipe-owned.
+- Recipe owns Recipe ingredient intent, quantities, presentation, immutable Published Recipe Versions, Standard Yield, and canonical projection/scaling requests. Existing Recipe `measurementDimension` is compatibility-only.
 - Operations owns Events, Event inventory, remaining quantity, reservations, safety buffer, Orders, closeout observations, and operational audit.
 - Kitchen changes Production state only.
-- Cost owns ingredients, BOM, purchasing, cost calculations, and future cost attribution. Operations closeout waste does not pretend to be Cost data.
+- Cost owns purchase quotes, package pricing, accepted purchase and normalized costing evidence received through approved contracts, valuation, cost calculation, allocation evidence, and Cost Snapshots. Operations closeout waste does not pretend to be Cost data.
 - Payment owns future provider integration and reconciliation. Current POS payment-method capture does not constitute a completed Payment domain.
 - Customer/Kiosk/Preorder remain deferred unless a later Decision approves them.
 - Product Contract v2 remains the Catalog-to-Operations published-product boundary.
+- Measurement and Ingredient Profile contracts are the only Measurement authority available to Recipe and Cost.
+
+`tw_catty` always equals exactly `600 g` and cannot be overridden by Profile or Supplier. Package identities such as `包`, `袋`, `盒`, and `罐` are deferred Package Specification concepts, not Measurement Units.
 
 Do not create a second API, second inventory source, second close path, or direct cross-domain repository access.
 

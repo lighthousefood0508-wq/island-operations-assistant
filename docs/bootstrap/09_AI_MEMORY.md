@@ -76,13 +76,19 @@ The practical meaning is simple: explain trade-offs, point out risks, and propos
 The boundaries make change safer. They are not merely folder names.
 
 - Catalog owns long-term product master data: categories, product versions, channels, and publishing.
+- Canonical Ingredient Identity Authority owns `ing_<uuid>` identity and Ingredient Measurement Profile identity, binding, lifecycle, immutable versions, Active uniqueness, and history.
+- Measurement Foundation owns dimensions, stable unit identity, exact conversions, locale policy, canonical normalization, conversion evidence, precision/no-rounding, and Profile validation semantics.
+- Canonical Ingredient and Measurement capabilities are currently hosted in Recipe Core. Hosting does not make them Recipe-owned.
+- Recipe owns Recipe ingredient intent, quantities, presentation, immutable Published Recipe Versions, Standard Yield, and canonical projection/scaling requests. It must not define independent Measurement conversion authority.
 - Operations owns service-day facts: Events, sellable inventory, remaining quantity, Orders, payments, kitchen progression, reservations, and published-product copies.
 - Kitchen is an Operations capability that changes only approved production status. It does not own product master data, price, inventory planning, payment, or Event lifecycle.
-- Cost owns BOM, ingredients, purchasing, cost inventory, and future cost/waste calculation. It must not directly read Operations Orders.
+- Cost owns purchase quotes, package pricing, accepted purchase and normalized costing evidence received through approved contracts, valuation, cost calculation, allocation evidence, and Cost Snapshots. It must not own Ingredient, Profile, Measurement, Recipe, physical Inventory, or directly read Operations Orders.
 - Payment is currently an Operations-owned state model; provider integration and reconciliation remain deferred.
 - Customer ordering is a future Operations flow. It must use the same central Order path when approved and must not create a separate browser-local order truth.
 
-Catalog, Operations, and Cost must not be merged for UI convenience. Product Contract and Sales Contract remain the only cross-domain interfaces.
+Catalog, Canonical Ingredient, Measurement, Recipe, Operations, and Cost authorities must not be merged for UI convenience. Cross-domain access uses approved explicit-version contracts. Recipe and Cost consume Measurement authority; they do not recreate it.
+
+Taiwan `tw_catty` always equals exactly `600 g`. Profiles and Suppliers cannot override the ratio. `包`, `袋`, `盒`, and `罐` are deferred Package Identity concepts, not Measurement Units.
 
 ## Coding Philosophy
 

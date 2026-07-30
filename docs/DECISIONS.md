@@ -2,6 +2,79 @@
 
 ## Approval Register
 
+- **DECISIONS #057 - Measurement Governance Synchronization Safe Commit Authorization**
+  - **Date**: Not recorded in repository authority.
+  - **Related PR**: PR-GOV-002.
+  - **Result**:
+    - DOCUMENTATION AUDIT PASS.
+    - TARGETED CORRECTION PASS.
+    - SAFE COMMIT AUTHORIZED.
+  - **Authorized documentation scope**:
+    - `CONSTITUTION.md`.
+    - `docs/01_ROS_V1_SCOPE.md`.
+    - `docs/02_SYSTEM_ARCHITECTURE.md`.
+    - `docs/03_DOMAIN_OWNERSHIP.md`.
+    - `docs/05_EXACT_NUMERIC_POLICY.md`.
+    - `docs/DECISIONS.md`.
+    - `docs/REPOSITORY_STATUS.md`.
+    - `docs/adr/ADR-007-two-domain-contract-boundaries.md`.
+    - `docs/adr/ADR-019-recipe-measurement-and-cost-authority.md`.
+    - `docs/bootstrap/04_DOMAIN_RULES.md`.
+    - `docs/bootstrap/09_AI_MEMORY.md`.
+    - `docs/bootstrap/CURRENT_AI_HANDOVER.md`.
+  - **External actions**:
+    - Push: NOT AUTHORIZED.
+    - Merge: NOT AUTHORIZED.
+    - `main` promotion: NOT AUTHORIZED.
+  - **Implementation status**:
+    - PR-MEASURE-002 implementation had not started at authorization time.
+
+- **DECISIONS #056 - Ingredient Measurement Profile Architecture**
+  - **Status**: APPROVED on 2026-07-30 by Architecture Owner (Miles / Lin Zi-Mao). Proposal direction and final revision are approved; implementation, commit, push, merge, schema, migration, runtime, API, and UI are not authorized by this Decision.
+  - **Identity and authority**:
+    - Ingredient Measurement Profile attaches only to the Canonical Ingredient identity `ing_<uuid>`.
+    - v1 retains Profile ID and immutable Profile Version ID only. It does not use a human-readable version number as architectural identity.
+    - At any effective instant, each formally usable Canonical Ingredient has exactly one Active Measurement Profile.
+    - Canonical Ingredient Identity Authority owns Profile identity, Ingredient binding, lifecycle, immutable versions, Active uniqueness, and historical retention.
+    - Measurement Foundation owns Profile validation semantics, unit identity, conversion authority, locale policy, canonical normalization, evidence, precision, and no-rounding behavior.
+  - **Aliases and Taiwan customary units**:
+    - Alias scopes are `GLOBAL`, `LOCALE`, and `PROFILE`.
+    - GLOBAL aliases resolve stable Measurement unit codes without Profile duplication. PROFILE aliases only supplement Ingredient-specific naming and do not define ratios.
+    - Locale may determine whether `斤` resolves to `tw_catty`; after resolution, `tw_catty` always equals exactly `600 g`.
+    - Profile, Supplier, Recipe, and Cost may not override a Measurement conversion ratio.
+  - **Minimal evidence and lifecycle**:
+    - v1 source types are `SYSTEM`, `MANUAL`, `SUPPLIER`, and `LEGACY`, with an optional reference ID.
+    - Draft may be incomplete. Active Profile evidence is immutable. Supersession or deprecation retains historical versions.
+    - Archiving an Ingredient retains its Profiles and does not invalidate or mutate historical Measurement evidence.
+  - **Package boundary**:
+    - `包`, `袋`, `盒`, and `罐` are reserved Package Identity and future Package Specification concepts. They are not Measurement Units.
+    - Package conversion, density, measured or estimated cross-dimension conversion, yield, waste, persistence, migration, runtime, API, UI, and legacy-data migration remain deferred.
+  - **Implementation status**:
+    - PR-MEASURE-002 implementation remains unauthorized until governance synchronization and a separate exact implementation authorization are approved.
+
+- **DECISIONS #055 - Repository Control Recovery**
+  - **Date**: Not recorded in repository authority.
+  - **Related PR**: PR-REPO-001.
+  - **Result**:
+    - IMPLEMENTATION PASS.
+    - AUDIT PASS.
+    - SAFE COMMIT PASS.
+  - **Commit evidence**:
+    - Commit: `91da6ec`.
+    - Parent: `e10dd23`.
+    - Branch: `feature/pr-measure-001`.
+  - **External actions**:
+    - Push: NOT AUTHORIZED / NOT EXECUTED.
+    - Merge: NOT AUTHORIZED / NOT EXECUTED.
+    - `main`: NOT PROMOTED.
+  - **Repository governance documents established**:
+    - `docs/REPOSITORY_STATUS.md`.
+    - `docs/RELEASE_BASELINE.md`.
+    - `docs/ACTIVE_BRANCHES.md`.
+    - `docs/REPOSITORY_POLICY.md`.
+  - **Recovery worktree**:
+    - The recovery worktree remained untouched.
+
 - **DECISIONS #053 - Cost and Measurement Governance Boundary**
   - **Status**: APPROVED on 2026-07-30 by Architecture Owner (Miles / Lin Zi-Mao).
   - **Context**:

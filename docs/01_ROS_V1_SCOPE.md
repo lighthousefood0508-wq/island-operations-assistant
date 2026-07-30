@@ -6,7 +6,7 @@ Project isolation, TypeScript server shell, strict SQLite table boundaries, Prod
 
 ## Interfaces reserved for v1
 
-Catalog publishing, event allocation, omnichannel orders, kitchen status, payments, Cost-owned BOM/inventory movements, audit logs, daily Sales Contract import, and asynchronous reporting export.
+Catalog publishing, Recipe/BOM and Measurement contracts, event allocation, omnichannel orders, kitchen status, payments, Cost quote/valuation/Snapshot boundaries, audit logs, daily Sales Contract import, and asynchronous reporting export. Physical inventory movements require a separately approved future Inventory boundary.
 
 ## Explicitly out of scope now
 

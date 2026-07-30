@@ -1,19 +1,37 @@
 # System Architecture
 
-`CONSTITUTION.md` is the controlling document. ROS is one Node.js modular monolith and one SQLite database, divided logically into Operations and Cost. Catalog is a small Admin-owned published product master, not a third full business domain.
+`CONSTITUTION.md` is the controlling document. ROS is one Node.js modular monolith and one SQLite database with exclusive Catalog, Canonical Ingredient, Measurement, Recipe, Operations, and Cost authorities.
 
 ```mermaid
 flowchart LR
-  Admin[Admin] --> Catalog[Catalog product master]
+  Admin[Admin] --> Catalog[Catalog]
   Catalog --> Product[Product Contract]
-  Product --> Operations[Operations tables]
-  Product --> Cost[Cost tables]
-  Operations --> Outbox[operations_sales_outbox]
-  Outbox -. daily batch .-> Imports[cost_sales_imports]
-  Cost --> Sheets[Future reporting export]
-  Operations --> SSE[SSE placeholder]
+  Product --> Recipe[Recipe / BOM]
+  Product --> Operations[Operations]
+  Product --> Cost[Cost]
+
+  Measurement[Measurement Foundation] --> Profile[Ingredient Measurement Profile Contract]
+  Profile --> Recipe
+  Profile --> Cost
+  Measurement --> Recipe
+  Measurement --> Cost
+
+  Recipe --> RecipeOps[Recipe Measurement / Scaling Contract]
+  RecipeOps --> Operations
+  Recipe --> RecipeCost[Recipe Costing Contract]
+  RecipeCost --> Cost
+  Operations --> Actual[Production Actual Result Contract]
+  Actual --> Cost
+  Operations --> Sales[Sales Contract]
+  Sales --> Cost
 ```
 
-Operations and Cost do not query each other's tables. The only cross-domain contracts are Product Contract and Sales Contract. Current code implements only the service shell, migration runner, contract definitions, guard tests, `/health`, `/events`, and page placeholders.
+Measurement Foundation owns unit, dimension, exact conversion, locale policy, normalization, evidence, precision, and profile-validation semantics. Canonical Ingredient Identity Authority owns Ingredient identity and Measurement Profile identity, binding, lifecycle, versions, uniqueness, and history. Both are currently hosted in Recipe Core, but hosting does not transfer ownership to Recipe.
 
-Google Sheets remains a future reporting export only. Local Windows remains the development environment; the legacy stack remains independent.
+Recipe owns Recipe truth and canonical projection requests. Cost owns Quotes and costing evidence received through approved contracts. Recipe and Cost must not define independent conversion authority.
+
+No authority reads another authority's tables or imports its internals. Approved business namespaces remain `catalog_*`, `recipe_*`, `operations_*`, and `cost_*`. Legacy Cost Ingredient, conversion, and BOM tables are non-authoritative skeletons.
+
+Package Identity and Package Specification remain deferred. They are not Measurement Units. Taiwan `tw_catty` is Measurement-owned and always equals exactly `600 g`; no Profile or Supplier override is permitted.
+
+Google Sheets remains a future reporting export only. Local Windows remains the development environment, and Legacy remains independent.

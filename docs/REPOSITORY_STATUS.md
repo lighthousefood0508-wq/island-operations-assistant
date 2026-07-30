@@ -14,7 +14,7 @@ The current Architecture Development Baseline is:
 - Included authority: DECISION #053 and Measurement Foundation v1
 - Verification at approval: 195 of 195 relevant tests passed
 
-The baseline statement above describes commit `e10dd23`, not the current documentation worktree. The current `desert-island-ros-pr-measure-001` worktree is temporarily not clean because the four untracked PR-REPO-001 documentation files are pending Owner review. No production or feature file is modified there. The original 40-file dirty recovery worktree is separate and remains untouched.
+The baseline statement above describes commit `e10dd23`. PR-REPO-001 was later committed at `91da6ec`. The current `desert-island-ros-pr-measure-001` worktree contains only PR-GOV-002 governance synchronization pending Owner review; no production or feature file is modified there. The original 40-file dirty recovery worktree is separate and remains untouched.
 
 `main` has not been promoted to this baseline. New feature proposals and approved feature work must start from `e10dd23`, or from the official integration branch when the Owner creates one pointing to this baseline.
 
@@ -24,18 +24,19 @@ The baseline statement above describes commit `e10dd23`, not the current documen
 |---|---|---|
 | Architecture baseline | Healthy | Commit `e10dd23` was clean and audited when approved. |
 | Measurement Foundation | Completed | PR-MEASURE-001 is safely committed. |
-| Current documentation worktree | Review pending | It has four untracked PR-REPO-001 documentation files, no production or feature changes, and an empty staged area. |
+| Current documentation worktree | Review pending | It contains PR-GOV-002 governance documentation only, no production or feature changes, and an empty staged area. |
 | `main` | Outdated, not broken | It is 69 commits behind `e10dd23` and has not passed a Release Gate for promotion. |
 | Original development worktree | Recovery required | It contains 40 mixed, unstaged changes and must not be used as a PR baseline. |
 | PR-COST-004 | Blocked | It must be rebuilt as PR-COST-004R after the Measurement prerequisites in DECISION #053. |
-| Governance documents | Synchronization required | The clean baseline still contains older high-level documents, including Constitution v2 language that does not reflect the later approved Recipe/Measurement boundary. DECISION #053 remains the applicable Owner decision; document synchronization requires its own approved change. |
+| PR-MEASURE-002 | Not implemented | Architecture proposal is approved under DECISION #056. Production implementation has not started and requires separate authorization. |
+| Governance documents | Synchronized, review pending | PR-GOV-002 aligns current authority documents with DECISIONS #053 and #056 and resolves the Exact Numeric Policy reference. Safe Commit still requires Owner documentation audit and authorization. |
 | Remote backup | Unproven | No Git remote or remote default branch was configured during the repository audit. |
 
 ## Active worktrees
 
 | Folder | Branch / state | Purpose | Classification | Next action |
 |---|---|---|---|---|
-| `desert-island-ros-pr-measure-001` | `feature/pr-measure-001` at `e10dd23`; four untracked PR-REPO-001 documentation files pending Owner review | Approved architecture baseline and current documentation-review worktree | KEEP ACTIVE | Keep feature and production files unchanged; after documentation review, use the approved baseline as the source for a future official integration branch. |
+| `desert-island-ros-pr-measure-001` | `feature/pr-measure-001`; PR-REPO-001 committed at `91da6ec`; PR-GOV-002 documentation pending Owner review | Approved architecture baseline and current governance-review worktree | KEEP ACTIVE | Keep feature and production files unchanged; after governance review, use the approved baseline as the source for a future official integration branch. |
 | `desert-island-ros` | `feature/catalog-category-auto-code` at `2e27f8f`, dirty | Recovery source for 40 mixed changes | KEEP FOR RECOVERY | Preserve unchanged; recover work by workstream into clean branches. |
 | `ros-commit10-*` | detached `c299381`, clean | Historical staged snapshot | REVIEW BEFORE DELETE | Confirm its equivalent patch is retained, then request removal approval. |
 | `ros-commit6-*` | detached `cf3e0d4`, clean | Older POS/E2E snapshot variant | REVIEW BEFORE DELETE | Compare with the accepted retry before removal. |

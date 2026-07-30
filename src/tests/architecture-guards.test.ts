@@ -112,9 +112,89 @@ test("Measurement Foundation internals remain isolated behind the published cont
   const publicIndexSource = readFileSync(recipePublicIndex, "utf8");
   assert.doesNotMatch(
     publicIndexSource,
-    /measurement-normalizer|unit-catalog|measurement-conversion-ratio|exact-measurement-quantity/
+    /measurement-normalizer|measurement-unit-resolver|unit-catalog|measurement-conversion-ratio|exact-measurement-quantity/
   );
   assert.match(publicIndexSource, /measurement-foundation-contract/);
+});
+
+test("Ingredient Measurement Profile internals remain behind versioned contracts", () => {
+  const recipeRoot = path.join(sourceRoot, "domains", "recipe");
+  const profileRoot = path.join(recipeRoot, "measurement-profile");
+  const profileContract = path.join(
+    recipeRoot,
+    "contracts",
+    "ingredient-measurement-profile-contract.ts"
+  );
+  const measurementContract = path.join(
+    recipeRoot,
+    "contracts",
+    "measurement-foundation-contract.ts"
+  );
+  const recipePublicIndex = path.join(recipeRoot, "index.ts");
+
+  for (const filename of filesUnder(profileRoot, [".ts"])) {
+    for (const specifier of importedSpecifiers(filename)) {
+      const target = resolveSourceImport(filename, specifier);
+      assert.ok(
+        target !== null
+          && (
+            target.startsWith(`${profileRoot}${path.sep}`)
+            || target === profileContract
+            || target === measurementContract
+          ),
+        `${filename} imports outside Ingredient Measurement Profile contracts: ${specifier}`
+      );
+    }
+    assertNoTerms(
+      readFileSync(filename, "utf8"),
+      [
+        "better-sqlite3",
+        "node:sqlite",
+        "/persistence/",
+        "domains/cost",
+        "recipe-aggregate",
+        "MeasurementConversionRatio",
+        "unit-catalog"
+      ],
+      filename
+    );
+  }
+
+  const productionFiles = filesUnder(sourceRoot, [".ts"])
+    .filter((filename) => !filename.includes(`${path.sep}tests${path.sep}`))
+    .filter((filename) => !filename.startsWith(`${profileRoot}${path.sep}`))
+    .filter((filename) => filename !== recipePublicIndex);
+  for (const filename of productionFiles) {
+    for (const specifier of importedSpecifiers(filename)) {
+      const target = resolveSourceImport(filename, specifier);
+      assert.equal(
+        target?.startsWith(`${profileRoot}${path.sep}`) ?? false,
+        false,
+        `${filename} imports Ingredient Measurement Profile internals.`
+      );
+    }
+  }
+
+  const publicIndexSource = readFileSync(recipePublicIndex, "utf8");
+  assert.match(publicIndexSource, /ingredient-measurement-profile-contract/);
+  assert.doesNotMatch(
+    publicIndexSource,
+    /measurement-profile\/(?:ingredient|identities|errors|profile-validator)/
+  );
+  assertNoTerms(
+    readFileSync(profileContract, "utf8"),
+    ["conversionRatio", "numerator", "denominator"],
+    profileContract
+  );
+  const profileValidatorSource = readFileSync(
+    path.join(profileRoot, "profile-validator.ts"),
+    "utf8"
+  );
+  assert.doesNotMatch(
+    profileValidatorSource,
+    /CANONICAL_UNITS|mass\s*:\s*["']g|volume\s*:\s*["']ml|count\s*:\s*["']each/
+  );
+  assert.match(profileValidatorSource, /unitResolver\.resolveUnit/);
 });
 
 test("OPEN Event reads only Operations-owned product snapshots", () => {

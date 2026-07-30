@@ -14,7 +14,8 @@ import {
   MeasurementDimensionMismatch,
   MeasurementNormalizationOverflow,
   UnknownMeasurementUnit,
-  UnsupportedMeasurementContractVersion
+  UnsupportedMeasurementContractVersion,
+  UnsupportedMeasurementScale
 } from "../domains/recipe/measurement/errors.js";
 import {
   MeasurementConversionRatio
@@ -267,7 +268,7 @@ test("scale outside 0 through 6 is rejected", () => {
   for (const scale of [-1, 7, 1.5]) {
     assert.throws(
       () => normalizer.normalize(request({ scale })),
-      InvalidMeasurementQuantity
+      UnsupportedMeasurementScale
     );
   }
 });

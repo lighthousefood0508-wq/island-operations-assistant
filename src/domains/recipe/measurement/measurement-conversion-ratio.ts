@@ -2,7 +2,11 @@ import type {
   MeasurementConversionRatioEvidenceV1
 } from "../contracts/measurement-foundation-contract.js";
 import { ExactMeasurementQuantity } from "./exact-measurement-quantity.js";
-import { InvalidMeasurementConversion } from "./errors.js";
+import {
+  InvalidMeasurementConversion,
+  NonExactMeasurementNormalization,
+  UnsupportedMeasurementScale
+} from "./errors.js";
 
 const POSITIVE_CANONICAL_INTEGER_PATTERN = /^[1-9][0-9]*$/;
 const MAX_INT64 = (2n ** 63n) - 1n;
@@ -74,9 +78,7 @@ export class MeasurementConversionRatio {
     const powersOfTwo = factorCount(denominator, 2n);
     const powersOfFive = factorCount(powersOfTwo.remainder, 5n);
     if (powersOfFive.remainder !== 1n) {
-      throw new InvalidMeasurementConversion(
-        "Conversion result cannot be represented as an exact decimal."
-      );
+      throw new NonExactMeasurementNormalization();
     }
 
     const scale =
@@ -84,7 +86,7 @@ export class MeasurementConversionRatio {
         ? powersOfTwo.count
         : powersOfFive.count;
     if (scale > MAX_SCALE) {
-      throw new InvalidMeasurementConversion(
+      throw new UnsupportedMeasurementScale(
         `Conversion result exceeds the supported scale of ${MAX_SCALE}.`
       );
     }

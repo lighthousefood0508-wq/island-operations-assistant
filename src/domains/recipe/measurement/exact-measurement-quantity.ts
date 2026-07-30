@@ -2,9 +2,9 @@ import type {
   MeasurementExactQuantityV1
 } from "../contracts/measurement-foundation-contract.js";
 import {
-  InvalidMeasurementConversion,
   InvalidMeasurementQuantity,
-  MeasurementNormalizationOverflow
+  MeasurementNormalizationOverflow,
+  UnsupportedMeasurementScale
 } from "./errors.js";
 
 const POSITIVE_CANONICAL_INTEGER_PATTERN = /^[1-9][0-9]*$/;
@@ -27,7 +27,7 @@ export class ExactMeasurementQuantity {
       );
     }
     if (!Number.isInteger(input.scale) || input.scale < MIN_SCALE || input.scale > MAX_SCALE) {
-      throw new InvalidMeasurementQuantity(
+      throw new UnsupportedMeasurementScale(
         `Measurement scale must be an integer from ${MIN_SCALE} through ${MAX_SCALE}.`
       );
     }
@@ -54,7 +54,7 @@ export class ExactMeasurementQuantity {
       throw new InvalidMeasurementQuantity("Normalized measurement quantity must be positive.");
     }
     if (!Number.isInteger(scale) || scale < MIN_SCALE || scale > MAX_SCALE) {
-      throw new InvalidMeasurementConversion(
+      throw new UnsupportedMeasurementScale(
         `Normalized measurement scale must remain between ${MIN_SCALE} and ${MAX_SCALE}.`
       );
     }

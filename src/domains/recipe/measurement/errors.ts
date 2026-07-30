@@ -49,10 +49,34 @@ export class InvalidMeasurementConversion extends MeasurementFoundationError {
   }
 }
 
+export class UnsupportedMeasurementScale extends MeasurementFoundationError {
+  readonly code = "UNSUPPORTED_MEASUREMENT_SCALE";
+
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+export class NonExactMeasurementNormalization extends MeasurementFoundationError {
+  readonly code = "NON_EXACT_MEASUREMENT_NORMALIZATION";
+
+  constructor() {
+    super("Conversion result cannot be represented as an exact decimal.");
+  }
+}
+
 export class MeasurementNormalizationOverflow extends MeasurementFoundationError {
   readonly code = "MEASUREMENT_NORMALIZATION_OVERFLOW";
 
   constructor() {
     super("Normalized measurement quantity exceeds the signed 64-bit range.");
+  }
+}
+
+export class InvalidMeasurementUnitResolution extends MeasurementFoundationError {
+  readonly code = "INVALID_MEASUREMENT_UNIT_RESOLUTION";
+
+  constructor(message: string) {
+    super(message);
   }
 }

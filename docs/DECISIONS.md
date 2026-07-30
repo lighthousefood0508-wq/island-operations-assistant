@@ -2,6 +2,85 @@
 
 ## Approval Register
 
+- **DECISIONS #053 - Cost and Measurement Governance Boundary**
+  - **Status**: APPROVED on 2026-07-30 by Architecture Owner (Miles / Lin Zi-Mao).
+  - **Context**:
+    - Cost evaluation requires stable measurement authority, exact normalization evidence, and canonical Ingredient references without moving Recipe ownership into Cost.
+    - Measurement capabilities are currently hosted inside Recipe Core, but implementation hosting is not architectural ownership.
+    - This decision records the approved ownership boundary and prerequisite sequence before Recipe Cost Evaluation may continue.
+  - **Decision**:
+    - **Cost Domain authoritative responsibility**:
+      - Cost owns Ingredient Cost Quotes and their raw purchasing evidence, quote lifecycle, valuation policy, normalized cost evidence created by consuming an approved Measurement contract, Recipe cost evaluation, allocation evidence, Cost Snapshots, and Snapshot revisions.
+      - Cost does not own Canonical Ingredient Identity, Ingredient Measurement Profiles, unit definitions, conversion rules, Recipe truth, or physical inventory.
+    - **Canonical Ingredient Identity authority**:
+      - Current Host: Recipe Core.
+      - Architectural Owner: Canonical Ingredient Identity Authority. This is an independent master-data authority designation and does not authorize a new runtime Domain.
+      - The canonical identity is `ing_<uuid>` and is the only cross-domain Ingredient identity authority.
+      - It is distinct from Supplier Item, Inventory Item, Recipe Line, and purchase package identities.
+      - Recipe Lines, Cost Quotes, and future Inventory records may reference it but must not create competing Ingredient masters.
+    - **Ingredient Measurement Profile authority and versioning**:
+      - Current Host: Recipe Core.
+      - Architectural Owner: Canonical Ingredient Identity Authority.
+      - An Ingredient Measurement Profile identifies the canonical Ingredient, profile version, measurement dimension, canonical unit, and effective facts.
+      - Once a profile version is referenced by formal evidence, it is immutable. Corrections or changed measurement authority create a new profile version; historical evidence retains its original profile reference.
+      - Cost may consume a profile but may not author, mutate, or infer it.
+    - **Measurement Foundation hosting and architectural ownership**:
+      - Current Host: Recipe Core.
+      - Architectural Owner: Measurement Foundation, intended to become a Foundation Layer capability when that layer is established.
+      - Current hosting is a temporary implementation arrangement and does not make Measurement part of the Recipe Domain.
+      - Measurement owns dimension definitions, canonical units, exact conversion ratios, normalization semantics, and conversion evidence semantics.
+      - Measurement must not depend on Cost. Recipe must not depend on Cost.
+      - A future move from Recipe Core hosting to a Foundation Layer must preserve consumer contract identity, direction, semantics, and version rules so consumers migrate without breaking changes or historical recalculation.
+    - **Cost and Measurement boundary**:
+      - Measurement publishes stable, explicitly versioned contracts; Cost consumes those contracts.
+      - Cost may normalize Quote evidence only through an approved Measurement contract and must retain the profile, conversion version, exact ratio, original quantity, and normalized quantity used.
+      - Cost must fail closed when dimension, profile, unit, or conversion evidence is unavailable or incompatible. It must not guess cross-dimension conversions.
+      - Neither domain may read or mutate the other domain's internal tables or implementation state.
+    - **Contract stability rules**:
+      - Canonical Ingredient Identity Contract is stable. Changing its authority, identity prefix, or identity-reuse semantics is breaking.
+      - Ingredient Measurement Profile Contract is versioned. Dimension or canonical-unit changes require a new immutable profile version.
+      - Measurement Foundation Contract is stable and versioned. Required-field removal, authority changes, ratio-semantic changes, or dependency reversal require a new major contract version and Owner approval.
+      - Recipe Measurement / Scaling Contract, Recipe Costing Contract, and Production Actual Result Contract remain explicitly versioned contracts in their approved dependency directions.
+      - Adding required normalized measurement or profile evidence to an existing Recipe Costing contract is breaking and requires a new major version or an explicit superseding Owner Decision.
+      - Cost Repository ports remain Cost-owned domain contracts. Cost Evaluation results are internal, versioned evaluation evidence and do not become historical Cost Snapshots by implication.
+      - Consumers must depend on published contracts, never the current host's internal modules or tables.
+    - **Approved prerequisite and implementation sequence**:
+      1. Record and authorize Measurement governance.
+      2. Establish the Measurement Foundation under its approved current host.
+      3. Establish the versioned Ingredient Measurement Profile contract.
+      4. Publish Recipe canonical measurement and costing projections through versioned contracts.
+      5. Extend Cost Quote evidence, if required, using a new migration and preserving original evidence.
+      6. Begin PR-COST-004R only after the preceding prerequisites pass their Architecture and Owner gates.
+    - **PR-COST-004 status**:
+      - PR-COST-004 remains **BLOCKED**.
+      - PR-COST-004R must not begin until Measurement Foundation and the required profile and contract evidence are complete and explicitly approved.
+      - DECISIONS #052 remains historical governance evidence; this decision supersedes only any interpretation that PR-COST-004 is currently implementation-ready.
+    - **Migration immutability**:
+      - Committed migrations must never be edited, rewritten, or repurposed.
+      - Any later schema change required for Measurement or Cost evidence must be introduced through a new forward-only migration.
+      - This decision does not authorize a migration or schema change.
+  - **Dependency Direction**:
+    - Measurement Foundation -> Recipe.
+    - Measurement Foundation -> Cost.
+    - Recipe -> Cost through versioned Recipe Costing contracts.
+    - Operations -> Cost through the versioned Production Actual Result contract.
+    - Cost must not become an upstream dependency of Measurement or Recipe.
+  - **No Shared Ownership**:
+    - Current hosting, contract publication, and domain consumption do not create shared ownership.
+    - Each identity, profile, measurement rule, Recipe fact, Quote, evaluation, and Snapshot has exactly one authoritative owner as defined above.
+  - **Explicitly Deferred**:
+    - Inventory integration.
+    - Package specification and package conversion.
+    - Variable-weight and catch-weight handling.
+    - Density and other cross-dimension conversion.
+    - Nutrition measurement.
+    - Supplier package model.
+    - AI inference of units or conversion facts.
+    - API, UI, reporting, and runtime orchestration for these capabilities.
+  - **Implementation Authority**:
+    - Governance documentation only.
+    - No production code, schema, migration, test, Recipe implementation, Cost implementation, or Measurement implementation is authorized by this decision.
+
 - **DECISIONS #052 - Authorize PR-COST-004 Recipe Cost Evaluation Service**
   - **Status**: APPROVED on 2026-07-29 by Architecture Owner Miles / Lin Zi-Mao.
   - **Context**: PR-COST-001 established the Cost Domain foundation, PR-COST-002 established Cost Quote persistence, and PR-COST-003 established the Quote lifecycle. The next bounded slice requires a read-only Cost-owned use case that evaluates one immutable Recipe Version against the authoritative Ingredient Cost Quotes at a caller-provided effective time. The result is exact and traceable but ephemeral: it is not a Cost Snapshot or persisted historical authority.

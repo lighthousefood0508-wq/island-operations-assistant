@@ -94,3 +94,22 @@ export {
 } from "./events/recipe-domain-events.js";
 export { RecipeEventCollection } from "./events/recipe-event-collection.js";
 export { RecipeEventFactory } from "./events/recipe-event-factory.js";
+export {
+  MEASUREMENT_FOUNDATION_CONTRACT_VERSION,
+  type MeasurementConversionRatioEvidenceV1,
+  type MeasurementDimensionV1,
+  type MeasurementExactQuantityV1,
+  type MeasurementFoundationContractV1,
+  type MeasurementNormalizationEvidenceV1,
+  type MeasurementNormalizationRequestV1,
+  type StableMeasurementUnitCodeV1
+} from "./contracts/measurement-foundation-contract.js";
+export {
+  InvalidMeasurementConversion,
+  InvalidMeasurementQuantity,
+  MeasurementDimensionMismatch,
+  MeasurementFoundationError,
+  MeasurementNormalizationOverflow,
+  UnknownMeasurementUnit,
+  UnsupportedMeasurementContractVersion
+} from "./measurement/errors.js";

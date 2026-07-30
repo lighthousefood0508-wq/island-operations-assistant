@@ -32,6 +32,20 @@ function assertNoCrossDomainImports(directory: string, forbiddenSegment: string)
   }
 }
 
+function importedSpecifiers(filename: string): string[] {
+  const content = readFileSync(filename, "utf8");
+  return Array.from(
+    content.matchAll(/(?:from\s+|import\s*\()\s*["']([^"']+)["']/g),
+    (match) => match[1] ?? ""
+  );
+}
+
+function resolveSourceImport(filename: string, specifier: string): string | null {
+  if (!specifier.startsWith(".")) return null;
+  const resolved = path.resolve(path.dirname(filename), specifier);
+  return resolved.endsWith(".js") ? `${resolved.slice(0, -3)}.ts` : resolved;
+}
+
 test("SQL boundary guard protects domain internals", () => {
   const domainsRoot = path.join(sourceRoot, "domains");
   for (const filename of filesUnder(path.join(domainsRoot, "operations"), [".ts", ".sql"])) {
@@ -57,6 +71,50 @@ test("import boundary guard allows shared contracts but blocks domain internals"
   assertNoCrossDomainImports(path.join(domainsRoot, "catalog"), "/domains/operations/");
   assertNoCrossDomainImports(path.join(domainsRoot, "catalog"), "/domains/cost/");
   assert.throws(() => assert.equal("../domains/cost/internal".includes("/domains/cost/"), false));
+});
+
+test("Measurement Foundation internals remain isolated behind the published contract", () => {
+  const recipeRoot = path.join(sourceRoot, "domains", "recipe");
+  const measurementRoot = path.join(recipeRoot, "measurement");
+  const contractPath = path.join(
+    recipeRoot,
+    "contracts",
+    "measurement-foundation-contract.ts"
+  );
+  const recipePublicIndex = path.join(recipeRoot, "index.ts");
+
+  for (const filename of filesUnder(measurementRoot, [".ts"])) {
+    for (const specifier of importedSpecifiers(filename)) {
+      const target = resolveSourceImport(filename, specifier);
+      assert.ok(
+        target !== null &&
+          (target.startsWith(`${measurementRoot}${path.sep}`) || target === contractPath),
+        `${filename} imports outside Measurement Foundation or its published contract: ${specifier}`
+      );
+    }
+  }
+
+  const productionFiles = filesUnder(sourceRoot, [".ts"])
+    .filter((filename) => !filename.includes(`${path.sep}tests${path.sep}`))
+    .filter((filename) => !filename.startsWith(`${measurementRoot}${path.sep}`))
+    .filter((filename) => filename !== recipePublicIndex);
+  for (const filename of productionFiles) {
+    for (const specifier of importedSpecifiers(filename)) {
+      const target = resolveSourceImport(filename, specifier);
+      assert.equal(
+        target?.startsWith(`${measurementRoot}${path.sep}`) ?? false,
+        false,
+        `${filename} imports Measurement internals instead of the published contract.`
+      );
+    }
+  }
+
+  const publicIndexSource = readFileSync(recipePublicIndex, "utf8");
+  assert.doesNotMatch(
+    publicIndexSource,
+    /measurement-normalizer|unit-catalog|measurement-conversion-ratio|exact-measurement-quantity/
+  );
+  assert.match(publicIndexSource, /measurement-foundation-contract/);
 });
 
 test("OPEN Event reads only Operations-owned product snapshots", () => {

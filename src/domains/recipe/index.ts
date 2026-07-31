@@ -148,6 +148,15 @@ export {
   type RecipeCanonicalProjectionV1
 } from "./contracts/recipe-canonical-projection-contract.js";
 export {
+  RECIPE_COSTING_CONTRACT_BASIS,
+  RECIPE_COSTING_CONTRACT_NAME,
+  RECIPE_COSTING_CONTRACT_VERSION,
+  type RecipeCostingContractFailureCodeV2,
+  type RecipeCostingContractFailureV2,
+  type RecipeCostingContractResultV2,
+  type RecipeCostingContractV2
+} from "./contracts/recipe-costing-contract-v2.js";
+export {
   APPROVED_INGREDIENT_CATEGORY_CODES_V1,
   CANONICAL_INGREDIENT_CONTRACT_VERSION,
   type ApprovedIngredientCategoryCodeV1,

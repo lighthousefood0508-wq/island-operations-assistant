@@ -421,6 +421,98 @@ test("Cost Quote Normalization Evidence consumes published Measurement contracts
   );
 });
 
+test("Recipe Costing Contract v2 remains a pure public wrapper over Canonical Projection", () => {
+  const recipeRoot = path.join(sourceRoot, "domains", "recipe");
+  const costingContract = path.join(
+    recipeRoot,
+    "contracts",
+    "recipe-costing-contract-v2.ts"
+  );
+  const costingService = path.join(
+    recipeRoot,
+    "application",
+    "recipe-costing-contract-v2-service.ts"
+  );
+  const costingErrors = path.join(
+    recipeRoot,
+    "application",
+    "recipe-costing-contract-v2-errors.ts"
+  );
+  const projectionContract = path.join(
+    recipeRoot,
+    "contracts",
+    "recipe-canonical-projection-contract.ts"
+  );
+  const recipePublicIndex = path.join(recipeRoot, "index.ts");
+
+  for (const specifier of importedSpecifiers(costingContract)) {
+    assert.equal(
+      resolveSourceImport(costingContract, specifier),
+      projectionContract,
+      `Costing Contract imports unapproved authority: ${specifier}`
+    );
+  }
+
+  for (const specifier of importedSpecifiers(costingService)) {
+    const target = resolveSourceImport(costingService, specifier);
+    assert.ok(
+      target === projectionContract
+        || target === costingContract
+        || target === costingErrors,
+      `Costing Contract Service imports outside its approved Recipe boundary: ${specifier}`
+    );
+  }
+
+  assertNoTerms(
+    readFileSync(costingService, "utf8"),
+    [
+      "domains/cost",
+      "ingredient-cost-quote",
+      "measurement-profile/",
+      "/measurement/",
+      "repository",
+      "better-sqlite3",
+      "node:sqlite",
+      "/persistence/",
+      "/infrastructure/",
+      "date.now",
+      "new date",
+      "randomuuid",
+      "parsefloat",
+      "math.round",
+      "purchaseamount",
+      "normalizedunitcost",
+      "linecost",
+      "totalcost",
+      "costsnapshot"
+    ],
+    costingService
+  );
+  assertNoTerms(
+    readFileSync(costingContract, "utf8"),
+    [
+      "quoteid",
+      "price",
+      "currency",
+      "purchaseamount",
+      "normalizedunitcost",
+      "linecost",
+      "totalcost",
+      "costsnapshot",
+      "repository",
+      "database"
+    ],
+    costingContract
+  );
+
+  const publicIndexSource = readFileSync(recipePublicIndex, "utf8");
+  assert.match(publicIndexSource, /recipe-costing-contract-v2/);
+  assert.doesNotMatch(
+    publicIndexSource,
+    /recipe-costing-contract-v2-service|recipe-costing-contract-v2-errors/
+  );
+});
+
 test("Canonical Ingredient internals remain behind the published contract", () => {
   const recipeRoot = path.join(sourceRoot, "domains", "recipe");
   const ingredientRoot = path.join(recipeRoot, "ingredient-catalog");

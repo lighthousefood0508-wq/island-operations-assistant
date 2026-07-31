@@ -2,6 +2,43 @@
 
 ## Approval Register
 
+- **DECISIONS #066 - Accept Architecture Development Integration Baseline**
+  - **Date**: Not recorded in repository authority.
+  - **Status**: APPROVED by Architecture Owner for architecture development baseline synchronization only.
+  - **Accepted baseline**:
+    - Branch: `integration/architecture-development`.
+    - Commit: `bec41bb89185c0261c1375b62b1be91e4e2b00df`.
+    - The accepted linear ancestry is `8b80e9723d55c1e6dc0e30a6c83cb9e52effe20e` -> `7809e8555c58c9ae5d11498361ac88360890f4e4` -> `bec41bb89185c0261c1375b62b1be91e4e2b00df`.
+    - The range from the Measurement baseline to the accepted baseline contains exactly 15 commits: 9 commits through PR-COST-004R followed by 6 Cost Back Office commits.
+    - The history is linear, with 0 merge commits and 0 integration-only commits.
+  - **Contained milestones**:
+    - Measurement Foundation and Ingredient Measurement Profile are completed and contained.
+    - PR-COST-004R Recipe Cost Evaluation is completed, independently audited, and contained.
+    - Cost Back Office, including its targeted Quote replacement correction, is completed, independently audited, and contained.
+  - **Independent audit result**:
+    - PR-COST-004R Integration Audit: PASS.
+    - Cost Back Office Final Integration Audit: PASS.
+    - TypeScript strict: PASS.
+    - Compile: PASS.
+    - Cost Back Office focused tests: 103/103 PASS.
+    - Cost supplemental focused tests: 153/153 PASS.
+    - The 103-test and 153-test selections overlap by 2 tests; they are not 256 independent tests.
+    - Architecture Guard: 16/16 PASS.
+    - Migration smoke: migrations 001 through 016 PASS on a fresh database.
+    - Full repository tests: 443/443 PASS.
+    - Browser E2E: 13/13 PASS.
+    - Full repository and Browser E2E results contain 0 failed, skipped, todo, or cancelled tests.
+  - **Known P2 risks and retained evidence**:
+    1. Migration smoke proves the fresh-database path through migrations 001 through 016. A dedicated existing 001-through-014 production-data upgrade fixture has not been verified.
+    2. Realtime heartbeat may overwrite the debug UI's last-event display. Current evidence does not prove production data loss; a separate Reliability Task Card is recommended.
+    3. The authorized verification archive remains under `%TEMP%`. It is not a repository worktree and is not part of this baseline.
+    4. Recipe Product reference existence continues to use the existing unresolved-reference boundary. No second Catalog authority was created.
+  - **Release boundary**:
+    - This Decision accepts only the Architecture Development Integration Baseline.
+    - Remote `main` does not exist. Local `main` remains unpromoted at `2616fc86f5b1e81ba33ea05c71b561a8f0210e36`.
+    - `origin/HEAD` remains `origin/feature/pr-measure-001` and was not modified.
+    - This Decision does not authorize production release, deployment, `main` promotion, a remote-default-branch change, or new feature implementation.
+
 - **DECISIONS #065 - Authorize Cost Back Office Vertical Slice**
   - **Date**: Not recorded in repository authority.
   - **Status**: APPROVED by Architecture Owner.

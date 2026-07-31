@@ -1,62 +1,43 @@
 # ROS Architecture Development Baseline
 
-Governance basis: DECISIONS #055, #058, and #059. Baseline synchronization approved by the Architecture Owner.
+Governance basis: DECISIONS #055, #058, #059, #064, #065, and #066.
 
 Last reviewed: 2026-07-31
 
 ## Current approved baseline
 
 ```text
-Branch: feature/pr-measure-001
-HEAD:   261b8dd4d3b0761c22ef4a3c9ef39ae94040bdd2
+Branch: integration/architecture-development
+HEAD:   bec41bb89185c0261c1375b62b1be91e4e2b00df
 ```
 
-**This is the current Architecture Development Baseline.**
+**This is the current approved Architecture Development Baseline.**
 
-Commit `261b8dd4d3b0761c22ef4a3c9ef39ae94040bdd2` is not a production release, a deployment-verified version, or an operational deployment record. It is the approved Architecture Development Baseline for subsequent Owner-approved work.
+The baseline contains the completed and independently audited Measurement foundation, PR-COST-004R Recipe Cost Evaluation, and Cost Back Office vertical slice. Its accepted linear ancestry is:
 
-It contains:
+```text
+8b80e9723d55c1e6dc0e30a6c83cb9e52effe20e
+    -> 7809e8555c58c9ae5d11498361ac88360890f4e4
+    -> bec41bb89185c0261c1375b62b1be91e4e2b00df
+```
 
-- DECISIONS #053, #055, #056, #057, #058, and #059 in its ancestry;
-- Measurement Foundation v1;
-- Ingredient Measurement Profile;
-- the approved PR-MEASURE-001 and PR-MEASURE-002 implementations;
-- Canonical Ingredient Domain Foundation;
-- Canonical Ingredient SQLite Persistence;
-- the completed implementation and focused audits for those capabilities; and
-- the safely committed and remotely backed-up Ingredient persistence implementation at `261b8dd`.
+Commit `bec41bb89185c0261c1375b62b1be91e4e2b00df` is not a production release, deployment approval, deployment-verified version, operational deployment record, or `main` promotion. It is the common starting point for later Owner-authorized architecture development.
 
-## Status of main
+## Status of main and remote default
 
-`main` is **not yet promoted**.
+- Local `main` remains unpromoted at `2616fc86f5b1e81ba33ea05c71b561a8f0210e36`.
+- Remote `main` does not exist.
+- `origin/HEAD` remains `origin/feature/pr-measure-001` and has not been adjusted.
+- No remote default branch or release state is changed by this document.
 
-At the repository recovery audit:
-
-- local `main` pointed to `2616fc8`;
-- `main` was an ancestor of the then-current baseline;
-- `main` was behind that baseline;
-- no remote default branch was configured; and
-- a fast-forward was technically possible but had not passed a Release Gate.
-
-The feature branch is now backed up at `origin/feature/pr-measure-001`. This does not promote or push `main`.
-
-The fact that a fast-forward is technically possible is not promotion authority.
-
-`main` may be updated only after:
-
-1. the original dirty worktree has a reviewed recovery record;
-2. required historical work has been preserved or rebuilt;
-3. repository and product regression verification passes;
-4. runtime and database backup/readiness checks pass where applicable; and
-5. the Architecture Owner explicitly approves the Release Gate and promotion.
+`main` may be updated only after a separate Main Release Gate and explicit Architecture Owner promotion authorization. Technical ancestry or fast-forward capability does not provide that authority.
 
 ## Use of this baseline
 
-- New PR proposals use `261b8dd4d3b0761c22ef4a3c9ef39ae94040bdd2` as their evidence baseline.
-- New implementation work starts from that commit or an official integration branch pointing to it.
-- New feature work uses a clean branch and worktree; no additional feature work is added to `feature/pr-measure-001`.
-- A dirty worktree is never a valid baseline.
-- PR-COST-004 changes from the recovery worktree must not be copied wholesale.
-- Dependent work must follow the sequence recorded in `docs/REPOSITORY_STATUS.md`.
+- Future authorized proposals and implementation work use `integration/architecture-development` at `bec41bb89185c0261c1375b62b1be91e4e2b00df`, or a later explicitly approved baseline.
+- New work uses a separately authorized clean branch and worktree.
+- Completed feature branches remain retained for traceability; they are not the formal baseline and are not deleted by this status update.
+- A dirty or recovery worktree is never a valid baseline.
+- Dependent work still requires its own Proposal, Authorization, Implementation, Audit, and Git-action gates.
 
-This document does not merge, rename, or promote any branch.
+This document does not authorize a feature, release, deployment, merge, branch deletion, remote-default change, or `main` promotion.

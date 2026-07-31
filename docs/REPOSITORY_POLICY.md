@@ -1,6 +1,6 @@
 # ROS Repository Policy
 
-Governance basis: DECISIONS #055, #058, and #059. Baseline synchronization approved by the Architecture Owner.
+Governance basis: DECISIONS #055, #058, #059, #064, #065, and #066.
 
 Status: Approved repository working policy.
 
@@ -8,9 +8,9 @@ This policy supplements `docs/REPOSITORY_WORKING_GUIDE.md`. It does not grant fe
 
 ## 1. Future PR Baseline Policy
 
-1. Future feature PRs start from commit `261b8dd4d3b0761c22ef4a3c9ef39ae94040bdd2`, or from an official integration branch pointing to it.
-2. The current source branch is `feature/pr-measure-001`.
-3. A later baseline replaces `261b8dd4d3b0761c22ef4a3c9ef39ae94040bdd2` only after Architecture Owner approval is recorded.
+1. Future authorized work starts from branch `integration/architecture-development` at commit `bec41bb89185c0261c1375b62b1be91e4e2b00df`, or from a later explicitly approved Architecture Development Baseline.
+2. `integration/architecture-development` is the current formal baseline branch. Completed feature branches are retained for traceability but are not development baselines.
+3. A later baseline replaces `bec41bb89185c0261c1375b62b1be91e4e2b00df` only after Architecture Owner approval is recorded.
 4. A roadmap entry, completed proposal, local patch, or dirty worktree does not establish a baseline.
 5. Direct feature development on `main` is prohibited.
 6. `main` is updated only after an explicit Release Gate approval.
@@ -91,10 +91,11 @@ No cleanup action is implied by the review.
 
 1. Architecture and repository authority is recorded with a Decision identifier.
 2. Every PR report names its approval Decision.
-3. Governance authorization is separate from feature implementation authorization.
-4. Implementation completion is separate from Safe Commit authorization.
-5. Safe Commit is separate from integration, push, cleanup, and release authorization.
-6. Owner approval must identify the allowed branch, baseline, file allowlist, verification, and Git action.
+3. Proposal, Owner authorization, implementation, and audit remain separate review gates.
+4. Governance authorization is separate from feature implementation authorization.
+5. Implementation completion is separate from Safe Commit authorization.
+6. Safe Commit is separate from integration, push, cleanup, and release authorization.
+7. Owner approval must identify the allowed branch, baseline, file allowlist, verification, and Git action.
 
 ## 7. Integration Sequence
 
@@ -160,15 +161,35 @@ Canonical Ingredient Domain and Persistence
         |
         v
 Recipe Canonical Projection
+(COMPLETED)
         |
         v
 Quote Normalization Evidence
+(COMPLETED)
         |
         v
 Recipe Costing Contract v2
+(COMPLETED)
         |
         v
 PR-COST-004R
+(COMPLETED)
+        |
+        v
+Cost Back Office
+(COMPLETED)
+        |
+        v
+Governance Status Update
+(IN PROGRESS)
+        |
+        v
+Independent Governance Audit
+(PENDING)
+        |
+        v
+Main Release Gate
+(NOT STARTED)
 ```
 
-PR-COST-004R remains blocked until every prerequisite passes its own governance, architecture, implementation, and Owner gates.
+This status sequence does not authorize a new implementation, release, deployment, or `main` promotion. Architecture Owner review remains required at every applicable Proposal, Authorization, Implementation, Audit, Safe Commit, Integration, and Release Gate.

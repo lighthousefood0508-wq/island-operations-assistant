@@ -1,44 +1,47 @@
 # ROS Repository Status
 
-Governance basis: DECISIONS #055, #058, and #059. Baseline synchronization approved by the Architecture Owner.
+Governance basis: DECISIONS #055, #058, #059, #064, #065, and #066.
 
 Last reviewed: 2026-07-31
 
 ## Current recommended development baseline
 
-The current Architecture Development Baseline is:
+The current approved Architecture Development Baseline is:
 
-- Branch: `feature/pr-measure-001`
-- Commit: `261b8dd4d3b0761c22ef4a3c9ef39ae94040bdd2`
-- Baseline commit state: clean, reviewed, approved, and committed
-- Included authority: Measurement Foundation v1, Ingredient Measurement Profile, Canonical Ingredient Domain Foundation, Canonical Ingredient Persistence, and governance ancestry through DECISIONS #059
-- Remote backup: `origin/feature/pr-measure-001` points to the approved baseline
+- Branch: `integration/architecture-development`
+- Commit: `bec41bb89185c0261c1375b62b1be91e4e2b00df`
+- Local and remote integration heads: synchronized at the same commit, ahead/behind `0/0`
+- Included milestones: completed Measurement foundation, PR-COST-004R, and Cost Back Office
+- Integration history: 15 linear commits after `8b80e9723d55c1e6dc0e30a6c83cb9e52effe20e`, with no merge or integration-only commit
 
-The baseline statement above describes commit `261b8dd4d3b0761c22ef4a3c9ef39ae94040bdd2`. The current worktree is temporarily dirty only because the four baseline synchronization documents are under Owner review. No production, test, migration, runtime, or configuration file is modified. The original 40-file dirty recovery worktree is separate and remains untouched.
+The integration worktree was clean before this five-document governance draft. During Owner review, only the five authorized governance files are modified. No production, test, migration, runtime, package, or configuration file is modified. The original recovery worktree remains separate and untouched.
 
-`main` has not been promoted to this baseline. New feature proposals and approved feature work must start from `261b8dd4d3b0761c22ef4a3c9ef39ae94040bdd2`, or from an official integration branch pointing to it, in a new clean branch and worktree.
+This is a development baseline only. Remote `main` does not exist; local `main` remains unpromoted at `2616fc86f5b1e81ba33ea05c71b561a8f0210e36`; and `origin/HEAD` remains `origin/feature/pr-measure-001`.
 
 ## Repository health
 
 | Area | Status | Explanation |
 |---|---|---|
-| Architecture baseline | Healthy | Commit `261b8dd` is the Owner-approved Architecture Development Baseline. |
-| Measurement Foundation | Completed | PR-MEASURE-001 is safely committed. |
-| Ingredient Measurement Profile | Completed | PR-MEASURE-002 is audited, safely committed, and pushed on the feature branch. |
-| Canonical Ingredient Domain | Completed | PR-INGREDIENT-001 is audited, safely committed, and remotely backed up. |
-| Canonical Ingredient Persistence | Completed | PR-INGREDIENT-002 and DECISIONS #059 are safely committed and remotely backed up. |
-| Current development worktree | Documentation review | Only the four baseline synchronization documents are currently modified. |
-| `main` | Outdated, not broken | It has not passed a Release Gate for promotion. |
+| Architecture baseline | Healthy | `integration/architecture-development` points to `bec41bb89185c0261c1375b62b1be91e4e2b00df` locally and remotely. |
+| Measurement Foundation | Completed and contained | Measurement Foundation and Ingredient Measurement Profile are contained in the integration baseline. |
+| PR-COST-004R | Completed and contained | Implementation, targeted correction, independent audit, and integration audit passed. |
+| Cost Back Office | Completed and contained | Implementation, Quote replacement correction, Owner audit, and final integration audit passed. |
+| Current integration worktree | Governance draft review | Clean before this task; only the five authorized governance documents are modified for Owner review. |
+| Local `main` | Not promoted | It remains at `2616fc86f5b1e81ba33ea05c71b561a8f0210e36`; Main Release Gate has not started. |
+| Remote `main` | Does not exist | No remote release branch has been created or promoted. |
+| `origin/HEAD` | Unchanged | It still points to `origin/feature/pr-measure-001`. |
 | Original development worktree | Recovery required | It contains 40 mixed, unstaged changes and must not be used as a PR baseline. |
-| PR-COST-004 | Blocked | It must be rebuilt as PR-COST-004R after the Measurement prerequisites in DECISION #053. |
-| Governance documents | Synchronization in review | These four documents are being updated to reflect the completed Ingredient work and baseline `261b8dd`. |
-| Remote backup | Verified | `origin/feature/pr-measure-001` points to `261b8dd`. |
+| Governance status | Update in progress | This five-document draft synchronizes the accepted integration state. Independent Governance Audit is next. |
+| Main Release Gate | Not started | This status update grants no release, deployment, or promotion authority. |
 
 ## Active worktrees
 
 | Folder | Branch / state | Purpose | Classification | Next action |
 |---|---|---|---|---|
-| `desert-island-ros-pr-measure-001` | `feature/pr-measure-001` at `261b8dd`; clean before this four-document synchronization | Approved architecture baseline and current governance worktree | KEEP ACTIVE FOR BASELINE | Complete Owner review and Safe Commit for this documentation-only synchronization. Start later feature work only in a separately authorized clean branch/worktree. |
+| `desert-island-ros-integration` | `integration/architecture-development` at `bec41bb89185c0261c1375b62b1be91e4e2b00df`; clean before this draft | Formal Architecture Development Integration Baseline and governance status worktree | KEEP ACTIVE FOR BASELINE | Complete Owner draft review, Commit Gate, and Independent Governance Audit. |
+| `desert-island-ros-pr-measure-001` | `feature/pr-measure-001` at `8b80e9723d55c1e6dc0e30a6c83cb9e52effe20e`; clean | Completed Measurement feature line retained for traceability | COMPLETED / CONTAINED | Preserve; do not use as the formal baseline or add new development. |
+| `desert-island-ros-pr-cost-004r` | `feature/pr-cost-004r` at `7809e8555c58c9ae5d11498361ac88360890f4e4`; clean | Completed PR-COST-004R feature line retained for traceability | COMPLETED / CONTAINED | Preserve pending later cleanup authorization. |
+| `desert-island-ros-cost-back-office` | `feature/cost-back-office` at `bec41bb89185c0261c1375b62b1be91e4e2b00df`; clean | Completed Cost Back Office feature line retained for traceability | COMPLETED / CONTAINED | Preserve pending later cleanup authorization. |
 | `desert-island-ros` | `feature/catalog-category-auto-code` at `2e27f8f`, dirty | Recovery source for 40 mixed changes | KEEP FOR RECOVERY | Preserve unchanged; recover work by workstream into clean branches. |
 | `ros-commit10-*` | detached `c299381`, clean | Historical staged snapshot | REVIEW BEFORE DELETE | Confirm its equivalent patch is retained, then request removal approval. |
 | `ros-commit6-*` | detached `cf3e0d4`, clean | Older POS/E2E snapshot variant | REVIEW BEFORE DELETE | Compare with the accepted retry before removal. |
@@ -55,7 +58,8 @@ No worktree may be removed under DECISION #055. This document records status onl
 
 The branches requiring current attention are:
 
-- `feature/pr-measure-001`: approved baseline at `261b8dd`; do not add another feature workstream.
+- `integration/architecture-development`: the only active formal Architecture Development Baseline at `bec41bb89185c0261c1375b62b1be91e4e2b00df`.
+- `feature/pr-measure-001`, `feature/pr-cost-004r`, and `feature/cost-back-office`: completed feature lines contained in the integration baseline and retained for traceability.
 - `feature/catalog-category-auto-code`: frozen recovery carrier because its worktree is dirty.
 - `main`: protected release branch; not yet promoted.
 - `audit/phase-a-pos-ui-restoration`: retains unique historical audit documents.
@@ -110,15 +114,35 @@ Canonical Ingredient Domain and Persistence
         |
         v
 Recipe Canonical Projection
+(COMPLETED)
         |
         v
 Quote Normalization Evidence
+(COMPLETED)
         |
         v
 Recipe Costing Contract v2
+(COMPLETED)
         |
         v
 PR-COST-004R
+(COMPLETED)
+        |
+        v
+Cost Back Office
+(COMPLETED)
+        |
+        v
+Governance Status Update
+(IN PROGRESS)
+        |
+        v
+Independent Governance Audit
+(PENDING)
+        |
+        v
+Main Release Gate
+(NOT STARTED)
 ```
 
-PR-COST-004R remains blocked until the preceding Measurement and contract gates are completed and approved.
+No feature implementation or `main` promotion is authorized by this roadmap status.

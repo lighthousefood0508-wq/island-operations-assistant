@@ -7,7 +7,11 @@
   - **Status**: APPROVED by Architecture Owner for architecture development baseline synchronization only.
   - **Accepted baseline**:
     - Branch: `integration/architecture-development`.
-    - Commit: `bec41bb89185c0261c1375b62b1be91e4e2b00df`.
+    - Accepted implementation SHA: `bec41bb89185c0261c1375b62b1be91e4e2b00df`.
+    - Governance acceptance commit: `ccc415832b3a21bfdbf1accdb4bd088f69c8b479`.
+    - Governance commit parent: `bec41bb89185c0261c1375b62b1be91e4e2b00df`.
+    - Current integration HEAD at governance acceptance: `ccc415832b3a21bfdbf1accdb4bd088f69c8b479`.
+    - Decision #066 accepts the implementation tree at `bec41bb89185c0261c1375b62b1be91e4e2b00df`; the governance-only commit `ccc415832b3a21bfdbf1accdb4bd088f69c8b479` records that acceptance and adds no implementation authority.
     - The accepted linear ancestry is `8b80e9723d55c1e6dc0e30a6c83cb9e52effe20e` -> `7809e8555c58c9ae5d11498361ac88360890f4e4` -> `bec41bb89185c0261c1375b62b1be91e4e2b00df`.
     - The range from the Measurement baseline to the accepted baseline contains exactly 15 commits: 9 commits through PR-COST-004R followed by 6 Cost Back Office commits.
     - The history is linear, with 0 merge commits and 0 integration-only commits.
@@ -33,6 +37,12 @@
     2. Realtime heartbeat may overwrite the debug UI's last-event display. Current evidence does not prove production data loss; a separate Reliability Task Card is recommended.
     3. The authorized verification archive remains under `%TEMP%`. It is not a repository worktree and is not part of this baseline.
     4. Recipe Product reference existence continues to use the existing unresolved-reference boundary. No second Catalog authority was created.
+    5. The first Independent Governance Audit found Gate status precision lag after the governance commit. This is a documentation-state issue, not an implementation failure.
+    6. The first governance synchronization reduced the visible traceability of the historical Main Release Gate prerequisites. Those prerequisites remain required and are restored or explicitly referenced by the identity correction.
+  - **Independent Governance Audit finding**:
+    - Verdict: BLOCK.
+    - Blocking finding: P1 - the accepted implementation identity and current integration branch HEAD were conflated, which could cause later work to start from `bec41bb89185c0261c1375b62b1be91e4e2b00df` and skip Decision #066's governance ancestry.
+    - This BLOCK is a governance-document identity finding. It does not invalidate the accepted implementation tree or represent an implementation test failure.
   - **Release boundary**:
     - This Decision accepts only the Architecture Development Integration Baseline.
     - Remote `main` does not exist. Local `main` remains unpromoted at `2616fc86f5b1e81ba33ea05c71b561a8f0210e36`.

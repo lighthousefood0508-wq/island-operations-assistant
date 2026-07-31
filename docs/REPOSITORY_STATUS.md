@@ -8,13 +8,14 @@ Last reviewed: 2026-07-31
 
 The current approved Architecture Development Baseline is:
 
-- Branch: `integration/architecture-development`
-- Commit: `bec41bb89185c0261c1375b62b1be91e4e2b00df`
-- Local and remote integration heads: synchronized at the same commit, ahead/behind `0/0`
+- Branch lineage: `integration/architecture-development`
+- Accepted implementation SHA: `bec41bb89185c0261c1375b62b1be91e4e2b00df`
+- Governance acceptance commit: `ccc415832b3a21bfdbf1accdb4bd088f69c8b479`, parent `bec41bb89185c0261c1375b62b1be91e4e2b00df`
+- Current local and remote integration HEAD before this correction: `ccc415832b3a21bfdbf1accdb4bd088f69c8b479`, ahead/behind `0/0`
 - Included milestones: completed Measurement foundation, PR-COST-004R, and Cost Back Office
 - Integration history: 15 linear commits after `8b80e9723d55c1e6dc0e30a6c83cb9e52effe20e`, with no merge or integration-only commit
 
-The integration worktree was clean before this five-document governance draft. During Owner review, only the five authorized governance files are modified. No production, test, migration, runtime, package, or configuration file is modified. The original recovery worktree remains separate and untouched.
+The accepted implementation tree is `bec41bb89185c0261c1375b62b1be91e4e2b00df`. Governance-only commit `ccc415832b3a21bfdbf1accdb4bd088f69c8b479` records Decision #066 and is part of the current governance ancestry. The integration worktree was clean before this five-document identity-correction draft. During Owner review, only the five authorized governance files are modified. No production, test, migration, runtime, package, or configuration file is modified. The original recovery worktree remains separate and untouched.
 
 This is a development baseline only. Remote `main` does not exist; local `main` remains unpromoted at `2616fc86f5b1e81ba33ea05c71b561a8f0210e36`; and `origin/HEAD` remains `origin/feature/pr-measure-001`.
 
@@ -22,7 +23,7 @@ This is a development baseline only. Remote `main` does not exist; local `main` 
 
 | Area | Status | Explanation |
 |---|---|---|
-| Architecture baseline | Healthy | `integration/architecture-development` points to `bec41bb89185c0261c1375b62b1be91e4e2b00df` locally and remotely. |
+| Architecture baseline | Identity correction in progress | Accepted implementation tree is `bec41bb89185c0261c1375b62b1be91e4e2b00df`; current local and remote integration HEAD before this correction is `ccc415832b3a21bfdbf1accdb4bd088f69c8b479`. |
 | Measurement Foundation | Completed and contained | Measurement Foundation and Ingredient Measurement Profile are contained in the integration baseline. |
 | PR-COST-004R | Completed and contained | Implementation, targeted correction, independent audit, and integration audit passed. |
 | Cost Back Office | Completed and contained | Implementation, Quote replacement correction, Owner audit, and final integration audit passed. |
@@ -31,14 +32,17 @@ This is a development baseline only. Remote `main` does not exist; local `main` 
 | Remote `main` | Does not exist | No remote release branch has been created or promoted. |
 | `origin/HEAD` | Unchanged | It still points to `origin/feature/pr-measure-001`. |
 | Original development worktree | Recovery required | It contains 40 mixed, unstaged changes and must not be used as a PR baseline. |
-| Governance status | Update in progress | This five-document draft synchronizes the accepted integration state. Independent Governance Audit is next. |
-| Main Release Gate | Not started | This status update grants no release, deployment, or promotion authority. |
+| Governance Status Update | Completed | Governance acceptance commit `ccc415832b3a21bfdbf1accdb4bd088f69c8b479` was committed and pushed. |
+| Independent Governance Audit | Completed / blocked by P1 identity finding | The audit found baseline identity and current branch HEAD conflation; this was a governance-document finding, not an implementation failure. |
+| Targeted Governance Identity Correction | In progress | This five-document correction draft separates implementation identity, governance acceptance, and current integration HEAD. |
+| Independent Governance Re-audit | Pending | Required after Owner-approved correction commit and push. |
+| Main Release Gate | Not started / not authorized | This correction grants no release, deployment, or promotion authority. |
 
 ## Active worktrees
 
 | Folder | Branch / state | Purpose | Classification | Next action |
 |---|---|---|---|---|
-| `desert-island-ros-integration` | `integration/architecture-development` at `bec41bb89185c0261c1375b62b1be91e4e2b00df`; clean before this draft | Formal Architecture Development Integration Baseline and governance status worktree | KEEP ACTIVE FOR BASELINE | Complete Owner draft review, Commit Gate, and Independent Governance Audit. |
+| `desert-island-ros-integration` | `integration/architecture-development` at `ccc415832b3a21bfdbf1accdb4bd088f69c8b479` before this correction; clean before the draft | Formal Architecture Development Integration Baseline and governance identity-correction worktree; accepted implementation tree remains `bec41bb89185c0261c1375b62b1be91e4e2b00df` | KEEP ACTIVE FOR BASELINE | Complete Owner draft review and correction Commit Gate, then perform the Independent Governance Re-audit. |
 | `desert-island-ros-pr-measure-001` | `feature/pr-measure-001` at `8b80e9723d55c1e6dc0e30a6c83cb9e52effe20e`; clean | Completed Measurement feature line retained for traceability | COMPLETED / CONTAINED | Preserve; do not use as the formal baseline or add new development. |
 | `desert-island-ros-pr-cost-004r` | `feature/pr-cost-004r` at `7809e8555c58c9ae5d11498361ac88360890f4e4`; clean | Completed PR-COST-004R feature line retained for traceability | COMPLETED / CONTAINED | Preserve pending later cleanup authorization. |
 | `desert-island-ros-cost-back-office` | `feature/cost-back-office` at `bec41bb89185c0261c1375b62b1be91e4e2b00df`; clean | Completed Cost Back Office feature line retained for traceability | COMPLETED / CONTAINED | Preserve pending later cleanup authorization. |
@@ -58,7 +62,7 @@ No worktree may be removed under DECISION #055. This document records status onl
 
 The branches requiring current attention are:
 
-- `integration/architecture-development`: the only active formal Architecture Development Baseline at `bec41bb89185c0261c1375b62b1be91e4e2b00df`.
+- `integration/architecture-development`: the only active formal Architecture Development Baseline branch. Its accepted implementation tree is `bec41bb89185c0261c1375b62b1be91e4e2b00df`; its governance acceptance commit and current HEAD before this correction are `ccc415832b3a21bfdbf1accdb4bd088f69c8b479`.
 - `feature/pr-measure-001`, `feature/pr-cost-004r`, and `feature/cost-back-office`: completed feature lines contained in the integration baseline and retained for traceability.
 - `feature/catalog-category-auto-code`: frozen recovery carrier because its worktree is dirty.
 - `main`: protected release branch; not yet promoted.
@@ -134,15 +138,23 @@ Cost Back Office
         |
         v
 Governance Status Update
-(IN PROGRESS)
+(COMPLETED)
         |
         v
 Independent Governance Audit
+(COMPLETED / BLOCKED BY P1 IDENTITY FINDING)
+        |
+        v
+Targeted Governance Identity Correction
+(IN PROGRESS)
+        |
+        v
+Independent Governance Re-audit
 (PENDING)
         |
         v
 Main Release Gate
-(NOT STARTED)
+(NOT STARTED / NOT AUTHORIZED)
 ```
 
 No feature implementation or `main` promotion is authorized by this roadmap status.

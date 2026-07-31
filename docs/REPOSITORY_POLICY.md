@@ -8,12 +8,15 @@ This policy supplements `docs/REPOSITORY_WORKING_GUIDE.md`. It does not grant fe
 
 ## 1. Future PR Baseline Policy
 
-1. Future authorized work starts from branch `integration/architecture-development` at commit `bec41bb89185c0261c1375b62b1be91e4e2b00df`, or from a later explicitly approved Architecture Development Baseline.
-2. `integration/architecture-development` is the current formal baseline branch. Completed feature branches are retained for traceability but are not development baselines.
-3. A later baseline replaces `bec41bb89185c0261c1375b62b1be91e4e2b00df` only after Architecture Owner approval is recorded.
-4. A roadmap entry, completed proposal, local patch, or dirty worktree does not establish a baseline.
-5. Direct feature development on `main` is prohibited.
-6. `main` is updated only after an explicit Release Gate approval.
+1. Future authorized work starts from the then-current Owner-verified HEAD of `integration/architecture-development`, or from a later explicitly approved Architecture Development Baseline branch.
+2. That starting HEAD must contain governance acceptance commit `ccc415832b3a21bfdbf1accdb4bd088f69c8b479`. New work must not start directly from `bec41bb89185c0261c1375b62b1be91e4e2b00df` and skip Decision #066.
+3. Commit `bec41bb89185c0261c1375b62b1be91e4e2b00df` remains the accepted implementation tree identity for the completed Measurement, PR-COST-004R, and Cost Back Office implementation.
+4. Commit `ccc415832b3a21bfdbf1accdb4bd088f69c8b479`, whose parent is `bec41bb89185c0261c1375b62b1be91e4e2b00df`, is the governance-only commit that records Decision #066. It is the current integration HEAD before this correction draft, not a permanent fixed starting SHA for all future work.
+5. `integration/architecture-development` is the current formal baseline branch. Completed feature branches are retained for traceability but are not development baselines.
+6. A later accepted implementation tree or formal baseline branch replaces these identities only after Architecture Owner approval is recorded.
+7. A roadmap entry, completed proposal, local patch, or dirty worktree does not establish a baseline.
+8. Direct feature development on `main` is prohibited.
+9. `main` is updated only after an explicit, independent Release Gate and Architecture Owner promotion authorization.
 
 ## 2. Dirty Worktree Policy
 
@@ -95,7 +98,9 @@ No cleanup action is implied by the review.
 4. Governance authorization is separate from feature implementation authorization.
 5. Implementation completion is separate from Safe Commit authorization.
 6. Safe Commit is separate from integration, push, cleanup, and release authorization.
-7. Owner approval must identify the allowed branch, baseline, file allowlist, verification, and Git action.
+7. Every Owner Task Card has one explicit purpose; completing one Gate does not authorize the next Gate.
+8. Owner approval must identify the allowed branch, baseline, file allowlist, verification, and Git action.
+9. Independent audit is required when the applicable Owner Task Card defines it; an implementation or self-review report cannot substitute for that audit.
 
 ## 7. Integration Sequence
 
@@ -122,6 +127,8 @@ Integration must:
 - leave unrelated recovery work untouched;
 - keep one workstream per commit; and
 - use non-destructive Git operations approved for that task.
+
+When an Owner Task Card requires fast-forward-only integration, the integration must prove ancestry, create no merge commit, and stop instead of substituting merge, rebase, cherry-pick, or force push. No branch is integrated merely because it is reachable or clean.
 
 ## 8. Prevention of Mixed Work
 
@@ -181,15 +188,23 @@ Cost Back Office
         |
         v
 Governance Status Update
-(IN PROGRESS)
+(COMPLETED)
         |
         v
 Independent Governance Audit
+(COMPLETED / BLOCKED BY P1 IDENTITY FINDING)
+        |
+        v
+Targeted Governance Identity Correction
+(IN PROGRESS)
+        |
+        v
+Independent Governance Re-audit
 (PENDING)
         |
         v
 Main Release Gate
-(NOT STARTED)
+(NOT STARTED / NOT AUTHORIZED)
 ```
 
-This status sequence does not authorize a new implementation, release, deployment, or `main` promotion. Architecture Owner review remains required at every applicable Proposal, Authorization, Implementation, Audit, Safe Commit, Integration, and Release Gate.
+This status sequence does not authorize a new implementation, release, deployment, or `main` promotion. Architecture Owner review remains required at every applicable Proposal, Authorization, Implementation, Audit, Safe Commit, Integration, and Release Gate. Main Release Gate planning must also apply the historical prerequisites restored in `docs/RELEASE_BASELINE.md`; this correction does not mark any prerequisite complete.

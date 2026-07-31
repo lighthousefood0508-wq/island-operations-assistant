@@ -890,6 +890,36 @@ test("Canonical Ingredient internals remain behind the published contract", () =
   );
 });
 
+test("Recipe SQLite persistence uses the shared database boundary and stays private", () => {
+  const recipeRoot = path.join(sourceRoot, "domains", "recipe");
+  const sqliteRepository = path.join(
+    recipeRoot,
+    "infrastructure",
+    "sqlite-recipe-repository.ts"
+  );
+  const databaseAdapter = path.join(
+    sourceRoot,
+    "shared",
+    "database",
+    "database-adapter.ts"
+  );
+  const recipePublicIndex = path.join(recipeRoot, "index.ts");
+
+  const importedTargets = importedSpecifiers(sqliteRepository)
+    .map((specifier) => resolveSourceImport(sqliteRepository, specifier));
+  assert.equal(importedTargets.includes(databaseAdapter), true);
+  assertNoTerms(
+    readFileSync(sqliteRepository, "utf8"),
+    ["better-sqlite3", "node:sqlite", "domains/cost"],
+    sqliteRepository
+  );
+  assert.doesNotMatch(
+    readFileSync(recipePublicIndex, "utf8"),
+    /SqliteRecipeRepository|sqlite-recipe-repository/,
+    "Recipe root must not publish the SQLite Recipe adapter."
+  );
+});
+
 test("OPEN Event reads only Operations-owned product snapshots", () => {
   const operationsRoot = path.join(sourceRoot, "domains", "operations");
   for (const filename of filesUnder(operationsRoot, [".ts", ".sql"])) {

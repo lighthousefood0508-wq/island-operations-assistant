@@ -1,8 +1,9 @@
 import type { RecipeAggregate } from "../domain/recipe-aggregate.js";
 import type { RecipeDraftId, RecipeId, RecipeVersionId } from "../domain/identities.js";
 import type {
+  RecipeBackOfficeListItem,
+  RecipeBackOfficeRepository,
   VersionedRecipeAggregate,
-  VersionedRecipeRepository
 } from "../domain/recipe-repository.js";
 import {
   InvalidRecipePersistenceState,
@@ -42,7 +43,7 @@ function publishedSourceDraft(draft: RecipeDraftRecord): RecipeDraftRecord {
   return Object.freeze({ ...draft, state: "Published" });
 }
 
-export class InMemoryRecipeRepository implements VersionedRecipeRepository {
+export class InMemoryRecipeRepository implements RecipeBackOfficeRepository {
   private readonly entries = new Map<string, StoredRecipe>();
 
   constructor(private readonly mapper = new RecipePersistenceMapper()) {}
@@ -105,6 +106,23 @@ export class InMemoryRecipeRepository implements VersionedRecipeRepository {
           right.version.versionNumber - left.version.versionNumber
         )[0];
     return version ? this.rehydrate(this.recordsForVersion(stored, version)) : undefined;
+  }
+
+  listRecipes(): readonly RecipeBackOfficeListItem[] {
+    return Object.freeze([...this.entries.values()]
+      .map((stored) => {
+        const current = this.recordsForCurrent(stored);
+        return Object.freeze({
+          recipeId: current.recipe.recipeId,
+          currentDraftId: current.recipe.currentDraftId,
+          currentRecipeVersionId: current.recipe.currentRecipeVersionId,
+          aggregateVersion: current.recipe.aggregateVersion,
+          state: current.recipe.state,
+          name: current.draft.name,
+          versionNumber: current.version?.versionNumber ?? null
+        });
+      })
+      .sort((left, right) => left.recipeId.localeCompare(right.recipeId)));
   }
 
   private createStoredRecipe(records: RecipePersistenceRecords): StoredRecipe {

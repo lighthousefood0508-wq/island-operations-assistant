@@ -513,6 +513,216 @@ test("Recipe Costing Contract v2 remains a pure public wrapper over Canonical Pr
   );
 });
 
+test("Cost Evaluation remains read-only, exact, and behind published contracts", () => {
+  const costRoot = path.join(sourceRoot, "domains", "cost");
+  const recipeRoot = path.join(sourceRoot, "domains", "recipe");
+  const evaluationDomain = path.join(
+    costRoot,
+    "domain",
+    "recipe-cost-evaluation.ts"
+  );
+  const rationalDomain = path.join(costRoot, "domain", "exact-rational.ts");
+  const readUow = path.join(
+    costRoot,
+    "domain",
+    "cost-evaluation-read-unit-of-work.ts"
+  );
+  const evaluationService = path.join(
+    costRoot,
+    "application",
+    "recipe-cost-evaluation-service.ts"
+  );
+  const evaluationErrors = path.join(
+    costRoot,
+    "application",
+    "recipe-cost-evaluation-errors.ts"
+  );
+  const sqliteReadUow = path.join(
+    costRoot,
+    "infrastructure",
+    "sqlite-cost-evaluation-read-unit-of-work.ts"
+  );
+  const quoteRepository = path.join(
+    costRoot,
+    "infrastructure",
+    "sqlite-cost-repository.ts"
+  );
+  const databaseAdapter = path.join(
+    sourceRoot,
+    "shared",
+    "database",
+    "database-adapter.ts"
+  );
+  const recipeCostingContract = path.join(
+    recipeRoot,
+    "contracts",
+    "recipe-costing-contract-v2.ts"
+  );
+  const recipeProjectionContract = path.join(
+    recipeRoot,
+    "contracts",
+    "recipe-canonical-projection-contract.ts"
+  );
+  const measurementContract = path.join(
+    recipeRoot,
+    "contracts",
+    "measurement-foundation-contract.ts"
+  );
+  const quoteEvidenceContract = path.join(
+    costRoot,
+    "contracts",
+    "ingredient-cost-quote-normalization-evidence-contract.ts"
+  );
+  const quoteAggregate = path.join(
+    costRoot,
+    "domain",
+    "ingredient-cost-quote.ts"
+  );
+  const costRepositoryContract = path.join(
+    costRoot,
+    "domain",
+    "cost-repository.ts"
+  );
+  const identities = path.join(costRoot, "domain", "identities.ts");
+  const domainErrors = path.join(costRoot, "domain", "errors.ts");
+  const effectivePeriod = path.join(
+    costRoot,
+    "domain",
+    "effective-period.ts"
+  );
+  const costIndex = path.join(costRoot, "index.ts");
+
+  for (const specifier of importedSpecifiers(evaluationDomain)) {
+    const target = resolveSourceImport(evaluationDomain, specifier);
+    assert.ok(
+      target === measurementContract
+        || target === recipeCostingContract
+        || target === quoteEvidenceContract
+        || target === quoteAggregate,
+      `Cost Evaluation Domain imports unapproved authority: ${specifier}`
+    );
+  }
+
+  for (const specifier of importedSpecifiers(evaluationService)) {
+    const target = resolveSourceImport(evaluationService, specifier);
+    assert.ok(
+      target === recipeProjectionContract
+        || target === recipeCostingContract
+        || target === quoteEvidenceContract
+        || target === readUow
+        || target === domainErrors
+        || target === rationalDomain
+        || target === effectivePeriod
+        || target === identities
+        || target === evaluationDomain
+        || target === evaluationErrors,
+      `Cost Evaluation Service imports outside approved contracts and Cost Domain: ${specifier}`
+    );
+  }
+
+  for (const specifier of importedSpecifiers(sqliteReadUow)) {
+    const target = resolveSourceImport(sqliteReadUow, specifier);
+    assert.ok(
+      target === databaseAdapter
+        || target === readUow
+        || target === quoteRepository,
+      `Cost Evaluation SQLite UoW imports unapproved authority: ${specifier}`
+    );
+  }
+
+  assertNoTerms(
+    readFileSync(readUow, "utf8"),
+    [
+      "save(",
+      "savewithexpectedversion",
+      "execute(sql",
+      "transactionimmediate",
+      "costrepository"
+    ],
+    readUow
+  );
+  assertNoTerms(
+    readFileSync(sqliteReadUow, "utf8"),
+    [
+      ".save(",
+      "savewithexpectedversion",
+      "transactionimmediate",
+      "begin immediate"
+    ],
+    sqliteReadUow
+  );
+  assert.match(readFileSync(sqliteReadUow, "utf8"), /\.transaction\(/);
+  assertNoTerms(
+    readFileSync(evaluationService, "utf8"),
+    [
+      "recipe/application",
+      "measurement-profile/",
+      "/measurement/",
+      "ingredient-cost-quote-normalization-service",
+      "better-sqlite3",
+      "node:sqlite",
+      "/persistence/",
+      "/infrastructure/",
+      "date.now",
+      "new date",
+      "randomuuid",
+      "parsefloat",
+      "math.round",
+      "number(bigint",
+      "costsnapshot",
+      "insert into",
+      "update ",
+      "delete from",
+      "recordedat >",
+      "sort("
+    ],
+    evaluationService
+  );
+  assertNoTerms(
+    readFileSync(rationalDomain, "utf8"),
+    [
+      "parsefloat",
+      "math.round",
+      "number(bigint",
+      "tofixed",
+      "costsnapshot"
+    ],
+    rationalDomain
+  );
+  assertNoTerms(
+    readFileSync(evaluationDomain, "utf8"),
+    [
+      "costsnapshot",
+      "repository",
+      "database",
+      "sqlite",
+      "recordedat",
+      "processingat"
+    ],
+    evaluationDomain
+  );
+
+  const publicIndexSource = readFileSync(costIndex, "utf8");
+  assert.match(publicIndexSource, /recipe-cost-evaluation/);
+  assert.match(publicIndexSource, /cost-evaluation-read-unit-of-work/);
+  assert.doesNotMatch(
+    publicIndexSource,
+    /recipe-cost-evaluation-service/
+  );
+  assert.doesNotMatch(
+    publicIndexSource,
+    /SqliteCostEvaluationReadUnitOfWork|sqlite-cost-evaluation-read-unit-of-work/,
+    "Cost root must not publish the SQLite Evaluation adapter."
+  );
+  assert.equal(
+    importedSpecifiers(readUow)
+      .map((specifier) => resolveSourceImport(readUow, specifier))
+      .includes(costRepositoryContract),
+    false,
+    "Read UoW must not expose the full Cost Repository."
+  );
+});
+
 test("Canonical Ingredient internals remain behind the published contract", () => {
   const recipeRoot = path.join(sourceRoot, "domains", "recipe");
   const ingredientRoot = path.join(recipeRoot, "ingredient-catalog");

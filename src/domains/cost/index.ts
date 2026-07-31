@@ -90,3 +90,28 @@ export {
   type IngredientCostQuoteNormalizationFailureV1,
   type IngredientCostQuoteNormalizationResultV1
 } from "./contracts/ingredient-cost-quote-normalization-evidence-contract.js";
+export {
+  ExactRational,
+  ExactRationalError
+} from "./domain/exact-rational.js";
+export type {
+  CostEvaluationEffectiveQuoteLookup,
+  CostEvaluationQuoteReader,
+  CostEvaluationReadUnitOfWork
+} from "./domain/cost-evaluation-read-unit-of-work.js";
+export {
+  COST_ROUNDING_POLICY,
+  COST_VALUATION_POLICY,
+  RECIPE_COST_EVALUATION_BASIS,
+  RECIPE_COST_EVALUATION_RESULT_CONTRACT_NAME,
+  RECIPE_COST_EVALUATION_RESULT_CONTRACT_VERSION,
+  type EvaluateRecipeCostCommand,
+  type ExactRationalV1,
+  type IngredientCostQuoteNormalizationPort,
+  type RecipeCostEvaluationFailureCodeV1,
+  type RecipeCostEvaluationFailureV1,
+  type RecipeCostEvaluationLineV1,
+  type RecipeCostEvaluationOutcomeV1,
+  type RecipeCostEvaluationResultV1
+} from "./domain/recipe-cost-evaluation.js";
+export { RecipeCostEvaluationError } from "./application/recipe-cost-evaluation-errors.js";

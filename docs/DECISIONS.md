@@ -2,6 +2,34 @@
 
 ## Approval Register
 
+- **DECISIONS #062 - Clarify Package Classification Boundary for Quote Normalization**
+  - **Date**: Not recorded in repository authority.
+  - **Status**: APPROVED by Architecture Owner.
+  - **Related PR**: PR-COST-QUOTE-EVIDENCE-001.
+  - **Context**:
+    - DECISIONS #061 requires Cost to fail closed for unsupported purchase Units without creating a second Package authority.
+    - The current Measurement resolver can explicitly classify some caller-facing package terms as requiring a future Package Specification, while the current Cost `CostUnit` accepts stable lowercase ASCII codes that may remain unknown to that resolver.
+    - No currently approved authority defines `bag`, `box`, `package`, `carton`, or another legal Cost Unit code as a formal Package Identity.
+  - **Decision**:
+    - Until a formal Package Identity authority is separately approved, Cost must not classify, infer, or maintain a dictionary of Package Units.
+    - A legal Cost Unit code that is not classified by a published upstream Contract remains `UNKNOWN_PURCHASE_UNIT`.
+    - Cost maps `PACKAGE_SPECIFICATION_REQUIRED` only when the published upstream Contract explicitly returns that stable classification.
+    - Passing through that upstream failure classification does not make Measurement Foundation the owner of Package Identity or Package Specification.
+    - Cost must not translate `bag`, `box`, `package`, `carton`, `bundle`, or similar strings into Package classification on its own.
+  - **Required verification**:
+    - A real legal Cost Unit code such as `bag`, when currently unknown to the published authority, returns `UNKNOWN_PURCHASE_UNIT`.
+    - A simulated published authority response of `PACKAGE_SPECIFICATION_REQUIRED` is mapped to the same typed Cost failure without message parsing.
+    - Architecture Guard proves Cost contains no Package dictionary or Package conversion authority.
+  - **Relationship to #053 and #061**:
+    - DECISIONS #053 and #061 remain effective.
+    - This Decision resolves only the unreachable Package failure expectation discovered during PR-COST-QUOTE-EVIDENCE-001 implementation.
+    - It does not authorize a Package model, Measurement expansion, Cost Unit expansion, schema change, migration, persistence, API, UI, runtime, or Cost Evaluation.
+  - **Explicitly deferred**:
+    - Package Identity, Package Specification, Package Conversion, supplier package contents, density, variable weight, and AI inference.
+  - **External actions**:
+    - PR-COST-QUOTE-EVIDENCE-001 implementation may resume only within the existing six-file allowlist.
+    - Implementation Safe Commit, push, merge, and `main` promotion remain NOT AUTHORIZED pending Owner Audit.
+
 - **DECISIONS #061 - Authorize PR-COST-QUOTE-EVIDENCE-001 Ingredient Cost Quote Normalization Evidence**
   - **Date**: Not recorded in repository authority.
   - **Status**: APPROVED by Architecture Owner.

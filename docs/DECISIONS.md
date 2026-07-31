@@ -2,6 +2,78 @@
 
 ## Approval Register
 
+- **DECISIONS #060 - Authorize PR-RECIPE-PROJECTION-001 Recipe Canonical Projection**
+  - **Date**: Not recorded in repository authority.
+  - **Status**: APPROVED by Architecture Owner.
+  - **Related PR**: PR-RECIPE-PROJECTION-001.
+  - **Approved baseline**:
+    - Branch: `feature/pr-recipe-canonical-projection`.
+    - Commit: `8b80e9723d55c1e6dc0e30a6c83cb9e52effe20e`.
+    - The baseline contains the completed Measurement Foundation, Ingredient Measurement Profile, Canonical Ingredient Domain and Persistence, and the synchronized Architecture Development Baseline. It does not promote `main`.
+    - Creating the isolated branch and worktree is repository preparation only and does not itself grant implementation authority.
+  - **Single responsibility**:
+    - Authorize one immutable, Recipe-owned, versioned `RecipeCanonicalProjectionV1` derived from an immutable `PublishedRecipeSnapshot`.
+    - The Projection publishes canonical Recipe measurement evidence for approved consumers without modifying the Recipe Aggregate, Published Snapshot, Measurement authority, Ingredient Profile authority, or Cost authority.
+  - **Contract identity and source authority**:
+    - The stable contract name is `RecipeCanonicalProjection`; the initial contract version is `1`.
+    - The Projection contains Recipe and Recipe Version identity, Version Number, Product and Product Version references, Published or Superseded state, ordered Recipe Lines, Canonical Ingredient identity, canonical Measurement evidence, Standard Output and Standard Yield evidence, and publication and supersession facts.
+    - `ingredientReferenceId` in the current Published Snapshot is accepted only as compatibility input when it validates as the canonical `ing_<uuid>` identity. The published Projection names this fact `ingredientId`.
+    - The current Recipe `measurementDimension` is compatibility-only. It may be cross-checked but is never Measurement authority.
+    - The Projection excludes names as identity authority and excludes mutable Aggregate, Repository, database row, Infrastructure, transport, API, UI, and runtime metadata.
+  - **Normalization contract**:
+    - Add the compatible publisher-owned `IngredientMeasurementNormalizationContractV1.normalizeAt(...)` operation to the existing versioned Ingredient Measurement Profile contract.
+    - `normalizeAt(...)` means: resolve the unique formal Ingredient Measurement Profile effective at the caller-provided `evaluatedAt` and return the approved typed normalization result.
+    - For Recipe Canonical Projection, `evaluatedAt` is exactly the Recipe Version `publishedAt`. The Service must not substitute current time, processing time, superseded time, or another hidden instant.
+    - Recipe consumes only this published contract. It must not import Ingredient Measurement Profile internals, read Profile tables, define conversion ratios, resolve ambiguity, or implement a second normalization authority.
+  - **Evidence ownership**:
+    - Recipe Canonical Projection never creates, mutates, reconstructs, or recalculates Measurement or Ingredient Measurement Profile evidence.
+    - Projection only copies and transports immutable evidence produced by the owning Measurement and Profile authorities.
+    - Measurement Foundation retains authority for dimension, stable units, exact conversion ratios, canonical normalization, precision, overflow, and no-rounding policy.
+    - Canonical Ingredient Identity Authority retains authority for Profile identity, Profile Version identity, Ingredient binding, effective lifecycle, source evidence, and Active Profile uniqueness.
+    - Recipe owns only the composition of approved evidence with immutable Recipe Version facts and ordered Line traceability.
+  - **Line traceability**:
+    - v1 uses a zero-based non-negative immutable `linePosition`, preserving the exact Published Snapshot order.
+    - Position is traceability evidence for this immutable Contract representation, not a new persisted Recipe Line identity.
+    - Projection must not reorder, merge, deduplicate, aggregate, or omit Lines, including future repeated Ingredient Lines.
+  - **Purity and orchestration**:
+    - Projection construction is a pure deterministic transformation over immutable Recipe facts and authority-produced evidence.
+    - Application orchestration may invoke only approved read-only Measurement and Ingredient Measurement Profile contracts.
+    - The Service must not read current time, generate identity or version, mutate the source Snapshot, persist state, write through a Repository, emit events, or return a completed partial Projection.
+    - Identical source Snapshot and identical authority-produced evidence must produce a deeply equal Projection. No hash, random identifier, processing timestamp, repository order, or object identity becomes Projection authority.
+  - **Failure semantics**:
+    - Any invalid source, invalid canonical Ingredient identity, missing or ambiguous Profile, incompatible unit or dimension, invalid Measurement evidence, non-exact result, unsupported scale, overflow, or normalization failure fails the complete Projection with a stable typed result.
+    - `INVALID_PROFILE_VERSION_REFERENCE` means that the Profile Version referenced by returned evidence cannot be uniquely validated as legitimate historical Profile evidence for the projected Ingredient and publication instant. It is distinct from missing or ambiguous effective Profile selection.
+    - Human-readable messages are diagnostic only and never failure-classification authority. Resolver, Profile, or Measurement exceptions must not cross the public result boundary.
+  - **Exact numeric and immutability**:
+    - Authoritative quantity and ratio evidence remains coefficient/scale and numerator/denominator only, under the approved signed-64-bit and scale 0-through-6 policy.
+    - Floating-point arithmetic, `parseFloat`, unsafe `Number` coercion, implicit rounding, and lossy conversion are prohibited.
+    - The successful Projection, Lines, Product reference, normalization evidence, quantities, ratios, publication facts, and supersession facts are defensively copied and deeply immutable. No mutable source reference may escape.
+  - **Cost boundary**:
+    - Recipe Canonical Projection must never contain or depend on Quote identity, price, purchase evidence, Currency, valuation, selected cost, line cost, total cost, Cost Snapshot, or another Cost-owned fact.
+    - This Decision does not authorize Recipe Costing Contract v2, Quote Normalization Evidence, or PR-COST-004R.
+  - **Authorized implementation allowlist**:
+    - `src/domains/recipe/contracts/ingredient-measurement-profile-contract.ts`.
+    - `src/domains/recipe/contracts/recipe-canonical-projection-contract.ts`.
+    - `src/domains/recipe/application/recipe-canonical-projection-errors.ts`.
+    - `src/domains/recipe/application/recipe-canonical-projection-service.ts`.
+    - `src/domains/recipe/measurement-profile/ingredient-normalization-service.ts`.
+    - `src/domains/recipe/index.ts`.
+    - `src/tests/recipe-canonical-projection.test.ts`.
+    - `src/tests/ingredient-measurement-profile.test.ts`.
+    - `src/tests/architecture-guards.test.ts`.
+  - **Required verification**:
+    - Exact normalization for mass, volume, and count; stable Unit conversions; canonical Ingredient and Profile Version evidence; Published and Superseded source behavior; zero-based order preservation; Standard Output and Yield evidence; typed failure mapping; missing, ambiguity, invalid reference, dimension mismatch, unsupported scale, non-exact and overflow failures; deterministic deep equality; deep immutability and defensive-copy tests; relevant Recipe, Measurement, Profile, Ingredient, and Cost regressions; strict typecheck; Architecture Guard; and diff checks.
+  - **Explicitly deferred**:
+    - Recipe Aggregate, Published Snapshot, persistence, schema, migration, event changes, runtime wiring, API, UI, Cost, Quote normalization, Recipe Costing Contract v2, cost evaluation, Cost Snapshot, Supplier, Purchase, Inventory, package conversion, density, variable weight, yield or waste conversion, AI inference, reporting, and `main` promotion.
+  - **Execution sequence**:
+    1. Commit this governance Decision separately.
+    2. Verify the governance commit, exact baseline, clean implementation diff, and empty staged area.
+    3. Implement only the nine-file allowlist.
+    4. Complete Architecture Gate and Owner Audit before any implementation Safe Commit.
+  - **External actions**:
+    - Implementation Safe Commit: NOT AUTHORIZED until implementation audit and Owner approval.
+    - Push, merge, and `main` promotion: NOT AUTHORIZED.
+
 - **DECISIONS #059 - Authorize PR-INGREDIENT-002 Canonical Ingredient Persistence**
   - **Date**: Not recorded in repository authority.
   - **Status**: APPROVED by Architecture Owner.

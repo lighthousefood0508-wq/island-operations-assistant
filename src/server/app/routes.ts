@@ -15,6 +15,7 @@ import { renderPos } from "../../web/pos/page.js";
 import { renderLifecycle } from "../../web/lifecycle/page.js";
 import { renderStatistics } from "../../web/statistics/page.js";
 import { renderDevicesDebug } from "../../web/devices/page.js";
+import { renderCostBackOffice } from "../../web/cost/page.js";
 import type { CostBackOfficeService } from "./cost-back-office-service.js";
 
 type Services = Readonly<{
@@ -92,6 +93,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "GET" && pathname === "/admin") return sendHtml(response, renderEventsAdmin());
     if (request.method === "GET" && pathname === "/admin/events") return sendHtml(response, renderEventsAdmin());
     if (request.method === "GET" && pathname === "/admin/catalog") return sendHtml(response, renderCatalogAdmin());
+    if (request.method === "GET" && pathname === "/admin/cost") return sendHtml(response, renderCostBackOffice());
     if (request.method === "GET" && pathname === "/admin/analysis") return sendHtml(response, renderAnalysisPlaceholder());
     if (request.method === "GET" && pathname === "/admin/health") return sendHtml(response, renderHealthDashboard());
     if (request.method === "GET" && pathname === "/admin/devices") return sendHtml(response, renderDevicesDebug());

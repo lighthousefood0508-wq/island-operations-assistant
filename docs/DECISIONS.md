@@ -2,6 +2,61 @@
 
 ## Approval Register
 
+- **DECISIONS #059 - Authorize PR-INGREDIENT-002 Canonical Ingredient Persistence**
+  - **Date**: Not recorded in repository authority.
+  - **Status**: APPROVED by Architecture Owner.
+  - **Related PR**: PR-INGREDIENT-002.
+  - **Approved baseline**:
+    - Branch: `feature/pr-measure-001`.
+    - Commit: `950f6d18d5b27b927208533d7785988eec2fb409`.
+    - The baseline contains the approved and remotely verified PR-INGREDIENT-001 Canonical Ingredient Domain Foundation. This Decision does not promote `main`.
+  - **Decision**: Authorize only the SQLite persistence implementation of the existing `CanonicalIngredientRepository` Port, including one additive migration, persistence records and mapper, typed persistence errors, a SQLite adapter, persistence integration tests, and the minimum Architecture Guard adjustment required to express the approved Infrastructure-to-Domain dependency.
+  - **Repository semantics**:
+    - `saveNew(...)` is insert-only and accepts only a new Active Aggregate at `aggregateVersion` 0 with no rename or archive history. Duplicate identity must fail without replacing or updating the existing record.
+    - `saveWithExpectedVersion(...)` is the only mutation persistence path. It must use one atomic SQLite transaction and a conditional write against `ingredientId` and `expectedVersion`. Silent overwrite, last-write-wins, partial history writes, and a generic `save()` are prohibited.
+    - `findById(...)` may return either Active or Archived Ingredients so historical identity references remain resolvable.
+    - `searchByName(...)` and `findDuplicateCandidates(...)` return Active candidates only. They must not treat a name as identity or uniqueness authority, select an arbitrary winner, merge records, or silently rewrite identity.
+    - Archived-name search is deferred. A future capability, if approved, must use an explicit method such as `searchIncludingArchivedByName(...)`; a boolean `includeArchived` flag is not approved by this Decision.
+  - **Persistence and history rules**:
+    - The additive migration uses the next immutable migration identifier and creates only the approved Canonical Ingredient tables, constraints, and justified indexes. It must not seed, backfill, guess, rename, or delete business data.
+    - Current Aggregate state and append-first rename history are persisted separately. Rename history uses the Aggregate transition version as its stable ordering evidence; a second independent sequence authority is not introduced.
+    - Archive preserves identity and history and is never represented by hard deletion. Historical rename facts are never updated or deleted.
+    - Database timestamps preserve canonical ISO-8601 UTC text supplied by the caller. SQLite defaults and current-time generation are prohibited for business evidence.
+    - Legacy `cost_ingredients` and `cost_ingredient_aliases` remain non-authoritative and must not be read, migrated, promoted, or reused as Canonical Ingredient authority.
+  - **Hydration and validation**:
+    - Persistence must not restore an unchecked `fromContract()` or introduce an equivalent bypass around Aggregate invariants.
+    - Hydration reconstructs the Aggregate through its approved creation and lifecycle behavior: create the original state, replay rename facts in transition-version order, and replay the archive fact when present.
+    - After replay, the mapper must cross-check the reconstructed current name, status, archive fact, complete rename history, creation evidence, immutable identity and category, and `aggregateVersion` against persisted state. Any missing, malformed, contradictory, reordered, or version-inconsistent record fails closed with a typed persistence error.
+    - The mapper maps records, replays approved Domain behavior, and performs consistency checks; it does not define a second set of business lifecycle rules.
+  - **Architecture constraints**:
+    - Canonical Ingredient Identity Authority continues to own the Aggregate, public Contract, and Repository Port. Current hosting in Recipe Core does not transfer ownership to Recipe.
+    - Infrastructure may depend on the Domain-owned Port and Aggregate. Domain, Contracts, and Repository Port must not import SQLite, migration, persistence, or Infrastructure.
+    - SQLite access must remain behind the shared `DatabaseAdapter`; direct `better-sqlite3` imports outside shared database Infrastructure remain prohibited.
+    - The Architecture Guard may be changed only enough to distinguish the newly approved persistence and Infrastructure paths from protected Domain internals. Consumer access to Ingredient internals remains prohibited.
+    - The existing `CanonicalIngredient` Aggregate, public Contract, Repository Port, and Recipe public exports are not modified by this PR.
+  - **Authorized implementation scope**:
+    - `migrations/014_recipe_canonical_ingredients.sql`.
+    - `src/domains/recipe/ingredient-catalog/persistence/records.ts`.
+    - `src/domains/recipe/ingredient-catalog/persistence/errors.ts`.
+    - `src/domains/recipe/ingredient-catalog/persistence/canonical-ingredient-persistence-mapper.ts`.
+    - `src/domains/recipe/ingredient-catalog/infrastructure/sqlite-canonical-ingredient-repository.ts`.
+    - `src/tests/canonical-ingredient-persistence.integration.test.ts`.
+    - `src/tests/architecture-guards.test.ts`, limited to the approved dependency-boundary adjustment and corresponding guard coverage.
+  - **Required verification**:
+    - Fresh-database and supported-upgrade migration tests; Active, renamed, and Archived round-trip tests; append-first history and fail-closed corrupted-row tests; duplicate-insert protection; expected-version success and conflict; two-connection concurrency; transaction rollback; Active-only candidate search; historical lookup by identity; strict typecheck; relevant regressions; Architecture Guard; migration smoke; and diff checks.
+  - **Explicitly deferred**:
+    - Archived-name search; Global Search; Alias; Merge; Supplier; Supplier Item; Brand; Purchase; Inventory; Measurement Profile persistence; package specifications or conversions; Recipe modification; Cost calculation; API; UI; Runtime wiring; events; reporting; AI inference; hard delete; and all PR-INGREDIENT-003 or later scope.
+  - **Relationship to DECISIONS #058**:
+    - DECISIONS #058 remains the authority for the Canonical Ingredient Pure Domain Foundation. This Decision adds only the persistence authorization above and does not rewrite the Domain model, its ownership, or its public Contract.
+  - **Execution sequence**:
+    1. Review and safely commit this governance Decision separately.
+    2. Verify the governance commit, clean worktree, exact baseline, and empty staged area.
+    3. Only then implement PR-INGREDIENT-002 within the exact authorized allowlist.
+  - **External actions**:
+    - Implementation before the separate governance commit: NOT AUTHORIZED.
+    - Safe Commit of implementation: NOT AUTHORIZED until implementation audit and Owner approval.
+    - Push, merge, and `main` promotion: NOT AUTHORIZED.
+
 - **DECISIONS #058 - Authorize PR-INGREDIENT-001 Canonical Ingredient Catalog Foundation**
   - **Date**: Not recorded in repository authority.
   - **Status**: APPROVED by Architecture Owner.

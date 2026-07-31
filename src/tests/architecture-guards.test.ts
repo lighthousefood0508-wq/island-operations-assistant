@@ -132,7 +132,12 @@ test("Ingredient Measurement Profile internals remain behind versioned contracts
   );
   const recipePublicIndex = path.join(recipeRoot, "index.ts");
 
-  for (const filename of filesUnder(profileRoot, [".ts"])) {
+  const profileDomainFiles = filesUnder(profileRoot, [".ts"])
+    .filter((filename) =>
+      !filename.includes(`${path.sep}persistence${path.sep}`)
+      && !filename.includes(`${path.sep}infrastructure${path.sep}`)
+    );
+  for (const filename of profileDomainFiles) {
     for (const specifier of importedSpecifiers(filename)) {
       const target = resolveSourceImport(filename, specifier);
       assert.ok(
@@ -160,6 +165,66 @@ test("Ingredient Measurement Profile internals remain behind versioned contracts
     );
   }
 
+  const profilePersistenceFiles = filesUnder(
+    path.join(profileRoot, "persistence"),
+    [".ts"]
+  );
+  const profileInfrastructureFiles = filesUnder(
+    path.join(profileRoot, "infrastructure"),
+    [".ts"]
+  );
+  for (const filename of [
+    ...profilePersistenceFiles,
+    ...profileInfrastructureFiles
+  ]) {
+    assertNoTerms(
+      readFileSync(filename, "utf8"),
+      [
+        "better-sqlite3",
+        "node:sqlite",
+        "domains/cost",
+        "recipe-aggregate",
+        "MeasurementConversionRatio",
+        "unit-catalog"
+      ],
+      filename
+    );
+  }
+  for (const filename of profilePersistenceFiles) {
+    for (const specifier of importedSpecifiers(filename)) {
+      const target = resolveSourceImport(filename, specifier);
+      assert.ok(
+        specifier === "node:util"
+        || (
+          target !== null
+          && (
+            target.startsWith(`${profileRoot}${path.sep}`)
+            || target === profileContract
+            || target === measurementContract
+          )
+        ),
+        `${filename} imports outside Profile persistence authority: ${specifier}`
+      );
+    }
+  }
+  for (const filename of profileInfrastructureFiles) {
+    for (const specifier of importedSpecifiers(filename)) {
+      const target = resolveSourceImport(filename, specifier);
+      assert.ok(
+        target !== null
+        && (
+          target.startsWith(`${profileRoot}${path.sep}`)
+          || target === profileContract
+          || target === measurementContract
+          || target.endsWith(
+            `${path.sep}shared${path.sep}database${path.sep}database-adapter.ts`
+          )
+        ),
+        `${filename} imports outside approved Profile Infrastructure dependencies: ${specifier}`
+      );
+    }
+  }
+
   const productionFiles = filesUnder(sourceRoot, [".ts"])
     .filter((filename) => !filename.includes(`${path.sep}tests${path.sep}`))
     .filter((filename) => !filename.startsWith(`${profileRoot}${path.sep}`))
@@ -179,7 +244,7 @@ test("Ingredient Measurement Profile internals remain behind versioned contracts
   assert.match(publicIndexSource, /ingredient-measurement-profile-contract/);
   assert.doesNotMatch(
     publicIndexSource,
-    /measurement-profile\/(?:ingredient|identities|errors|profile-validator)/
+    /measurement-profile\/(?:ingredient|identities|errors|profile-validator|infrastructure|persistence)/
   );
   assertNoTerms(
     readFileSync(profileContract, "utf8"),

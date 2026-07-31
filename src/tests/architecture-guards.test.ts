@@ -197,6 +197,113 @@ test("Ingredient Measurement Profile internals remain behind versioned contracts
   assert.match(profileValidatorSource, /unitResolver\.resolveUnit/);
 });
 
+test("Recipe Canonical Projection uses published contracts without creating Cost or Measurement authority", () => {
+  const recipeRoot = path.join(sourceRoot, "domains", "recipe");
+  const projectionContract = path.join(
+    recipeRoot,
+    "contracts",
+    "recipe-canonical-projection-contract.ts"
+  );
+  const profileContract = path.join(
+    recipeRoot,
+    "contracts",
+    "ingredient-measurement-profile-contract.ts"
+  );
+  const measurementContract = path.join(
+    recipeRoot,
+    "contracts",
+    "measurement-foundation-contract.ts"
+  );
+  const ingredientContract = path.join(
+    recipeRoot,
+    "contracts",
+    "canonical-ingredient-contract.ts"
+  );
+  const projectionService = path.join(
+    recipeRoot,
+    "application",
+    "recipe-canonical-projection-service.ts"
+  );
+  const projectionErrors = path.join(
+    recipeRoot,
+    "application",
+    "recipe-canonical-projection-errors.ts"
+  );
+  const publishedSnapshot = path.join(
+    recipeRoot,
+    "domain",
+    "published-recipe-snapshot.ts"
+  );
+  const recipePublicIndex = path.join(recipeRoot, "index.ts");
+
+  for (const specifier of importedSpecifiers(projectionContract)) {
+    const target = resolveSourceImport(projectionContract, specifier);
+    assert.ok(
+      target === profileContract
+        || target === measurementContract
+        || target === ingredientContract,
+      `Projection Contract imports unapproved authority: ${specifier}`
+    );
+  }
+
+  for (const specifier of importedSpecifiers(projectionService)) {
+    const target = resolveSourceImport(projectionService, specifier);
+    assert.ok(
+      target === projectionContract
+        || target === profileContract
+        || target === measurementContract
+        || target === ingredientContract
+        || target === projectionErrors
+        || target === publishedSnapshot,
+      `Projection Service imports outside its approved contracts and Recipe source: ${specifier}`
+    );
+  }
+
+  assertNoTerms(
+    readFileSync(projectionService, "utf8"),
+    [
+      "domains/cost",
+      "better-sqlite3",
+      "node:sqlite",
+      "/persistence/",
+      "/infrastructure/",
+      "date.now",
+      "randomuuid",
+      "parsefloat",
+      "linecost",
+      "totalcost",
+      "costsnapshot",
+      "quoteid"
+    ],
+    projectionService
+  );
+  assertNoTerms(
+    readFileSync(projectionContract, "utf8"),
+    [
+      "quoteid",
+      "price",
+      "currency",
+      "linecost",
+      "totalcost",
+      "costsnapshot",
+      "repository",
+      "database"
+    ],
+    projectionContract
+  );
+
+  const publicIndexSource = readFileSync(recipePublicIndex, "utf8");
+  assert.match(publicIndexSource, /recipe-canonical-projection-contract/);
+  assert.match(
+    readFileSync(profileContract, "utf8"),
+    /IngredientMeasurementNormalizationContractV1[\s\S]*normalizeAt/
+  );
+  assert.doesNotMatch(
+    publicIndexSource,
+    /recipe-canonical-projection-service|recipe-canonical-projection-errors/
+  );
+});
+
 test("Canonical Ingredient internals remain behind the published contract", () => {
   const recipeRoot = path.join(sourceRoot, "domains", "recipe");
   const ingredientRoot = path.join(recipeRoot, "ingredient-catalog");

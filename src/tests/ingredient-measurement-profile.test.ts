@@ -190,6 +190,25 @@ function assertFailure(
   }
 }
 
+test("normalizeAt exposes effective-time normalization through the published contract", () => {
+  const service = serviceFor([onlyVersion(activeProfile())]);
+  const result = service.normalizeAt(request({
+    rawQuantity: { coefficient: "2", scale: 0 },
+    rawUnitValue: "kg",
+    evaluatedAt: LATER
+  }));
+
+  assert.equal(result.status, "normalized");
+  if (result.status === "normalized") {
+    assert.equal(result.evidence.evaluatedAt, LATER);
+    assert.equal(result.evidence.profileVersionId, PROFILE_VERSION_ID);
+    assert.deepEqual(result.evidence.measurementEvidence.normalizedQuantity, {
+      coefficient: "2000",
+      scale: 0
+    });
+  }
+});
+
 test("valid mass Profile canonicalizes to g", () => {
   const version = onlyVersion(activeProfile());
   assert.equal(version.state, "Active");

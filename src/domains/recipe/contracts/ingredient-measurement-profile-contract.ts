@@ -187,6 +187,12 @@ export type IngredientNormalizationResultV1 =
     }>;
   }>;
 
+export interface IngredientMeasurementNormalizationContractV1 {
+  normalizeAt(
+    request: IngredientNormalizationRequestV1
+  ): IngredientNormalizationResultV1;
+}
+
 export interface IngredientMeasurementProfileRepositoryPortV1 {
   findHistoryByProfileId(
     profileId: IngredientMeasurementProfileId

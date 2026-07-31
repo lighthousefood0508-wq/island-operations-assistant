@@ -123,6 +123,7 @@ export {
   type IngredientMeasurementProfileContractV1,
   type IngredientMeasurementProfileId,
   type IngredientMeasurementProfileIdentityV1,
+  type IngredientMeasurementNormalizationContractV1,
   type IngredientMeasurementProfileRepositoryPortV1,
   type IngredientMeasurementProfileStatus,
   type IngredientMeasurementProfileVersionId,
@@ -137,6 +138,15 @@ export {
   type PinnedIngredientNormalizationRequestV1,
   type SupersededMeasurementProfileDefinitionContractV1
 } from "./contracts/ingredient-measurement-profile-contract.js";
+export {
+  RECIPE_CANONICAL_PROJECTION_CONTRACT_NAME,
+  RECIPE_CANONICAL_PROJECTION_CONTRACT_VERSION,
+  type RecipeCanonicalProjectionFailureCodeV1,
+  type RecipeCanonicalProjectionFailureV1,
+  type RecipeCanonicalProjectionLineV1,
+  type RecipeCanonicalProjectionResultV1,
+  type RecipeCanonicalProjectionV1
+} from "./contracts/recipe-canonical-projection-contract.js";
 export {
   APPROVED_INGREDIENT_CATEGORY_CODES_V1,
   CANONICAL_INGREDIENT_CONTRACT_VERSION,

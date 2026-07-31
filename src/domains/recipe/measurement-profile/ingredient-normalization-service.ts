@@ -1,6 +1,7 @@
 import {
   INGREDIENT_MEASUREMENT_PROFILE_CONTRACT_VERSION,
   type FormalMeasurementProfileDefinitionContractV1,
+  type IngredientMeasurementNormalizationContractV1,
   type IngredientMeasurementProfileAliasV1,
   type IngredientMeasurementProfileRepositoryPortV1,
   type IngredientNormalizationEvidenceV1,
@@ -156,12 +157,19 @@ function isProfileEffectiveAt(
     || instant < Date.parse(profile.effectiveTo);
 }
 
-export class IngredientMeasurementNormalizationService {
+export class IngredientMeasurementNormalizationService
+implements IngredientMeasurementNormalizationContractV1 {
   constructor(
     private readonly repository: IngredientMeasurementProfileRepositoryPortV1,
     private readonly unitResolver: MeasurementUnitResolutionContractV1,
     private readonly normalizer: MeasurementFoundationContractV1
   ) {}
+
+  normalizeAt(
+    request: IngredientNormalizationRequestV1
+  ): IngredientNormalizationResultV1 {
+    return this.normalizeCurrent(request);
+  }
 
   normalizeCurrent(
     request: IngredientNormalizationRequestV1

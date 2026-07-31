@@ -2,6 +2,63 @@
 
 ## Approval Register
 
+- **DECISIONS #065 - Authorize Cost Back Office Vertical Slice**
+  - **Date**: Not recorded in repository authority.
+  - **Status**: APPROVED by Architecture Owner.
+  - **Owner authorization**: Complete the evaluated long-running Cost Back Office task.
+  - **Constitution Compatibility Gate**:
+    - Reviewed ADR: ADR-019 and DECISIONS #053, #056, #059, #060, #061, #062, #063, and #064.
+    - Compatibility Result: PASS.
+    - Catalog, Canonical Ingredient Identity Authority, Measurement Foundation, Recipe, and Cost retain exclusive ownership of their existing facts.
+    - Back Office and server composition may orchestrate approved public contracts and Domain-owned Ports but create no new business authority and may not query another authority's tables.
+  - **Objective**:
+    - Deliver one owner-facing Cost Back Office vertical slice that works from a freshly migrated empty ROS database.
+    - The operator can create a Canonical Ingredient, establish its formal Measurement Profile, create and publish a Recipe using canonical Ingredient identity, record or replace an Ingredient Cost Quote, and execute the approved read-only Recipe Cost Evaluation.
+    - The final UI displays exact batch, per-yield, and line Cost evidence or stable typed failures. It never calculates, selects Quotes, converts Units, rounds, or stores Evaluation authority in browser state.
+  - **Approved implementation sequence and PR boundaries**:
+    1. **PR-MEASURE-003 - Ingredient Measurement Profile Persistence**: one forward-only migration, Profile persistence records/mapper/errors, SQLite adapter implementing the existing read contract plus Domain-owned management persistence, integration tests, and Architecture Guard.
+    2. **PR-RECIPE-PERSIST-002 - Recipe SQLite Persistence**: one forward-only migration, SQLite implementation of the existing versioned Recipe Repository semantics, complete Draft/Published/Superseded history, integration tests, and Architecture Guard.
+    3. **PR-COST-005 - Cost Back Office Application and Runtime API**: server composition over existing Domain behavior and published contracts, narrow JSON request/response DTOs, typed HTTP error mapping, read/list capabilities required by the operator workflow, API integration tests, and Architecture Guard.
+    4. **PR-COST-006 - Cost Back Office UI and E2E Acceptance**: `/admin/cost`, Back Office navigation, guided setup/evaluation workflow, exact-value presentation without authoritative rounding, error/empty/loading/retry states, Playwright acceptance, and full regression verification.
+    - Each responsibility remains separately reviewable and separately committed. Governance, migrations, runtime/API, and UI must not be combined into one implementation commit.
+  - **Persistence rules**:
+    - Migrations `001` through `014` remain immutable. New schema uses only migrations `015` and later.
+    - Ingredient Measurement Profile and Recipe persistence use `recipe_*`; Quote persistence remains `cost_*`.
+    - SQLite adapters implement Domain-owned Ports and use only the shared `DatabaseAdapter`.
+    - Published Recipe Versions and formal Profile Versions are append-first historical evidence. No hard delete, silent overwrite, seed, legacy promotion, guessed backfill, or SQLite business timestamp default is authorized.
+    - Hydration must replay approved Domain behavior, cross-check current rows against complete history, and fail closed on malformed or contradictory records.
+    - New management writes use explicit expected-version or insert-only semantics and one transaction. Last-write-wins and partial multi-table writes are prohibited.
+  - **Application and API boundary**:
+    - Runtime composition is the only layer allowed to assemble Recipe, Measurement/Profile, Cost Quote, and Cost Evaluation application capabilities.
+    - Composition may import concrete adapters and application services for construction only. Domain code must not gain reverse dependencies.
+    - API handlers call the Cost Back Office application facade; they do not execute SQL, recalculate Domain results, or expose raw Infrastructure errors.
+    - New additive read/list Ports are authorized only where the operator workflow cannot be implemented through an existing Port. They remain owned by the authority whose data they expose.
+    - HTTP responses follow the existing `{ ok, data }` or `{ ok, error }` envelope and expose stable error codes without stack traces or SQLite details.
+  - **Operator workflow**:
+    - The UI belongs only in Back Office and must not appear in POS or Kitchen.
+    - The guided order is Ingredient -> Measurement Profile -> Recipe Draft -> Publish -> Quote -> Evaluate.
+    - The UI uses server-provided identities and canonical evidence. It does not invent identity, profile selection, effective Quote selection, conversion evidence, Currency, totals, or historical time.
+    - Caller-supplied business instants use canonical ISO-8601 UTC. UI defaults may assist entry but the server remains the validation boundary.
+    - Cost Evaluation remains ephemeral under DECISIONS #064. Refreshing the page does not imply a Cost Snapshot.
+  - **Exact numeric and display rules**:
+    - Authoritative quantities, money, conversion ratios, and results remain coefficient/scale or canonical rational strings.
+    - JSON transport and UI must not coerce authoritative bigint evidence through JavaScript `Number`, floating point, `parseFloat`, or implicit division.
+    - UI may format exact decimal/rational strings for human reading only while retaining the complete authoritative evidence in the response.
+    - No settlement, presentation, or Cost Snapshot rounding policy is introduced.
+  - **Required end-to-end acceptance**:
+    - A fresh database migrates through all new migrations.
+    - The owner creates one mass Ingredient and Active Profile, publishes a Recipe with exact canonical measurement evidence, records an effective TWD Quote, and receives the exact expected Cost Evaluation.
+    - The workflow survives a server restart because Recipe, Profile, Ingredient, and Quote authority are SQLite-backed.
+    - Missing Quote, ambiguous Quote, unknown Unit, incompatible dimension, invalid time, and stale expected-version failures remain typed and fail closed.
+    - Architecture Guard proves UI has no database or Domain-internal dependency, server routes contain no calculation authority, Cost does not read `recipe_*`, and Recipe/Measurement do not depend on Cost.
+    - Strict typecheck, migration smoke, focused suites, full repository tests, and Playwright E2E must pass with no skipped, todo, or cancelled tests.
+  - **Explicitly deferred**:
+    - Cost Snapshot, Evaluation persistence, reporting history, Supplier, Purchase workflow, Inventory, package specification or conversion, density, variable weight, multi-currency, settlement rounding, margin analysis, authentication/authorization redesign, external integration, AI inference, merge, and `main` promotion.
+  - **External actions**:
+    - The isolated branch `feature/cost-back-office` at baseline `7809e8555c58c9ae5d11498361ac88360890f4e4` is approved for this campaign.
+    - Separate scoped commits for the four approved implementation responsibilities are authorized after their applicable tests and Architecture Gate pass.
+    - Push is NOT AUTHORIZED by this Decision. Merge and `main` promotion remain NOT AUTHORIZED.
+
 - **DECISIONS #064 - Authorize PR-COST-004R Recipe Cost Evaluation**
   - **Date**: Not recorded in repository authority.
   - **Status**: APPROVED by Architecture Owner.

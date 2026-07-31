@@ -2,6 +2,124 @@
 
 ## Approval Register
 
+- **DECISIONS #064 - Authorize PR-COST-004R Recipe Cost Evaluation**
+  - **Date**: Not recorded in repository authority.
+  - **Status**: APPROVED by Architecture Owner.
+  - **Related PR**: PR-COST-004R.
+  - **Constitution Compatibility Gate**:
+    - Reviewed ADR: ADR-019, DECISIONS #052, #053, #060, #061, #062, and #063.
+    - Compatibility Result: PASS.
+    - Recipe remains the sole Recipe authority and publishes `RecipeCostingContractV2`. Cost owns Quote selection, Quote normalization consumption, valuation policy, exact cost arithmetic, Evaluation invariants, and the ephemeral Evaluation Result.
+    - Measurement Foundation and Canonical Ingredient Identity Authority retain their existing exclusive authorities. Recipe and Measurement must not depend on Cost, and this Decision creates no shared ownership or reverse dependency.
+  - **Approved baseline**:
+    - Branch: `feature/pr-cost-004r`.
+    - Commit: `febfa4abea3e61748d7a3d0dc0c0f03bf811ace4`.
+    - The baseline contains the remotely verified Measurement Foundation, Ingredient Measurement Profile, Canonical Ingredient Domain and Persistence, Recipe Canonical Projection, Ingredient Cost Quote Normalization Evidence, and Recipe Costing Contract v2.
+    - The baseline does not promote `main`. Creating the isolated branch and worktree is repository preparation only and does not itself grant implementation authority.
+  - **Single responsibility**:
+    - Authorize one read-only Cost-owned use case that evaluates one valid `RecipeCostingContractV2` against authoritative Ingredient Cost Quotes at one caller-provided `evaluatedAt`.
+    - The Service produces one complete, deterministic, exact `STANDARD_RECIPE` Cost Evaluation Result or one typed failure.
+    - The Service must not mutate Recipe, Quote, Measurement, Ingredient Profile, Repository state, or another authority.
+  - **Relationship to DECISIONS #052 and #063**:
+    - DECISIONS #052 remains historical governance evidence for the original v1 design.
+    - This Decision supersedes the v1 direct raw Unit-code equality rule and the `effectiveAt` command-field name for new Cost Evaluation implementation.
+    - New implementation consumes `RecipeCostingContractV2` and uses the caller-provided canonical UTC field `evaluatedAt`, consistent with DECISIONS #061 and #063.
+    - Cost Snapshot, Snapshot Contract, Snapshot persistence, and historical Evaluation persistence remain explicitly deferred.
+  - **Command and time authority**:
+    - `EvaluateRecipeCostCommand` contains only `recipe: RecipeCostingContractV2` and caller-provided canonical ISO-8601 UTC `evaluatedAt`.
+    - `evaluatedAt` is the only Quote selection and Quote normalization instant for one Evaluation.
+    - Recipe evidence remains pinned to the Recipe Projection `publishedAt`. Cost must not re-normalize Recipe evidence at `evaluatedAt`, current time, processing time, or current Profile authority.
+    - The Service must not call the system clock, database clock, or create another hidden instant.
+  - **Quote selection policy**:
+    - Each unique Canonical Ingredient is resolved with the existing Cost Quote authority at `evaluatedAt`.
+    - `effectiveFrom` is inclusive, `effectiveTo` is exclusive, an absent end is open-ended, and a Quote is excluded at and after `supersededAt`.
+    - No Quote produces typed missing cost. More than one authoritative Quote produces the existing typed `AmbiguousEffectiveIngredientCostQuote`.
+    - Ambiguity is a Domain failure, not a Selection Strategy. Insertion order, row order, recorded time, Aggregate version, lexical identity, highest price, lowest price, or another hidden rule must never choose a winner.
+    - Repeated Recipe Lines for one Ingredient may reuse one selected and normalized immutable Quote Evidence, but every Line retains independent position, quantity, calculation, and traceability.
+  - **Read Unit-of-Work**:
+    - Authorize a Cost-owned `CostEvaluationReadUnitOfWork` and a narrow `CostEvaluationQuoteReader`.
+    - Every Quote read for one Evaluation must occur synchronously inside one SQLite deferred read transaction/snapshot using the existing `DatabaseAdapter.transaction()` capability.
+    - The capability must not use `BEGIN IMMEDIATE`, acquire an unnecessary write lock, or reuse the lifecycle write Unit of Work.
+    - The callback and runtime object must not expose `save`, `saveWithExpectedVersion`, transaction-write methods, or any Repository with write authority, even when the current caller promises not to use them.
+    - The SQLite adapter may internally delegate reads to the existing `SqliteCostRepository`, but it must expose only the narrow read capability.
+    - A two-connection integration test must prove that reads performed after the snapshot is established do not observe a concurrent Quote change from the second connection.
+  - **Quote normalization dependency**:
+    - Evaluation consumes the approved `IngredientCostQuoteNormalizationEvidenceV1` result boundary.
+    - Evaluation may depend on a narrow `IngredientCostQuoteNormalizationPort` shape but must not import or expose the concrete Quote Application Service as authority.
+    - The narrow capability receives an already selected Quote and the same `evaluatedAt`; it returns only the approved typed normalization result.
+    - Evaluation must not import Measurement internals, Ingredient Profile internals, Recipe Application, Quote Application implementation, persistence records, or another domain's tables.
+  - **Recipe and Quote compatibility**:
+    - A Recipe Line and selected Quote Evidence are compatible only when Canonical Ingredient identity, Measurement dimension, and canonical Unit are equal.
+    - Recipe and Quote raw Units, Profile IDs, Profile Version IDs, conversion identities, and exact normalized quantities need not be equal.
+    - Different valid Profile Versions are neither an error nor a warning and must not trigger re-normalization.
+    - Recipe and Quote exact canonical quantities are independent authoritative calculation inputs.
+    - Cost Evaluation must never modify, repair, reinterpret, or re-normalize either side's immutable Evidence to make them compatible.
+  - **Cost-owned exact rational arithmetic**:
+    - Authorize a Cost-owned `ExactRational` primitive. It must not import or reuse Measurement's internal conversion-ratio implementation.
+    - `ExactRational` uses exact bigint arithmetic; its numerator is a canonical signed integer string and its denominator is a canonical positive integer string.
+    - Every instance and every operation is canonical: the greatest common divisor is removed, the denominator remains positive, equivalent fractions have one representation, and zero is always `0/1`.
+    - Source Monetary and quantity decimals remain signed-64-bit coefficient plus scale 0 through 6 under their existing authorities.
+    - Rational intermediate and ephemeral result arithmetic uses arbitrary-precision bigint so valid bounded source evidence does not fail due to JavaScript safe-integer or signed-64-bit multiplication overflow.
+    - No JavaScript floating point, `Number(bigint)`, `parseFloat`, implicit division, display value, SQLite arithmetic, rounding, or lossy conversion may become authority.
+    - A future persistence or transport bound for Rational numerator/denominator requires a separate Owner Decision. This PR persists no Rational.
+  - **Calculation policy**:
+    - `valuationPolicy` is `VAL-1`; `roundingPolicy` is `NONE_EXACT`.
+    - For each ordered Recipe Line, exact `lineCost = Quote monetary amount * Recipe normalized quantity / Quote normalized purchase quantity`.
+    - `standardBatchCost` is the exact sum of every ordered Line result, including repeated Ingredient Lines.
+    - `perStandardYieldCost = standardBatchCost / normalized Standard Yield`. Standard Yield evidence must be positive and remains attached to the result.
+    - Standard Output evidence is transported unchanged. This Decision does not authorize actual Yield, waste, allocation, serving policy, arbitrary production scaling, or presentation rounding.
+  - **Currency policy**:
+    - The Command contains no desired Currency, conversion target, exchange rate, or caller-calculated amount.
+    - Result Currency is derived from selected Quote Evidence.
+    - All selected Quotes must use one Currency. Mixed Currency fails with a stable typed mismatch.
+    - `VAL-1` supports TWD only. A consistent non-TWD set fails with a stable typed unsupported-Currency result.
+    - Zero-price Quotes are valid. Missing cost must never become zero. Currency conversion remains deferred.
+  - **Evaluation Result**:
+    - Authorize one immutable, versioned `RecipeCostEvaluationResultV1` with `basis: STANDARD_RECIPE`, `valuationPolicy: VAL-1`, and `roundingPolicy: NONE_EXACT`.
+    - It contains caller-provided `evaluatedAt`, derived Currency, complete Recipe Costing Contract evidence, ordered Line results, selected Quote Normalization Evidence per Line, exact canonical Line costs, Standard Output and Yield evidence, exact Standard Batch Cost, and exact per-Standard-Yield Cost.
+    - The Result is a Cost-owned deterministic calculation outcome with Cost-owned invariants.
+    - It is not persisted historical authority, a source database, a Cost Snapshot, a Snapshot Contract, a Snapshot identity, or a replacement for future Cost Snapshot governance.
+    - The Service creates no Evaluation identity, recorded time, processing metadata, cache authority, event, or partial completed Result.
+  - **Failure semantics**:
+    - Stable typed failures distinguish invalid or unsupported Recipe Costing Contract, invalid Evaluation request, missing cost, Quote ambiguity, Quote normalization failure, Measurement incompatibility, Currency mismatch, unsupported Currency, arithmetic failure, and read-transaction technical failure.
+    - Existing `AmbiguousEffectiveIngredientCostQuote` remains authoritative for Quote ambiguity.
+    - Quote Normalization source failure codes may be retained as diagnostic typed evidence but human-readable messages never classify failures.
+    - Raw SQLite, Repository, or Measurement/Profile exceptions must not cross the public boundary.
+    - Failure of any Quote read, normalization, compatibility check, Currency check, or arithmetic operation fails the complete Evaluation. Arithmetic failure must never produce a partial Line collection, partial total, fallback value, or completed Result.
+  - **Performance policy**:
+    - v1 may perform one effective Quote query and one normalization per unique Ingredient, reusing the immutable result for repeated Lines.
+    - Batch Quote query optimization, caching, pagination, prefetch authority, and asynchronous parallel reads remain deferred.
+    - This accepted v1 N+1 tradeoff must not change selection semantics or hide ambiguity.
+  - **Architecture and public export constraints**:
+    - Cost consumes only the published Recipe Costing Contract v2 and approved Quote Normalization Evidence contract.
+    - Recipe and Measurement do not import Cost. Cost does not import Recipe Aggregate, Recipe Application, Measurement internals, Ingredient Profile internals, concrete Quote Application implementation, Recipe persistence, or another domain's tables.
+    - Architecture Guard must prove the read capability has no write methods; Evaluation has no Snapshot, persistence, hidden-time, float, arbitrary-winner, or concrete cross-boundary dependency; and existing guards are not weakened.
+    - Minimal Cost public exports may expose Evaluation Result constants/types, stable failures, and the read capability Port. Runtime composition, API, and Infrastructure implementation do not become cross-domain contracts.
+  - **Authorized implementation allowlist**:
+    - `src/domains/cost/domain/exact-rational.ts`.
+    - `src/domains/cost/domain/recipe-cost-evaluation.ts`.
+    - `src/domains/cost/domain/cost-evaluation-read-unit-of-work.ts`.
+    - `src/domains/cost/application/recipe-cost-evaluation-errors.ts`.
+    - `src/domains/cost/application/recipe-cost-evaluation-service.ts`.
+    - `src/domains/cost/infrastructure/sqlite-cost-evaluation-read-unit-of-work.ts`.
+    - `src/domains/cost/index.ts`.
+    - `src/tests/cost-evaluation.test.ts`.
+    - `src/tests/cost-evaluation.integration.test.ts`.
+    - `src/tests/architecture-guards.test.ts`.
+  - **Required verification**:
+    - Recipe Costing Contract v2 identity and version; canonical `evaluatedAt`; effective start/end/open-ended/supersession boundaries; zero-price Quote; missing and ambiguity; deterministic selection; repeated Ingredient Line reuse with independent Line trace; compatible and incompatible canonical dimensions/Units; different Profile Versions accepted without re-normalization; exact mass, volume, and count calculations; canonical fractions including `4/8 -> 1/2` and zero `0/99 -> 0/1`; `TWD 800 / 2400g * 600g = TWD 200`; Standard Yield 3 producing exact `200/3`; Currency derivation, mixed Currency, and non-TWD failure; no float or rounding; complete typed failure with no partial result; one read UoW execution; reader type and runtime object exposing no writes; deferred `BEGIN` rather than `BEGIN IMMEDIATE`; two-connection consistent-snapshot proof; deterministic deep equality and deep immutability; relevant Recipe, Measurement, Profile, Quote Domain/Persistence/Lifecycle/Evidence and Architecture Guard regressions; strict TypeScript typecheck; and diff checks.
+  - **Explicitly deferred**:
+    - Cost Snapshot, Snapshot Contract, Snapshot identity, Snapshot persistence, Evaluation persistence, schema, migration, write-side concurrency, Quote mutation, Recipe mutation, Measurement/Profile mutation, Cost Events, Recipe Event Consumer, runtime composition, API, UI, Supplier, Purchase workflow, Inventory, package conversion, density, variable weight, Currency conversion, presentation or settlement rounding, allocation, actual Yield, waste, labor, overhead, tax, margin, reporting, AI inference, cache, batch Quote query, merge, and `main` promotion.
+  - **Execution sequence**:
+    1. Commit this governance Decision separately.
+    2. Verify the governance commit, approved baseline, clean implementation worktree, and empty staged area.
+    3. Implement only the ten-file allowlist.
+    4. Complete Architecture Gate and Owner Audit before any implementation Safe Commit.
+  - **External actions**:
+    - Governance Safe Commit is authorized as a separate documentation-only commit.
+    - Implementation is NOT AUTHORIZED until the Owner verifies this governance commit and grants separate implementation authorization.
+    - Push, merge, and `main` promotion are NOT AUTHORIZED.
+
 - **DECISIONS #063 - Authorize PR-RECIPE-COSTING-CONTRACT-002 Recipe Costing Contract v2**
   - **Date**: Not recorded in repository authority.
   - **Status**: APPROVED by Architecture Owner.

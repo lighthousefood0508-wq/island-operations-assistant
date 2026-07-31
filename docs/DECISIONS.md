@@ -2,6 +2,81 @@
 
 ## Approval Register
 
+- **DECISIONS #063 - Authorize PR-RECIPE-COSTING-CONTRACT-002 Recipe Costing Contract v2**
+  - **Date**: Not recorded in repository authority.
+  - **Status**: APPROVED by Architecture Owner.
+  - **Related PR**: PR-RECIPE-COSTING-CONTRACT-002.
+  - **Constitution Compatibility Gate**:
+    - Reviewed ADR: ADR-019, DECISIONS #052, #053, #060, #061, and #062.
+    - Compatibility Result: PASS.
+    - Recipe remains the sole authority for Recipe identity, immutable Published Recipe Versions and Lines, canonical Recipe measurement evidence, Standard Output, Standard Yield, and the versioned Recipe Costing boundary.
+    - Measurement Foundation and Canonical Ingredient Identity Authority retain their existing exclusive authorities. Recipe must not depend on Cost, and this Decision creates no reverse dependency or shared ownership.
+  - **Approved baseline**:
+    - Branch: `feature/recipe-costing-contract-v2`.
+    - Commit: `e1859aa81c3eec07fb439fd74ca2508cd3159f66`.
+    - The baseline contains the remotely verified Recipe Canonical Projection and Ingredient Cost Quote Normalization Evidence foundations. It does not promote `main`.
+    - Creating the isolated branch and worktree is repository preparation only and does not itself grant implementation authority.
+  - **Single responsibility**:
+    - Authorize one immutable, Recipe-owned, versioned `RecipeCostingContractV2` as the public Recipe boundary approved for a future PR-COST-004R Cost Evaluation.
+    - The Contract is a minimal semantic wrapper over one valid `RecipeCanonicalProjectionV1`. It identifies that Projection as approved Recipe costing input without duplicating Recipe facts, Measurement evidence, Ingredient Profile evidence, or Cost facts.
+    - The Contract is not a new Aggregate, persistence model, Cost calculation model, Quote model, or Cost Snapshot.
+  - **Contract identity and content**:
+    - The stable contract name is `RecipeCostingContract`; the contract version is `2`.
+    - The Contract contains `contractName`, `contractVersion`, `basis: RECIPE_CANONICAL_PROJECTION`, source Projection contract name and version, and the complete immutable `RecipeCanonicalProjectionV1`.
+    - The wrapper must not reinterpret, repair, reconstruct, re-normalize, replace, or duplicate any Recipe, Measurement, or Ingredient Profile fact or evidence from the Projection.
+    - The implementation may validate supported source contract identity and version, validate required wrapper/source structure, defensively copy the source, deep-freeze the result, and fail closed. It must not create a second authority by reimplementing Measurement or Ingredient Profile business validation.
+  - **Version relationship**:
+    - DECISIONS #052 and `RecipeCostingContractV1` remain historical governance evidence.
+    - The v1 direct raw Unit-code equality rule is not authorized for new Cost Evaluation implementation after the Measurement and canonical-evidence governance established by DECISIONS #053.
+    - New Cost Evaluation work must consume `RecipeCostingContractV2` unless a later Owner Decision explicitly approves another version.
+  - **Time and historical evidence**:
+    - Recipe evidence remains authoritative at `recipeProjection.publishedAt`.
+    - Future Quote normalization evidence remains authoritative at the caller-provided `evaluatedAt` defined by DECISIONS #061.
+    - This Decision does not introduce `effectiveAt` as a second name for the Quote evaluation instant.
+    - Different Ingredient Measurement Profile Versions on Recipe evidence and Quote evidence are valid historical outcomes. A Profile Version difference is not an error, warning, or reason to re-normalize either side.
+    - Cost must not recalculate Recipe raw quantity using the Quote evaluation instant or current Profile authority.
+  - **Future compatibility boundary**:
+    - Future Cost Evaluation may establish Recipe-to-Quote compatibility using Canonical Ingredient identity, Measurement dimension, and canonical Unit.
+    - Recipe and Quote exact canonical quantities are independent authoritative calculation inputs. They are not required to be equal.
+    - This Contract contains no Quote, purchase amount, Currency, selected cost, normalized unit cost, line cost, total cost, valuation, allocation, margin, or Cost Snapshot fact.
+    - Standard Output and Standard Yield evidence are transported unchanged. No serving, batch, per-Yield, actual-Yield, waste, or rounding calculation is authorized here.
+  - **Purity and determinism**:
+    - Contract construction is a deterministic, side-effect-free transformation of the supplied Projection.
+    - It must not read current time, generate identifiers or versions, mutate the source Projection, access a Repository or database, persist state, emit events, call runtime services, perform floating-point arithmetic, divide, or round.
+    - Identical valid source Projection evidence must produce deeply equal Contract evidence.
+  - **Failure semantics**:
+    - Stable typed failures distinguish invalid source identity, unsupported source Projection version, invalid wrapper/source structure, and unexpected technical failure.
+    - `INVALID_RECIPE_COSTING_CONTRACT_SOURCE` covers wrong or missing source identity and wrong basis.
+    - `UNSUPPORTED_RECIPE_CANONICAL_PROJECTION_VERSION` covers a correct source contract name with an unsupported version.
+    - `INVALID_RECIPE_COSTING_EVIDENCE` covers structurally invalid or internally contradictory source evidence without authorizing a duplicate Measurement/Profile validator.
+    - `RECIPE_COSTING_CONTRACT_V2_FAILED` is a fail-closed boundary only for unexpected technical failure and must not swallow known typed failures.
+    - No exception, partial Contract, repaired evidence, or fallback value may cross the public result boundary.
+  - **Architecture and public export constraints**:
+    - Recipe owns and publishes the Contract. Cost may consume its public types in a later separately approved PR.
+    - Recipe Costing Contract implementation must not import Cost, Quote Evidence, Repository, persistence, database, runtime, API, UI, or another domain's internals.
+    - The Recipe public index exports the Contract constants, public Contract/result types, and no application service or internal error class.
+    - Architecture Guard changes may enforce only these approved boundaries and must not weaken an existing guard.
+  - **Authorized implementation allowlist**:
+    - `src/domains/recipe/contracts/recipe-costing-contract-v2.ts`.
+    - `src/domains/recipe/application/recipe-costing-contract-v2-errors.ts`.
+    - `src/domains/recipe/application/recipe-costing-contract-v2-service.ts`.
+    - `src/domains/recipe/index.ts`.
+    - `src/tests/recipe-costing-contract-v2.test.ts`.
+    - `src/tests/architecture-guards.test.ts`.
+  - **Required verification**:
+    - Valid Published and Superseded Projections; exact source identity and supported version; wrong source name, version, or basis; complete preservation of ordered Lines, repeated Ingredient Lines, exact canonical quantities, Measurement/Profile evidence, Standard Output/Yield, publication/supersession evidence, and zero-based positions; different Profile Versions accepted without re-normalization; deterministic deep equality; deep immutability; defensive copying; typed fail-closed behavior; no Measurement/Profile authority call; no Quote, Currency, cost, persistence, hidden time, identity generation, floating point, division, rounding, or partial Contract; relevant Recipe, Measurement, Profile, Cost Quote Evidence, and Architecture Guard regressions; strict TypeScript typecheck; and diff checks.
+  - **Explicitly deferred**:
+    - Quote selection, Cost Evaluation, PR-COST-004R, exact rational cost arithmetic, Currency policy, Cost Evaluation Read Unit of Work, SQLite read-snapshot proof, persistence, schema, migration, Cost Snapshot, Cost Events, runtime, API, UI, Supplier, Purchase, Inventory, package conversion, density, variable weight, yield or waste adjustment, reporting, AI inference, merge, and `main` promotion.
+  - **Execution sequence**:
+    1. Commit this governance Decision separately.
+    2. Verify the governance commit, exact baseline, clean implementation diff, and empty staged area.
+    3. Implement only the six-file allowlist.
+    4. Complete Architecture Gate and Owner Audit before any implementation Safe Commit.
+  - **External actions**:
+    - Governance Safe Commit is authorized as a separate documentation-only commit.
+    - Implementation may begin after that commit within the six-file allowlist.
+    - Implementation Safe Commit, push, merge, and `main` promotion remain NOT AUTHORIZED pending Owner Audit.
+
 - **DECISIONS #062 - Clarify Package Classification Boundary for Quote Normalization**
   - **Date**: Not recorded in repository authority.
   - **Status**: APPROVED by Architecture Owner.

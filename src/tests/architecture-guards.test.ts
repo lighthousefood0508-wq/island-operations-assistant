@@ -917,6 +917,11 @@ test("Cost Back Office is the only approved runtime composition of Cost foundati
   assert.match(source, /RecipeCostEvaluationService/);
   assert.match(source, /RecipeCanonicalProjectionService/);
   assert.match(source, /IngredientMeasurementNormalizationService/);
+  assert.doesNotMatch(
+    source,
+    /function\s+canonicalUnit|profileDimension\s*===\s*["']mass["']/,
+    "Runtime composition must delegate canonical-unit validation to Measurement/Profile authority."
+  );
   assertNoTerms(
     source,
     [

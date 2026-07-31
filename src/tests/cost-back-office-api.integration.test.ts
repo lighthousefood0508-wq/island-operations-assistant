@@ -7,6 +7,7 @@ import test from "node:test";
 import { createRosServer } from "../server/index.js";
 
 const AT = "2026-07-31T01:00:00.000Z";
+const REPLACEMENT_AT = "2026-08-01T01:00:00.000Z";
 
 async function request(
   baseUrl: string,
@@ -58,6 +59,35 @@ test("fresh database completes Ingredient to exact Cost Evaluation and survives 
   );
   let running = await start(databasePath);
   try {
+    const category = await request(
+      running.baseUrl,
+      "/api/admin/categories",
+      "POST",
+      { displayName: "Costed meals", sortOrder: 1 }
+    );
+    assert.equal(category.status, 201);
+    const product = await request(
+      running.baseUrl,
+      "/api/admin/products",
+      "POST",
+      {
+        internalName: "Braised pork rice",
+        categoryId: category.body.data.categoryId,
+        displayName: "Braised pork rice",
+        posName: "Pork rice",
+        sellingPrice: 180,
+        channels: ["pos"]
+      }
+    );
+    assert.equal(product.status, 201);
+    const publishedProduct = await request(
+      running.baseUrl,
+      `/api/admin/products/${product.body.data.productId}/publish`,
+      "POST",
+      {}
+    );
+    assert.equal(publishedProduct.status, 200);
+
     const ingredient = await request(
       running.baseUrl,
       "/api/admin/cost/ingredients",
@@ -94,9 +124,9 @@ test("fresh database completes Ingredient to exact Cost Evaluation and survives 
       "POST",
       {
         name: "Braised pork",
-        productId: "prod_11111111-1111-4111-8111-111111111111",
+        productId: product.body.data.productId,
         productVersionId:
-          "pver_22222222-2222-4222-8222-222222222222",
+          publishedProduct.body.data.version.productVersionId,
         lines: [{
           ingredientId,
           coefficient: "100",
@@ -141,6 +171,8 @@ test("fresh database completes Ingredient to exact Cost Evaluation and survives 
       }
     );
     assert.equal(quote.status, 201);
+    const initialQuoteId = quote.body.data.quoteId as string;
+    const initialQuoteVersion = quote.body.data.aggregateVersion as number;
 
     const evaluated = await request(
       running.baseUrl,
@@ -158,6 +190,104 @@ test("fresh database completes Ingredient to exact Cost Evaluation and survives 
       evaluated.body.data.result.exactPerStandardYieldCost,
       { numerator: "15", denominator: "1" }
     );
+    assert.equal(
+      evaluated.body.data.result.lines[0].quoteNormalizationEvidence.quoteId,
+      initialQuoteId
+    );
+
+    const staleReplacement = await request(
+      running.baseUrl,
+      `/api/admin/cost/quotes/${initialQuoteId}/replacements`,
+      "POST",
+      {
+        ingredientId,
+        expectedVersion: initialQuoteVersion + 1,
+        amountCoefficient: "450",
+        amountScale: 0,
+        quantityCoefficient: "1",
+        quantityScale: 0,
+        unitCode: "kg",
+        supersededAt: REPLACEMENT_AT,
+        recordedAt: REPLACEMENT_AT,
+        actor: "owner",
+        sourceReferenceId: "manual-replacement"
+      }
+    );
+    assert.equal(staleReplacement.status, 409);
+    assert.equal(
+      staleReplacement.body.error.code,
+      "INGREDIENT_COST_QUOTE_VERSION_CONFLICT"
+    );
+
+    const replacement = await request(
+      running.baseUrl,
+      `/api/admin/cost/quotes/${initialQuoteId}/replacements`,
+      "POST",
+      {
+        ingredientId,
+        expectedVersion: initialQuoteVersion,
+        amountCoefficient: "450",
+        amountScale: 0,
+        quantityCoefficient: "1",
+        quantityScale: 0,
+        unitCode: "kg",
+        supersededAt: REPLACEMENT_AT,
+        recordedAt: REPLACEMENT_AT,
+        actor: "owner",
+        sourceReferenceId: "manual-replacement"
+      }
+    );
+    assert.equal(replacement.status, 201);
+    assert.equal(replacement.body.data.oldQuoteId, initialQuoteId);
+    const replacementQuoteId = replacement.body.data.newQuoteId as string;
+
+    const quoteHistory = await request(
+      running.baseUrl,
+      `/api/admin/cost/quotes?ingredientId=${encodeURIComponent(ingredientId)}`
+    );
+    const oldQuote = quoteHistory.body.data.find(
+      (candidate: any) => candidate.quoteId === initialQuoteId
+    );
+    const newQuote = quoteHistory.body.data.find(
+      (candidate: any) => candidate.quoteId === replacementQuoteId
+    );
+    assert.equal(oldQuote.state, "Superseded");
+    assert.equal(oldQuote.supersession.supersededByQuoteId, replacementQuoteId);
+    assert.equal(newQuote.state, "Recorded");
+
+    const replacementEvaluation = await request(
+      running.baseUrl,
+      "/api/admin/cost/evaluations",
+      "POST",
+      { recipeId: recipe.body.data.recipeId, evaluatedAt: REPLACEMENT_AT }
+    );
+    assert.equal(replacementEvaluation.body.data.status, "evaluated");
+    assert.deepEqual(
+      replacementEvaluation.body.data.result.exactStandardBatchCost,
+      { numerator: "45", denominator: "1" }
+    );
+    assert.equal(
+      replacementEvaluation.body.data.result.lines[0]
+        .quoteNormalizationEvidence.quoteId,
+      replacementQuoteId
+    );
+    assert.notEqual(
+      replacementEvaluation.body.data.result.lines[0]
+        .quoteNormalizationEvidence.quoteId,
+      initialQuoteId
+    );
+
+    const historicalEvaluation = await request(
+      running.baseUrl,
+      "/api/admin/cost/evaluations",
+      "POST",
+      { recipeId: recipe.body.data.recipeId, evaluatedAt: AT }
+    );
+    assert.equal(
+      historicalEvaluation.body.data.result.lines[0]
+        .quoteNormalizationEvidence.quoteId,
+      initialQuoteId
+    );
 
     await stop(running.server);
     running = await start(databasePath);
@@ -172,11 +302,15 @@ test("fresh database completes Ingredient to exact Cost Evaluation and survives 
       running.baseUrl,
       "/api/admin/cost/evaluations",
       "POST",
-      { recipeId: recipe.body.data.recipeId, evaluatedAt: AT }
+      { recipeId: recipe.body.data.recipeId, evaluatedAt: REPLACEMENT_AT }
     );
     assert.deepEqual(
       repeated.body.data.result.exactPerStandardYieldCost,
-      { numerator: "15", denominator: "1" }
+      { numerator: "45", denominator: "2" }
+    );
+    assert.equal(
+      repeated.body.data.result.lines[0].quoteNormalizationEvidence.quoteId,
+      replacementQuoteId
     );
   } finally {
     if (running.server.listening) await stop(running.server);
@@ -216,7 +350,7 @@ test("Cost Back Office API rejects invalid cross-dimension Profile input", async
       }
     );
     assert.equal(response.status, 422);
-    assert.equal(response.body.error.code, "invalid_cost_input");
+    assert.equal(response.body.error.code, "measurement_profile_invalid");
   } finally {
     await stop(running.server);
     cleanup(databasePath);

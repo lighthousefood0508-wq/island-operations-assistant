@@ -141,6 +141,19 @@ async function route(request: IncomingMessage, response: ServerResponse, service
         services.costBackOffice.recordQuote(await readJson(request))
       );
     }
+    const quoteReplacementMatch = pathname.match(
+      /^\/api\/admin\/cost\/quotes\/([^/]+)\/replacements$/
+    );
+    if (request.method === "POST" && quoteReplacementMatch?.[1]) {
+      return success(
+        response,
+        201,
+        services.costBackOffice.replaceQuote(
+          decodeURIComponent(quoteReplacementMatch[1]),
+          await readJson(request)
+        )
+      );
+    }
     if (request.method === "GET" && pathname === "/api/admin/cost/quotes") {
       const ingredientId = url.searchParams.get("ingredientId");
       if (!ingredientId) {

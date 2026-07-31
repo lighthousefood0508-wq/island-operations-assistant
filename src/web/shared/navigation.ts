@@ -1,35 +1,20 @@
 type SystemArea = "pos" | "kitchen" | "admin";
-type BackOfficeArea =
-  | "events"
-  | "catalog"
-  | "cost"
-  | "statistics"
-  | "analysis"
-  | "health"
-  | "devices";
+type BackOfficeArea = "events" | "catalog" | "cost" | "statistics" | "analysis" | "health" | "devices";
 
-const systemItems: readonly {
-  key: SystemArea;
-  href: string;
-  label: string;
-}[] = [
+const systemItems: readonly { key: SystemArea; href: string; label: string }[] = [
   { key: "pos", href: "/pos", label: "POS 點餐" },
-  { key: "kitchen", href: "/kitchen", label: "廚房看板" },
-  { key: "admin", href: "/admin", label: "營運後台" }
+  { key: "kitchen", href: "/kitchen", label: "廚房系統" },
+  { key: "admin", href: "/admin", label: "後台管理" }
 ];
 
-const backOfficeItems: readonly {
-  key: BackOfficeArea;
-  href: string;
-  label: string;
-}[] = [
-  { key: "events", href: "/admin", label: "場次管理" },
+const backOfficeItems: readonly { key: BackOfficeArea; href: string; label: string }[] = [
+  { key: "events", href: "/admin", label: "場次與備貨" },
   { key: "catalog", href: "/admin/catalog", label: "商品目錄" },
   { key: "cost", href: "/admin/cost", label: "成本中心" },
-  { key: "statistics", href: "/admin/statistics", label: "營運統計" },
+  { key: "statistics", href: "/admin/statistics", label: "今日統計" },
   { key: "analysis", href: "/admin/analysis", label: "場次分析" },
-  { key: "health", href: "/admin/health", label: "系統健康" },
-  { key: "devices", href: "/admin/devices", label: "連線裝置" }
+  { key: "health", href: "/admin/health", label: "系統狀態" },
+  { key: "devices", href: "/admin/devices", label: "裝置連線" }
 ];
 
 export function renderNavigationStyles(): string {

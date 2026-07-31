@@ -8,6 +8,7 @@ import { CostSource } from "../../domains/cost/domain/cost-source.js";
 import { CostUnit } from "../../domains/cost/domain/cost-unit.js";
 import { Currency } from "../../domains/cost/domain/currency.js";
 import { EffectivePeriod } from "../../domains/cost/domain/effective-period.js";
+import { CostDomainError } from "../../domains/cost/domain/errors.js";
 import { ExactDecimal } from "../../domains/cost/domain/exact-decimal.js";
 import {
   IngredientCostQuoteId,
@@ -113,27 +114,6 @@ function unitCodes(input: JsonObject): readonly StableMeasurementUnitCodeV1[] {
     }
     return entry.trim() as StableMeasurementUnitCodeV1;
   }));
-}
-
-function canonicalUnit(
-  input: JsonObject,
-  profileDimension: MeasurementDimensionV1
-): "g" | "ml" | "each" {
-  const value = text(input, "canonicalUnitCode");
-  const expected = profileDimension === "mass"
-    ? "g"
-    : profileDimension === "volume"
-      ? "ml"
-      : "each";
-  if (value !== expected) {
-    throw new HttpError(
-      422,
-      "invalid_cost_input",
-      `canonicalUnitCode must be ${expected} for ${profileDimension}.`,
-      { field: "canonicalUnitCode" }
-    );
-  }
-  return expected;
 }
 
 function objectArray(input: JsonObject, field: string): readonly JsonObject[] {
@@ -258,7 +238,8 @@ export class CostBackOfficeService {
         profileVersionId,
         {
           dimension: profileDimension,
-          canonicalUnitCode: canonicalUnit(input, profileDimension),
+          canonicalUnitCode: text(input, "canonicalUnitCode") as
+            "g" | "ml" | "each",
           allowedUnitCodes: unitCodes(input),
           profileAliases: [],
           source: {
@@ -399,6 +380,52 @@ export class CostBackOfficeService {
     }
   }
 
+  replaceQuote(oldQuoteId: string, input: JsonObject) {
+    try {
+      const supersededAt = text(input, "supersededAt");
+      const actor = text(input, "actor");
+      const result = this.quoteLifecycle.replaceEffectiveQuote({
+        oldQuoteId: IngredientCostQuoteId.parse(oldQuoteId),
+        expectedVersion: integer(input, "expectedVersion"),
+        newQuote: {
+          quoteId: IngredientCostQuoteId.fromUuid(randomUUID()),
+          ingredientId: IngredientId.parse(text(input, "ingredientId")),
+          monetaryAmount: MonetaryAmount.create(
+            text(input, "amountCoefficient"),
+            integer(input, "amountScale"),
+            Currency.TWD()
+          ),
+          purchaseQuantity: ExactDecimal.create(
+            text(input, "quantityCoefficient"),
+            integer(input, "quantityScale")
+          ),
+          purchaseUnit: CostUnit.create(text(input, "unitCode")),
+          effectivePeriod: EffectivePeriod.create(
+            supersededAt,
+            optionalText(input, "effectiveTo")
+          ),
+          source: CostSource.create({
+            sourceType: "manual",
+            sourceReferenceId: optionalText(input, "sourceReferenceId")
+          }),
+          recordedAt: text(input, "recordedAt"),
+          recordedBy: actor
+        },
+        supersededAt,
+        supersededBy: actor
+      });
+      return Object.freeze({
+        status: result.status,
+        oldQuoteId: result.oldQuoteId.value,
+        newQuoteId: result.newQuoteId.value,
+        oldAggregateVersion: result.oldAggregateVersion,
+        newAggregateVersion: result.newAggregateVersion
+      });
+    } catch (error) {
+      throw this.invalidOperation("quote_replacement_invalid", error);
+    }
+  }
+
   listQuotes(ingredientId: string) {
     try {
       return Object.freeze(
@@ -408,6 +435,7 @@ export class CostBackOfficeService {
           quoteId: quote.quoteId.value,
           ingredientId: quote.ingredientId.value,
           state: quote.state,
+          aggregateVersion: quote.aggregateVersion,
           amount: Object.freeze({
             coefficient: quote.monetaryAmount.coefficient,
             scale: quote.monetaryAmount.scale,
@@ -420,7 +448,15 @@ export class CostBackOfficeService {
           }),
           effectiveFrom: quote.effectivePeriod.effectiveFrom,
           effectiveTo: quote.effectivePeriod.effectiveTo ?? null,
-          recordedAt: quote.recordedAt
+          recordedAt: quote.recordedAt,
+          supersession: quote.supersession === undefined
+            ? null
+            : Object.freeze({
+              supersededByQuoteId:
+                quote.supersession.supersededByQuoteId.value,
+              supersededAt: quote.supersession.supersededAt,
+              supersededBy: quote.supersession.supersededBy
+            })
         }))
       );
     } catch (error) {
@@ -452,6 +488,16 @@ export class CostBackOfficeService {
 
   private invalidOperation(code: string, error: unknown): HttpError {
     if (error instanceof HttpError) return error;
+    if (error instanceof CostDomainError) {
+      const status = error.code === "INGREDIENT_COST_QUOTE_LIFECYCLE_NOT_FOUND"
+        ? 404
+        : error.code.includes("CONFLICT")
+          || error.code.includes("OVERLAP")
+          || error.code.includes("ALREADY_SUPERSEDED")
+          ? 409
+          : 422;
+      return new HttpError(status, error.code, error.message);
+    }
     return new HttpError(422, code, errorMessage(error));
   }
 }

@@ -48,7 +48,13 @@ test("Cost Back Office completes the guided exact-cost workflow", async ({ page 
   await page.locator("#quote-quantity").fill("1");
   await page.locator("#quote-unit").fill("kg");
   await page.locator("#quote-effective").fill(evaluationInstant);
+  const initialQuoteResponse = page.waitForResponse((response) =>
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/admin/cost/quotes"
+  );
   await page.locator("#quote-form button[type=submit]").click();
+  const initialQuoteId = (await (await initialQuoteResponse).json())
+    .data.quoteId as string;
   await expect(page.locator("#quote-list")).toContainText("300");
   await expect(page.locator("#quote-list")).toContainText("kg");
 
@@ -59,7 +65,25 @@ test("Cost Back Office completes the guided exact-cost workflow", async ({ page 
   await page.locator("#evaluation-form button[type=submit]").click();
   await expect(page.locator("#evaluation-result")).toContainText("30 / 1");
   await expect(page.locator(".trace")).toContainText("豬五花");
-  await expect(page.locator(".trace")).toContainText("quote_");
+  await expect(page.locator(".trace")).toContainText(initialQuoteId);
+
+  const replacementInstant = "2099-01-02T00:00:00.000Z";
+  await page.locator("#quote-replacement-old").selectOption(initialQuoteId);
+  await page.locator("#quote-replacement-amount").fill("450");
+  await page.locator("#quote-replacement-at").fill(replacementInstant);
+  const replacementResponse = page.waitForResponse((response) =>
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname.endsWith("/replacements")
+  );
+  await page.locator("#quote-replacement-form button[type=submit]").click();
+  const replacementQuoteId = (await (await replacementResponse).json())
+    .data.newQuoteId as string;
+
+  await page.locator("#evaluation-time").fill(replacementInstant);
+  await page.locator("#evaluation-form button[type=submit]").click();
+  await expect(page.locator("#evaluation-result")).toContainText("45 / 1");
+  await expect(page.locator(".trace")).toContainText(replacementQuoteId);
+  await expect(page.locator(".trace")).not.toContainText(initialQuoteId);
 
   await page.reload();
   await expect(page.locator("#ingredient-list")).toContainText("豬五花");

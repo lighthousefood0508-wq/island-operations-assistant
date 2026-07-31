@@ -197,6 +197,77 @@ test("Ingredient Measurement Profile internals remain behind versioned contracts
   assert.match(profileValidatorSource, /unitResolver\.resolveUnit/);
 });
 
+test("Canonical Ingredient internals remain behind the published contract", () => {
+  const recipeRoot = path.join(sourceRoot, "domains", "recipe");
+  const ingredientRoot = path.join(recipeRoot, "ingredient-catalog");
+  const ingredientContract = path.join(
+    recipeRoot,
+    "contracts",
+    "canonical-ingredient-contract.ts"
+  );
+  const recipePublicIndex = path.join(recipeRoot, "index.ts");
+
+  for (const filename of filesUnder(ingredientRoot, [".ts"])) {
+    for (const specifier of importedSpecifiers(filename)) {
+      const target = resolveSourceImport(filename, specifier);
+      assert.ok(
+        target !== null
+          && (
+            target.startsWith(`${ingredientRoot}${path.sep}`)
+            || target === ingredientContract
+          ),
+        `${filename} imports outside Canonical Ingredient or its published contract: ${specifier}`
+      );
+    }
+    assertNoTerms(
+      readFileSync(filename, "utf8"),
+      [
+        "better-sqlite3",
+        "node:sqlite",
+        "/persistence/",
+        "domains/cost",
+        "recipe-aggregate",
+        "measurement-profile/",
+        "measurement/"
+      ],
+      filename
+    );
+  }
+
+  const productionFiles = filesUnder(sourceRoot, [".ts"])
+    .filter((filename) => !filename.includes(`${path.sep}tests${path.sep}`))
+    .filter((filename) => !filename.startsWith(`${ingredientRoot}${path.sep}`))
+    .filter((filename) => filename !== recipePublicIndex);
+  for (const filename of productionFiles) {
+    for (const specifier of importedSpecifiers(filename)) {
+      const target = resolveSourceImport(filename, specifier);
+      assert.equal(
+        target?.startsWith(`${ingredientRoot}${path.sep}`) ?? false,
+        false,
+        `${filename} imports Canonical Ingredient internals.`
+      );
+    }
+  }
+
+  const publicIndexSource = readFileSync(recipePublicIndex, "utf8");
+  assert.match(publicIndexSource, /canonical-ingredient-contract/);
+  assert.doesNotMatch(publicIndexSource, /ingredient-catalog\//);
+  assertNoTerms(
+    readFileSync(ingredientContract, "utf8"),
+    [
+      "baseUnit",
+      "canonicalUnit",
+      "conversionRatio",
+      "numerator",
+      "denominator",
+      "supplierId",
+      "brandId",
+      "packageSize"
+    ],
+    ingredientContract
+  );
+});
+
 test("OPEN Event reads only Operations-owned product snapshots", () => {
   const operationsRoot = path.join(sourceRoot, "domains", "operations");
   for (const filename of filesUnder(operationsRoot, [".ts", ".sql"])) {

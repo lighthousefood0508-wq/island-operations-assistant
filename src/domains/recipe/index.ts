@@ -113,7 +113,6 @@ export {
 export {
   INGREDIENT_MEASUREMENT_PROFILE_CONTRACT_VERSION,
   type ActiveMeasurementProfileDefinitionContractV1,
-  type CanonicalIngredientIdV1,
   type CompleteMeasurementProfileFactsV1,
   type DeprecatedMeasurementProfileDefinitionContractV1,
   type DraftMeasurementProfileDefinitionContractV1,
@@ -138,6 +137,17 @@ export {
   type PinnedIngredientNormalizationRequestV1,
   type SupersededMeasurementProfileDefinitionContractV1
 } from "./contracts/ingredient-measurement-profile-contract.js";
+export {
+  APPROVED_INGREDIENT_CATEGORY_CODES_V1,
+  CANONICAL_INGREDIENT_CONTRACT_VERSION,
+  type ApprovedIngredientCategoryCodeV1,
+  type CanonicalIngredientArchiveFactV1,
+  type CanonicalIngredientContractV1,
+  type CanonicalIngredientIdV1,
+  type CanonicalIngredientRenameFactV1,
+  type CanonicalIngredientStatusV1,
+  type IngredientCategoryCodeV1
+} from "./contracts/canonical-ingredient-contract.js";
 export {
   InvalidMeasurementConversion,
   InvalidMeasurementQuantity,

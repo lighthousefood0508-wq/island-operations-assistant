@@ -4,10 +4,14 @@ import type {
   MeasurementNormalizationEvidenceV1,
   StableMeasurementUnitCodeV1
 } from "./measurement-foundation-contract.js";
+import type {
+  CanonicalIngredientIdV1
+} from "./canonical-ingredient-contract.js";
+
+export type { CanonicalIngredientIdV1 } from "./canonical-ingredient-contract.js";
 
 export const INGREDIENT_MEASUREMENT_PROFILE_CONTRACT_VERSION = 1 as const;
 
-export type CanonicalIngredientIdV1 = string;
 export type IngredientMeasurementProfileId = string;
 export type IngredientMeasurementProfileVersionId = string;
 export type IngredientMeasurementProfileStatus =

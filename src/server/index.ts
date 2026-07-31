@@ -7,6 +7,7 @@ import { runMigrations } from "../shared/database/migrate.js";
 import { CatalogRepository, CatalogService } from "../domains/catalog/index.js";
 import { LifecycleRepository, LifecycleService, OperationsRepository, OperationsService, OrderRepository, OrderService, PaymentRepository, PaymentService } from "../domains/operations/index.js";
 import { createRoute } from "./app/routes.js";
+import { CostBackOfficeService } from "./app/cost-back-office-service.js";
 import { SseHub } from "./events/sse.js";
 
 export function createRosServer(config: RosConfig = loadConfig()): Server {
@@ -18,8 +19,16 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
   const orders = new OrderService(new OrderRepository(database), paymentRepository);
   const payments = new PaymentService(paymentRepository);
   const lifecycle = new LifecycleService(new LifecycleRepository(database));
+  const costBackOffice = new CostBackOfficeService(database);
   const events = new SseHub();
-  const server = createServer(createRoute({ catalog, operations, orders, payments, lifecycle }, events));
+  const server = createServer(createRoute({
+    catalog,
+    operations,
+    orders,
+    payments,
+    lifecycle,
+    costBackOffice
+  }, events));
   server.on("close", () => database.close());
   return server;
 }

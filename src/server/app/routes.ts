@@ -15,8 +15,16 @@ import { renderPos } from "../../web/pos/page.js";
 import { renderLifecycle } from "../../web/lifecycle/page.js";
 import { renderStatistics } from "../../web/statistics/page.js";
 import { renderDevicesDebug } from "../../web/devices/page.js";
+import type { CostBackOfficeService } from "./cost-back-office-service.js";
 
-type Services = Readonly<{ catalog: CatalogService; operations: OperationsService; orders: OrderService; payments: PaymentService; lifecycle: LifecycleService }>;
+type Services = Readonly<{
+  catalog: CatalogService;
+  operations: OperationsService;
+  orders: OrderService;
+  payments: PaymentService;
+  lifecycle: LifecycleService;
+  costBackOffice: CostBackOfficeService;
+}>;
 
 function sendJson(response: ServerResponse, status: number, payload: unknown): void {
   response.writeHead(status, { "content-type": "application/json; charset=utf-8" });
@@ -97,6 +105,65 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "GET" && (pathname === "/mockup/item-workbench" || pathname === "/mockups/back-office-item-workbench.html")) return sendMockup(response, "back-office-item-workbench.html");
 
     if (request.method === "GET" && pathname === "/api/debug/devices") return success(response, 200, events.listDevices());
+
+    if (request.method === "GET" && pathname === "/api/admin/cost/setup") {
+      return success(response, 200, services.costBackOffice.getSetup());
+    }
+    if (request.method === "POST" && pathname === "/api/admin/cost/ingredients") {
+      return success(
+        response,
+        201,
+        services.costBackOffice.createIngredient(await readJson(request))
+      );
+    }
+    if (request.method === "POST" && pathname === "/api/admin/cost/profiles") {
+      return success(
+        response,
+        201,
+        services.costBackOffice.createProfile(await readJson(request))
+      );
+    }
+    if (request.method === "POST" && pathname === "/api/admin/cost/recipes") {
+      return success(
+        response,
+        201,
+        services.costBackOffice.createAndPublishRecipe(
+          await readJson(request)
+        )
+      );
+    }
+    if (request.method === "POST" && pathname === "/api/admin/cost/quotes") {
+      return success(
+        response,
+        201,
+        services.costBackOffice.recordQuote(await readJson(request))
+      );
+    }
+    if (request.method === "GET" && pathname === "/api/admin/cost/quotes") {
+      const ingredientId = url.searchParams.get("ingredientId");
+      if (!ingredientId) {
+        throw new HttpError(
+          400,
+          "ingredient_id_required",
+          "ingredientId is required."
+        );
+      }
+      return success(
+        response,
+        200,
+        services.costBackOffice.listQuotes(ingredientId)
+      );
+    }
+    if (
+      request.method === "POST"
+      && pathname === "/api/admin/cost/evaluations"
+    ) {
+      return success(
+        response,
+        200,
+        services.costBackOffice.evaluate(await readJson(request))
+      );
+    }
 
     if (request.method === "GET" && pathname === "/api/admin/categories") return success(response, 200, services.catalog.listCategories());
     if (request.method === "POST" && pathname === "/api/admin/categories") return success(response, 201, services.catalog.createCategory(await readJson(request) as never));

@@ -1,0 +1,457 @@
+import { randomUUID } from "node:crypto";
+import type { DatabaseAdapter } from "../../shared/database/database-adapter.js";
+import { HttpError } from "../../shared/errors/http-error.js";
+import { CostQuoteLifecycleService } from "../../domains/cost/application/cost-quote-lifecycle-service.js";
+import { IngredientCostQuoteNormalizationService } from "../../domains/cost/application/ingredient-cost-quote-normalization-service.js";
+import { RecipeCostEvaluationService } from "../../domains/cost/application/recipe-cost-evaluation-service.js";
+import { CostSource } from "../../domains/cost/domain/cost-source.js";
+import { CostUnit } from "../../domains/cost/domain/cost-unit.js";
+import { Currency } from "../../domains/cost/domain/currency.js";
+import { EffectivePeriod } from "../../domains/cost/domain/effective-period.js";
+import { ExactDecimal } from "../../domains/cost/domain/exact-decimal.js";
+import {
+  IngredientCostQuoteId,
+  IngredientId
+} from "../../domains/cost/domain/identities.js";
+import { MonetaryAmount } from "../../domains/cost/domain/monetary-amount.js";
+import { SqliteCostEvaluationReadUnitOfWork } from "../../domains/cost/infrastructure/sqlite-cost-evaluation-read-unit-of-work.js";
+import { SqliteCostQuoteUnitOfWork } from "../../domains/cost/infrastructure/sqlite-cost-unit-of-work.js";
+import { SqliteCostRepository } from "../../domains/cost/infrastructure/sqlite-cost-repository.js";
+import { RecipeCanonicalProjectionService } from "../../domains/recipe/application/recipe-canonical-projection-service.js";
+import { RecipeCostingContractV2Service } from "../../domains/recipe/application/recipe-costing-contract-v2-service.js";
+import { RecipePublishService } from "../../domains/recipe/application/recipe-publish-service.js";
+import type {
+  IngredientMeasurementProfileContractV1,
+  MeasurementDimensionV1,
+  StableMeasurementUnitCodeV1
+} from "../../domains/recipe/index.js";
+import {
+  IngredientReference,
+  Quantity,
+  RecipeDraftId,
+  RecipeId,
+  RecipeSnapshotBuilder,
+  RecipeVersionId,
+  Unit,
+  VersionNumber
+} from "../../domains/recipe/index.js";
+import { CanonicalIngredient } from "../../domains/recipe/ingredient-catalog/canonical-ingredient.js";
+import { CanonicalIngredientId } from "../../domains/recipe/ingredient-catalog/identities.js";
+import { IngredientCategory } from "../../domains/recipe/ingredient-catalog/ingredient-category.js";
+import { SqliteCanonicalIngredientRepository } from "../../domains/recipe/ingredient-catalog/infrastructure/sqlite-canonical-ingredient-repository.js";
+import { SqliteRecipeRepository } from "../../domains/recipe/infrastructure/sqlite-recipe-repository.js";
+import { MeasurementNormalizer } from "../../domains/recipe/measurement/measurement-normalizer.js";
+import { MeasurementUnitResolver } from "../../domains/recipe/measurement/measurement-unit-resolver.js";
+import { IngredientMeasurementNormalizationService } from "../../domains/recipe/measurement-profile/ingredient-normalization-service.js";
+import { IngredientMeasurementProfile } from "../../domains/recipe/measurement-profile/ingredient-measurement-profile.js";
+import { SqliteIngredientMeasurementProfileRepository } from "../../domains/recipe/measurement-profile/infrastructure/sqlite-ingredient-measurement-profile-repository.js";
+
+type JsonObject = Record<string, unknown>;
+
+function text(input: JsonObject, field: string): string {
+  const value = input[field];
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new HttpError(422, "invalid_cost_input", `${field} is required.`, {
+      field
+    });
+  }
+  return value.trim();
+}
+
+function optionalText(input: JsonObject, field: string): string | undefined {
+  const value = input[field];
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value !== "string") {
+    throw new HttpError(422, "invalid_cost_input", `${field} must be text.`, {
+      field
+    });
+  }
+  return value.trim() || undefined;
+}
+
+function integer(input: JsonObject, field: string): number {
+  const value = input[field];
+  if (!Number.isSafeInteger(value)) {
+    throw new HttpError(
+      422,
+      "invalid_cost_input",
+      `${field} must be a safe integer.`,
+      { field }
+    );
+  }
+  return value as number;
+}
+
+function dimension(input: JsonObject, field: string): MeasurementDimensionV1 {
+  const value = text(input, field);
+  if (value !== "mass" && value !== "volume" && value !== "count") {
+    throw new HttpError(422, "invalid_cost_input", `${field} is invalid.`, {
+      field
+    });
+  }
+  return value;
+}
+
+function unitCodes(input: JsonObject): readonly StableMeasurementUnitCodeV1[] {
+  const value = input.allowedUnitCodes;
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new HttpError(
+      422,
+      "invalid_cost_input",
+      "allowedUnitCodes must contain at least one Unit.",
+      { field: "allowedUnitCodes" }
+    );
+  }
+  return Object.freeze(value.map((entry) => {
+    if (typeof entry !== "string" || entry.trim().length === 0) {
+      throw new HttpError(
+        422,
+        "invalid_cost_input",
+        "allowedUnitCodes contains an invalid Unit.",
+        { field: "allowedUnitCodes" }
+      );
+    }
+    return entry.trim() as StableMeasurementUnitCodeV1;
+  }));
+}
+
+function canonicalUnit(
+  input: JsonObject,
+  profileDimension: MeasurementDimensionV1
+): "g" | "ml" | "each" {
+  const value = text(input, "canonicalUnitCode");
+  const expected = profileDimension === "mass"
+    ? "g"
+    : profileDimension === "volume"
+      ? "ml"
+      : "each";
+  if (value !== expected) {
+    throw new HttpError(
+      422,
+      "invalid_cost_input",
+      `canonicalUnitCode must be ${expected} for ${profileDimension}.`,
+      { field: "canonicalUnitCode" }
+    );
+  }
+  return expected;
+}
+
+function objectArray(input: JsonObject, field: string): readonly JsonObject[] {
+  const value = input[field];
+  if (
+    !Array.isArray(value)
+    || value.length === 0
+    || value.some((entry) =>
+      entry === null || typeof entry !== "object" || Array.isArray(entry)
+    )
+  ) {
+    throw new HttpError(
+      422,
+      "invalid_cost_input",
+      `${field} must contain at least one item.`,
+      { field }
+    );
+  }
+  return value as readonly JsonObject[];
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "The operation failed.";
+}
+
+export class CostBackOfficeService {
+  private readonly ingredientRepository:
+    SqliteCanonicalIngredientRepository;
+  private readonly profileRepository:
+    SqliteIngredientMeasurementProfileRepository;
+  private readonly recipeRepository: SqliteRecipeRepository;
+  private readonly quoteRepository: SqliteCostRepository;
+  private readonly unitResolver = new MeasurementUnitResolver();
+  private readonly recipePublisher: RecipePublishService;
+  private readonly recipeProjection: RecipeCanonicalProjectionService;
+  private readonly recipeCosting = new RecipeCostingContractV2Service();
+  private readonly quoteLifecycle: CostQuoteLifecycleService;
+  private readonly evaluator: RecipeCostEvaluationService;
+
+  constructor(private readonly database: DatabaseAdapter) {
+    this.ingredientRepository =
+      new SqliteCanonicalIngredientRepository(database);
+    this.profileRepository =
+      new SqliteIngredientMeasurementProfileRepository(
+        database,
+        this.unitResolver
+      );
+    this.recipeRepository = new SqliteRecipeRepository(database);
+    this.quoteRepository = new SqliteCostRepository(database);
+    const measurement = new MeasurementNormalizer();
+    const ingredientNormalization =
+      new IngredientMeasurementNormalizationService(
+        this.profileRepository,
+        this.unitResolver,
+        measurement
+      );
+    this.recipePublisher = new RecipePublishService(this.recipeRepository);
+    this.recipeProjection = new RecipeCanonicalProjectionService(
+      ingredientNormalization,
+      measurement
+    );
+    this.quoteLifecycle = new CostQuoteLifecycleService(
+      new SqliteCostQuoteUnitOfWork(database)
+    );
+    this.evaluator = new RecipeCostEvaluationService(
+      new SqliteCostEvaluationReadUnitOfWork(database),
+      new IngredientCostQuoteNormalizationService(ingredientNormalization)
+    );
+  }
+
+  getSetup(): Readonly<{
+    ingredients: readonly ReturnType<CanonicalIngredient["toContract"]>[];
+    profiles: readonly IngredientMeasurementProfileContractV1[];
+    recipes: ReturnType<SqliteRecipeRepository["listRecipes"]>;
+  }> {
+    return Object.freeze({
+      ingredients: Object.freeze(
+        this.ingredientRepository.listActive()
+          .map((ingredient) => ingredient.toContract())
+      ),
+      profiles: this.profileRepository.listProfiles(),
+      recipes: this.recipeRepository.listRecipes()
+    });
+  }
+
+  createIngredient(input: JsonObject) {
+    try {
+      const ingredient = CanonicalIngredient.create({
+        ingredientId: CanonicalIngredientId.fromUuid(randomUUID()),
+        name: text(input, "name"),
+        category: IngredientCategory.parse(text(input, "categoryCode")),
+        createdAt: text(input, "occurredAt"),
+        createdBy: text(input, "actor")
+      });
+      this.ingredientRepository.saveNew(ingredient);
+      return ingredient.toContract();
+    } catch (error) {
+      throw this.invalidOperation("ingredient_invalid", error);
+    }
+  }
+
+  createProfile(input: JsonObject): IngredientMeasurementProfileContractV1 {
+    try {
+      const ingredientId = text(input, "ingredientId");
+      const ingredient = this.ingredientRepository.findById(
+        CanonicalIngredientId.parse(ingredientId)
+      );
+      if (ingredient === undefined || ingredient.status !== "Active") {
+        throw new Error("Choose an active Canonical Ingredient.");
+      }
+      const occurredAt = text(input, "occurredAt");
+      const actor = text(input, "actor");
+      const profileId = `measurement_profile_${randomUUID()}`;
+      const profileVersionId =
+        `measurement_profile_version_${randomUUID()}`;
+      const profileDimension = dimension(input, "dimension");
+      const profile = IngredientMeasurementProfile.createDraft({
+        identity: { profileId, profileVersionId, ingredientId },
+        createdAt: occurredAt,
+        createdBy: actor
+      }).activateDraft(
+        profileVersionId,
+        {
+          dimension: profileDimension,
+          canonicalUnitCode: canonicalUnit(input, profileDimension),
+          allowedUnitCodes: unitCodes(input),
+          profileAliases: [],
+          source: {
+            sourceType: "MANUAL",
+            referenceId: "cost-back-office",
+            recordedAt: occurredAt,
+            recordedBy: actor
+          }
+        },
+        { occurredAt, actorId: actor },
+        this.unitResolver
+      );
+      this.profileRepository.saveNew(profile);
+      return profile.toContract();
+    } catch (error) {
+      throw this.invalidOperation("measurement_profile_invalid", error);
+    }
+  }
+
+  createAndPublishRecipe(input: JsonObject) {
+    try {
+      return this.database.transactionImmediate(() => {
+        const occurredAt = text(input, "occurredAt");
+        const actor = text(input, "actor");
+        const created = this.recipePublisher.createDraft({
+          recipeId: RecipeId.fromUuid(randomUUID()),
+          draftId: RecipeDraftId.fromUuid(randomUUID()),
+          name: text(input, "name"),
+          createdBy: actor,
+          createdAt: occurredAt
+        });
+        const recipe = created.draft;
+        recipe.bindProduct(
+          text(input, "productId"),
+          text(input, "productVersionId")
+        );
+        for (const line of objectArray(input, "lines")) {
+          const ingredient = this.ingredientRepository.findById(
+            CanonicalIngredientId.parse(text(line, "ingredientId"))
+          );
+          if (ingredient === undefined) {
+            throw new Error("Recipe Ingredient does not exist.");
+          }
+          const lineDimension = dimension(line, "dimension");
+          recipe.addIngredient(
+            IngredientReference.create({
+              ingredientReferenceId: ingredient.ingredientId,
+              canonicalName: ingredient.name,
+              measurementDimension: lineDimension,
+              status: ingredient.status === "Active" ? "active" : "inactive",
+              createdAt: ingredient.createdAt
+            }),
+            Quantity.create(
+              BigInt(text(line, "coefficient")),
+              integer(line, "scale"),
+              Unit.create(text(line, "unitCode"), lineDimension)
+            )
+          );
+        }
+        const output = input.standardOutput as JsonObject;
+        const yieldQuantity = input.standardYield as JsonObject;
+        if (
+          output === null || typeof output !== "object"
+          || yieldQuantity === null || typeof yieldQuantity !== "object"
+        ) {
+          throw new Error("standardOutput and standardYield are required.");
+        }
+        const outputDimension = dimension(output, "dimension");
+        const yieldDimension = dimension(yieldQuantity, "dimension");
+        recipe.defineStandardOutput(
+          Quantity.create(
+            BigInt(text(output, "coefficient")),
+            integer(output, "scale"),
+            Unit.create(text(output, "unitCode"), outputDimension)
+          ),
+          Quantity.create(
+            BigInt(text(yieldQuantity, "coefficient")),
+            integer(yieldQuantity, "scale"),
+            Unit.create(text(yieldQuantity, "unitCode"), yieldDimension)
+          )
+        );
+        const configuredVersion = this.recipeRepository
+          .saveWithExpectedVersion(recipe, created.aggregateVersion);
+        const published = this.recipePublisher.publish({
+          recipeId: recipe.recipeId,
+          recipeVersionId: RecipeVersionId.fromUuid(randomUUID()),
+          versionNumber: VersionNumber.create(1),
+          expectedAggregateVersion: configuredVersion,
+          publishedBy: actor,
+          publishedAt: occurredAt
+        });
+        return Object.freeze({
+          recipeId: published.snapshot.recipeId,
+          recipeVersionId: published.snapshot.recipeVersionId,
+          aggregateVersion: published.aggregateVersion,
+          state: published.snapshot.state,
+          name: published.snapshot.name
+        });
+      });
+    } catch (error) {
+      throw this.invalidOperation("recipe_invalid", error);
+    }
+  }
+
+  recordQuote(input: JsonObject) {
+    try {
+      const result = this.quoteLifecycle.recordInitialQuote({
+        quoteId: IngredientCostQuoteId.fromUuid(randomUUID()),
+        ingredientId: IngredientId.parse(text(input, "ingredientId")),
+        monetaryAmount: MonetaryAmount.create(
+          text(input, "amountCoefficient"),
+          integer(input, "amountScale"),
+          Currency.TWD()
+        ),
+        purchaseQuantity: ExactDecimal.create(
+          text(input, "quantityCoefficient"),
+          integer(input, "quantityScale")
+        ),
+        purchaseUnit: CostUnit.create(text(input, "unitCode")),
+        effectivePeriod: EffectivePeriod.create(
+          text(input, "effectiveFrom"),
+          optionalText(input, "effectiveTo")
+        ),
+        source: CostSource.create({
+          sourceType: "manual",
+          sourceReferenceId: optionalText(input, "sourceReferenceId")
+        }),
+        recordedAt: text(input, "recordedAt"),
+        recordedBy: text(input, "actor")
+      });
+      return Object.freeze({
+        status: result.status,
+        quoteId: result.quoteId.value,
+        aggregateVersion: result.aggregateVersion
+      });
+    } catch (error) {
+      throw this.invalidOperation("quote_invalid", error);
+    }
+  }
+
+  listQuotes(ingredientId: string) {
+    try {
+      return Object.freeze(
+        this.quoteRepository.findQuotesByIngredientId(
+          IngredientId.parse(ingredientId)
+        ).map((quote) => Object.freeze({
+          quoteId: quote.quoteId.value,
+          ingredientId: quote.ingredientId.value,
+          state: quote.state,
+          amount: Object.freeze({
+            coefficient: quote.monetaryAmount.coefficient,
+            scale: quote.monetaryAmount.scale,
+            currencyCode: quote.monetaryAmount.currency.code
+          }),
+          purchaseQuantity: Object.freeze({
+            coefficient: quote.purchaseQuantity.coefficient,
+            scale: quote.purchaseQuantity.scale,
+            unitCode: quote.purchaseUnit.code
+          }),
+          effectiveFrom: quote.effectivePeriod.effectiveFrom,
+          effectiveTo: quote.effectivePeriod.effectiveTo ?? null,
+          recordedAt: quote.recordedAt
+        }))
+      );
+    } catch (error) {
+      throw this.invalidOperation("quote_lookup_failed", error);
+    }
+  }
+
+  evaluate(input: JsonObject) {
+    try {
+      const recipe = this.recipeRepository.findPublishedVersion(
+        RecipeId.parse(text(input, "recipeId"))
+      );
+      if (recipe === undefined) {
+        throw new Error("Published Recipe was not found.");
+      }
+      const snapshot = new RecipeSnapshotBuilder().build(recipe.aggregate);
+      const projection = this.recipeProjection.project(snapshot);
+      if (projection.status === "failed") return projection;
+      const costing = this.recipeCosting.create(projection.projection);
+      if (costing.status === "failed") return costing;
+      return this.evaluator.evaluate({
+        recipe: costing.contract,
+        evaluatedAt: text(input, "evaluatedAt")
+      });
+    } catch (error) {
+      throw this.invalidOperation("cost_evaluation_invalid", error);
+    }
+  }
+
+  private invalidOperation(code: string, error: unknown): HttpError {
+    if (error instanceof HttpError) return error;
+    return new HttpError(422, code, errorMessage(error));
+  }
+}

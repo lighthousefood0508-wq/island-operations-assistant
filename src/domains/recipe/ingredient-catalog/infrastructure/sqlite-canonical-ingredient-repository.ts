@@ -188,6 +188,20 @@ implements CanonicalIngredientRepository {
     }
   }
 
+  listActive(): readonly CanonicalIngredient[] {
+    try {
+      const rows = this.database.queryMany<CanonicalIngredientRow>(
+        `SELECT ${INGREDIENT_COLUMNS}
+           FROM recipe_canonical_ingredients
+          WHERE status = 'Active'
+          ORDER BY name, ingredient_id`
+      );
+      return Object.freeze(rows.map((row) => this.hydrate(row)));
+    } catch (error) {
+      return mapTechnicalFailure("list active Canonical Ingredients", error);
+    }
+  }
+
   searchByName(query: string): readonly CanonicalIngredient[] {
     const candidate = query.trim();
     if (candidate.length === 0) return Object.freeze([]);

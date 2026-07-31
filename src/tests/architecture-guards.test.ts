@@ -97,7 +97,12 @@ test("Measurement Foundation internals remain isolated behind the published cont
   const productionFiles = filesUnder(sourceRoot, [".ts"])
     .filter((filename) => !filename.includes(`${path.sep}tests${path.sep}`))
     .filter((filename) => !filename.startsWith(`${measurementRoot}${path.sep}`))
-    .filter((filename) => filename !== recipePublicIndex);
+    .filter((filename) =>
+      filename !== recipePublicIndex
+      && !filename.endsWith(
+        `${path.sep}server${path.sep}app${path.sep}cost-back-office-service.ts`
+      )
+    );
   for (const filename of productionFiles) {
     for (const specifier of importedSpecifiers(filename)) {
       const target = resolveSourceImport(filename, specifier);
@@ -228,7 +233,12 @@ test("Ingredient Measurement Profile internals remain behind versioned contracts
   const productionFiles = filesUnder(sourceRoot, [".ts"])
     .filter((filename) => !filename.includes(`${path.sep}tests${path.sep}`))
     .filter((filename) => !filename.startsWith(`${profileRoot}${path.sep}`))
-    .filter((filename) => filename !== recipePublicIndex);
+    .filter((filename) =>
+      filename !== recipePublicIndex
+      && !filename.endsWith(
+        `${path.sep}server${path.sep}app${path.sep}cost-back-office-service.ts`
+      )
+    );
   for (const filename of productionFiles) {
     for (const specifier of importedSpecifiers(filename)) {
       const target = resolveSourceImport(filename, specifier);
@@ -859,7 +869,12 @@ test("Canonical Ingredient internals remain behind the published contract", () =
   const productionFiles = filesUnder(sourceRoot, [".ts"])
     .filter((filename) => !filename.includes(`${path.sep}tests${path.sep}`))
     .filter((filename) => !filename.startsWith(`${ingredientRoot}${path.sep}`))
-    .filter((filename) => filename !== recipePublicIndex);
+    .filter((filename) =>
+      filename !== recipePublicIndex
+      && !filename.endsWith(
+        `${path.sep}server${path.sep}app${path.sep}cost-back-office-service.ts`
+      )
+    );
   for (const filename of productionFiles) {
     for (const specifier of importedSpecifiers(filename)) {
       const target = resolveSourceImport(filename, specifier);
@@ -887,6 +902,36 @@ test("Canonical Ingredient internals remain behind the published contract", () =
       "packageSize"
     ],
     ingredientContract
+  );
+});
+
+test("Cost Back Office is the only approved runtime composition of Cost foundations", () => {
+  const composition = path.join(
+    sourceRoot,
+    "server",
+    "app",
+    "cost-back-office-service.ts"
+  );
+  const routes = path.join(sourceRoot, "server", "app", "routes.ts");
+  const source = readFileSync(composition, "utf8");
+  assert.match(source, /RecipeCostEvaluationService/);
+  assert.match(source, /RecipeCanonicalProjectionService/);
+  assert.match(source, /IngredientMeasurementNormalizationService/);
+  assertNoTerms(
+    source,
+    [
+      "better-sqlite3",
+      "node:sqlite",
+      "Math.round",
+      "parseFloat",
+      "Number("
+    ],
+    composition
+  );
+  assertNoTerms(
+    readFileSync(routes, "utf8"),
+    ["better-sqlite3", "SELECT ", "INSERT ", "UPDATE ", "DELETE "],
+    routes
   );
 });
 

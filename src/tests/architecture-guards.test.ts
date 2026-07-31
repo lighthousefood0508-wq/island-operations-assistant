@@ -304,6 +304,123 @@ test("Recipe Canonical Projection uses published contracts without creating Cost
   );
 });
 
+test("Cost Quote Normalization Evidence consumes published Measurement contracts without Cost calculation authority", () => {
+  const costRoot = path.join(sourceRoot, "domains", "cost");
+  const recipeRoot = path.join(sourceRoot, "domains", "recipe");
+  const evidenceContract = path.join(
+    costRoot,
+    "contracts",
+    "ingredient-cost-quote-normalization-evidence-contract.ts"
+  );
+  const evidenceService = path.join(
+    costRoot,
+    "application",
+    "ingredient-cost-quote-normalization-service.ts"
+  );
+  const evidenceErrors = path.join(
+    costRoot,
+    "application",
+    "ingredient-cost-quote-normalization-errors.ts"
+  );
+  const profileContract = path.join(
+    recipeRoot,
+    "contracts",
+    "ingredient-measurement-profile-contract.ts"
+  );
+  const measurementContract = path.join(
+    recipeRoot,
+    "contracts",
+    "measurement-foundation-contract.ts"
+  );
+  const costSource = path.join(costRoot, "domain", "cost-source.ts");
+  const effectivePeriod = path.join(
+    costRoot,
+    "domain",
+    "effective-period.ts"
+  );
+  const quoteAggregate = path.join(
+    costRoot,
+    "domain",
+    "ingredient-cost-quote.ts"
+  );
+  const costPublicIndex = path.join(costRoot, "index.ts");
+
+  for (const specifier of importedSpecifiers(evidenceContract)) {
+    const target = resolveSourceImport(evidenceContract, specifier);
+    assert.ok(
+      target === profileContract || target === costSource,
+      `Quote Evidence Contract imports unapproved authority: ${specifier}`
+    );
+  }
+
+  for (const specifier of importedSpecifiers(evidenceService)) {
+    const target = resolveSourceImport(evidenceService, specifier);
+    assert.ok(
+      target === profileContract
+        || target === measurementContract
+        || target === evidenceContract
+        || target === evidenceErrors
+        || target === effectivePeriod
+        || target === quoteAggregate,
+      `Quote Evidence Service imports outside approved contracts and Cost source: ${specifier}`
+    );
+  }
+
+  assertNoTerms(
+    readFileSync(evidenceService, "utf8"),
+    [
+      "measurement-profile/ingredient",
+      "measurement-profile/profile",
+      "/measurement/measurement",
+      "recipe-aggregate",
+      "published-recipe-snapshot",
+      "better-sqlite3",
+      "node:sqlite",
+      "/persistence/",
+      "/infrastructure/",
+      "date.now",
+      "randomuuid",
+      "parsefloat",
+      "math.round",
+      "\"bag\"",
+      "\"box\"",
+      "\"package\"",
+      "\"carton\"",
+      "\"bundle\"",
+      "normalizedunitcost",
+      "unitcost",
+      "linecost",
+      "totalcost",
+      "costsnapshot"
+    ],
+    evidenceService
+  );
+  assertNoTerms(
+    readFileSync(evidenceContract, "utf8"),
+    [
+      "normalizedunitcost",
+      "unitcost",
+      "linecost",
+      "totalcost",
+      "recipecost",
+      "costsnapshot",
+      "repository",
+      "database"
+    ],
+    evidenceContract
+  );
+
+  const publicIndexSource = readFileSync(costPublicIndex, "utf8");
+  assert.match(
+    publicIndexSource,
+    /ingredient-cost-quote-normalization-evidence-contract/
+  );
+  assert.doesNotMatch(
+    publicIndexSource,
+    /ingredient-cost-quote-normalization-service|ingredient-cost-quote-normalization-errors/
+  );
+});
+
 test("Canonical Ingredient internals remain behind the published contract", () => {
   const recipeRoot = path.join(sourceRoot, "domains", "recipe");
   const ingredientRoot = path.join(recipeRoot, "ingredient-catalog");

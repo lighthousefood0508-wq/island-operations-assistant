@@ -82,3 +82,11 @@ export type {
 } from "./persistence/records.js";
 export { SqliteCostRepository } from "./infrastructure/sqlite-cost-repository.js";
 export { SqliteCostQuoteUnitOfWork } from "./infrastructure/sqlite-cost-unit-of-work.js";
+export {
+  INGREDIENT_COST_QUOTE_NORMALIZATION_EVIDENCE_CONTRACT_NAME,
+  INGREDIENT_COST_QUOTE_NORMALIZATION_EVIDENCE_CONTRACT_VERSION,
+  type IngredientCostQuoteNormalizationEvidenceV1,
+  type IngredientCostQuoteNormalizationFailureCodeV1,
+  type IngredientCostQuoteNormalizationFailureV1,
+  type IngredientCostQuoteNormalizationResultV1
+} from "./contracts/ingredient-cost-quote-normalization-evidence-contract.js";

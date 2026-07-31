@@ -200,36 +200,67 @@ test("Ingredient Measurement Profile internals remain behind versioned contracts
 test("Canonical Ingredient internals remain behind the published contract", () => {
   const recipeRoot = path.join(sourceRoot, "domains", "recipe");
   const ingredientRoot = path.join(recipeRoot, "ingredient-catalog");
+  const ingredientPersistenceRoot = path.join(ingredientRoot, "persistence");
+  const ingredientInfrastructureRoot = path.join(ingredientRoot, "infrastructure");
   const ingredientContract = path.join(
     recipeRoot,
     "contracts",
     "canonical-ingredient-contract.ts"
+  );
+  const databaseAdapter = path.join(
+    sourceRoot,
+    "shared",
+    "database",
+    "database-adapter.ts"
   );
   const recipePublicIndex = path.join(recipeRoot, "index.ts");
 
   for (const filename of filesUnder(ingredientRoot, [".ts"])) {
     for (const specifier of importedSpecifiers(filename)) {
       const target = resolveSourceImport(filename, specifier);
+      const isInfrastructure = filename.startsWith(
+        `${ingredientInfrastructureRoot}${path.sep}`
+      );
       assert.ok(
         target !== null
           && (
             target.startsWith(`${ingredientRoot}${path.sep}`)
             || target === ingredientContract
+            || (isInfrastructure && target === databaseAdapter)
           ),
         `${filename} imports outside Canonical Ingredient or its published contract: ${specifier}`
       );
+      if (
+        !filename.startsWith(`${ingredientPersistenceRoot}${path.sep}`)
+        && !isInfrastructure
+      ) {
+        assert.equal(
+          target?.startsWith(`${ingredientPersistenceRoot}${path.sep}`)
+            || target?.startsWith(`${ingredientInfrastructureRoot}${path.sep}`)
+            || false,
+          false,
+          `${filename} imports Canonical Ingredient persistence or Infrastructure.`
+        );
+      }
     }
     assertNoTerms(
       readFileSync(filename, "utf8"),
       [
         "better-sqlite3",
         "node:sqlite",
-        "/persistence/",
         "domains/cost",
         "recipe-aggregate",
         "measurement-profile/",
         "measurement/"
       ],
+      filename
+    );
+  }
+
+  for (const filename of filesUnder(ingredientPersistenceRoot, [".ts"])) {
+    assertNoTerms(
+      readFileSync(filename, "utf8"),
+      ["shared/database", "/infrastructure/"],
       filename
     );
   }
@@ -283,7 +314,7 @@ test("migration business tables have approved prefixes only", () => {
     const statements = readFileSync(filename, "utf8").matchAll(/CREATE TABLE IF NOT EXISTS ([a-z_]+)/g);
     for (const statement of statements) {
       const tableName = statement[1];
-      assert.ok(tableName && (allowedSystemTables.has(tableName) || /^(catalog|operations|cost)_/.test(tableName)), `Invalid table prefix: ${tableName}`);
+      assert.ok(tableName && (allowedSystemTables.has(tableName) || /^(catalog|recipe|operations|cost)_/.test(tableName)), `Invalid table prefix: ${tableName}`);
     }
   }
 });

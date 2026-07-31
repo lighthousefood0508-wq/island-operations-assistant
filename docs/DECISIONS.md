@@ -2,6 +2,84 @@
 
 ## Approval Register
 
+- **DECISIONS #061 - Authorize PR-COST-QUOTE-EVIDENCE-001 Ingredient Cost Quote Normalization Evidence**
+  - **Date**: Not recorded in repository authority.
+  - **Status**: APPROVED by Architecture Owner.
+  - **Related PR**: PR-COST-QUOTE-EVIDENCE-001.
+  - **Approved baseline**:
+    - Branch: `feature/quote-normalization-evidence`.
+    - Commit: `3db30c115861443fb257451f93ff0d8bfa1264f1`.
+    - The baseline contains the approved and remotely verified Recipe Canonical Projection and its preceding Measurement, Ingredient Profile, Canonical Ingredient, Cost Quote Domain, Persistence, and Lifecycle foundations. It does not promote `main`.
+    - Creating the isolated branch and worktree is repository preparation only and does not itself grant implementation authority.
+  - **Single responsibility**:
+    - Authorize one Cost-owned, immutable, versioned `IngredientCostQuoteNormalizationEvidenceV1` derived from an existing valid `IngredientCostQuote` and authority-produced Ingredient Measurement normalization evidence.
+    - The Evidence preserves the Quote facts and exact normalized quantity evidence required by a future Cost Evaluation without calculating a unit cost, Recipe cost, valuation, or Cost Snapshot.
+    - The Evidence is a read-only projection, not a new Aggregate, lifecycle, or independently generated identity.
+  - **Contract identity and authority**:
+    - The stable contract name is `IngredientCostQuoteNormalizationEvidence`; the initial contract version is `1`.
+    - Cost retains authority for Quote identity, purchase amount, Currency, purchase quantity and unit, effective period, source, recorded facts, and supersession facts.
+    - Measurement Foundation retains authority for dimension, stable Unit identity, exact conversion ratio, canonical quantity normalization, precision, overflow, and no-rounding behavior.
+    - Canonical Ingredient Identity Authority retains authority for Ingredient identity, Profile identity and Version identity, Ingredient binding, effective Profile selection, source evidence, and ambiguity.
+    - The Evidence must not create, mutate, reconstruct, infer, or replace Measurement or Ingredient Profile authority.
+  - **Evaluation instant**:
+    - The caller must supply one canonical ISO-8601 UTC `evaluatedAt`.
+    - `evaluatedAt` is the only instant used both to determine whether the Quote is authoritative and to resolve the unique Ingredient Measurement Profile through `IngredientMeasurementNormalizationContractV1.normalizeAt(...)`.
+    - The Service must not substitute `recordedAt`, `effectiveFrom`, processing time, current time, database time, or another hidden instant.
+    - Quote authority uses the existing effective and supersession semantics: start inclusive, end exclusive, open-ended when no end exists, and excluded at or after `supersededAt`.
+    - The same Quote may legitimately produce different Profile and conversion evidence at different `evaluatedAt` instants when the historical Profile authority differs.
+  - **Evidence content**:
+    - The Evidence contains Quote ID, Canonical Ingredient ID, `evaluatedAt`, exact Monetary Amount and Currency, authoritative Quote purchase quantity and canonical `purchaseUnit.code`, effective period, source references, recorded facts, optional supersession facts, and the complete authority-produced Ingredient Measurement normalization evidence.
+    - Measurement evidence retains Profile ID, Profile Version ID, evaluation instant, raw Unit evidence, conversion identity and version, exact numerator and denominator, normalized quantity, canonical Unit, and dimension.
+    - No independent Evidence ID is created. Quote identity, evaluation instant, and contract version provide traceability but do not form a new Aggregate identity.
+    - The Evidence does not claim to preserve free text that existed before `CostUnit.create(...)`; the authoritative raw Unit available to this PR is the Quote's canonical `purchaseUnit.code`.
+  - **Normalization and exact numeric rules**:
+    - The Service supplies the Quote's Canonical Ingredient ID, exact purchase quantity, canonical purchase Unit code, and caller-provided `evaluatedAt` to the published Ingredient Measurement normalization contract.
+    - The Service cross-checks returned Ingredient, Profile, time, raw quantity, raw Unit, dimension, canonical Unit, and exact conversion evidence against the immutable Quote facts.
+    - Monetary Amount and quantity remain coefficient-and-scale evidence; conversion ratios remain numerator-and-denominator evidence.
+    - Floating-point arithmetic, SQLite `REAL`, `parseFloat`, unsafe `Number` coercion, implicit rounding, lossy conversion, and database arithmetic are prohibited.
+    - **Quote Normalization Evidence must never calculate normalized unit cost. It produces normalized quantity and corresponding Measurement/Profile evidence only.**
+    - Price divided by quantity, per-unit price, Recipe cost, line cost, total cost, allocation, valuation, and rounding policy remain deferred.
+  - **Failure semantics**:
+    - Invalid request time, a Quote not authoritative at `evaluatedAt`, missing or ambiguous Profile, invalid historical Profile reference, unknown Unit, Package Specification requirement, incompatible dimension, invalid returned evidence, non-exact result, overflow, or authority failure fails the complete Evidence with a stable typed result.
+    - `INVALID_QUOTE_NORMALIZATION_REQUEST` covers malformed caller input. `QUOTE_NOT_AUTHORITATIVE_AT_INSTANT` covers valid input for a Quote outside its effective or supersession authority.
+    - A separate `INVALID_QUOTE_AUTHORITY` is not introduced because the Service accepts an already validated `IngredientCostQuote` Aggregate rather than an unchecked persistence or wire record.
+    - Human-readable messages are diagnostic only and never failure-classification authority. Measurement/Profile exceptions must not cross the public result boundary.
+    - The Service must never return partial completed Evidence or select an arbitrary Profile winner.
+  - **Read-only, persistence, and concurrency boundary**:
+    - This PR introduces no Repository read or write, transaction, Unit of Work, schema, migration, persistence record, mapper, or adapter.
+    - It does not modify `IngredientCostQuote`, `CostRepository`, Cost Quote lifecycle, persistence, or committed migrations.
+    - The Evidence is produced read-only and may later be embedded by an explicitly approved Cost Evaluation or Cost Snapshot authority.
+    - Because this PR has no write path, it introduces no Quote Evidence write race or optimistic-concurrency mutation authority.
+    - Effective Quote selection, same-read-snapshot guarantees, multiple-device evaluation, and evaluation persistence remain responsibilities of a future approved PR-COST-004R design.
+  - **Package, locale, and raw Unit policy**:
+    - Package identities and units such as bag, box, and package remain deferred and fail closed with `PACKAGE_SPECIFICATION_REQUIRED`; contents must not be guessed.
+    - The Quote model is not extended with locale. A Unit alias requiring locale fails closed rather than using a default locale.
+    - Density, cross-dimension conversion, variable weight, supplier package contents, and AI inference remain prohibited.
+  - **Architecture and public export constraints**:
+    - Cost consumes only the published versioned Ingredient Measurement Profile and Measurement evidence contracts. It must not import Recipe Aggregate, Profile internals, Measurement internals, repositories, tables, persistence, or Infrastructure.
+    - Measurement and Recipe must not depend on Cost. Cost must not read Recipe or Profile tables.
+    - The Cost public index publishes the Evidence contract and types only. Application service and internal errors do not become a second public authority.
+    - Architecture Guard changes are limited to enforcing the approved Contract dependency and prohibiting internal, Cost-calculation, persistence, floating-point, and hidden-time authority.
+  - **Authorized implementation allowlist**:
+    - `src/domains/cost/contracts/ingredient-cost-quote-normalization-evidence-contract.ts`.
+    - `src/domains/cost/application/ingredient-cost-quote-normalization-errors.ts`.
+    - `src/domains/cost/application/ingredient-cost-quote-normalization-service.ts`.
+    - `src/domains/cost/index.ts`.
+    - `src/tests/cost-quote-normalization-evidence.test.ts`.
+    - `src/tests/architecture-guards.test.ts`.
+  - **Required verification**:
+    - Exact mass, volume, and count normalization; kg, `tw_catty`, L, cc, and dozen conversions; zero Monetary Amount; exact numeric boundaries; effective start inclusive, end exclusive, open-ended, and supersession boundaries; the same Quote at different `evaluatedAt` instants resolving different historical Profile evidence; missing and ambiguous Profile; invalid Profile reference; unknown and package Units; dimension mismatch; non-exact and overflow failure; authority exception mapping; preservation of complete Quote and conversion evidence; deterministic deep equality; deep immutability and defensive copying; no partial Evidence; no normalized unit cost, division, rounding, or floating point; relevant Cost, Measurement, Profile, Recipe Projection, Ingredient, and Architecture Guard regressions; strict typecheck; and diff checks.
+  - **Explicitly deferred**:
+    - Persistence, schema, migration, Quote Aggregate or Repository changes, Quote lifecycle changes, Cost Evaluation, Recipe Costing Contract v2, PR-COST-004R, normalized unit cost, division, rounding, valuation, allocation, Cost Snapshot, Cost Events, runtime, API, UI, Supplier, Purchase, Inventory, package conversion, density, variable weight, locale inference, AI inference, reporting, and `main` promotion.
+  - **Execution sequence**:
+    1. Commit this governance Decision separately.
+    2. Verify the governance commit, exact baseline, clean implementation diff, and empty staged area.
+    3. Implement only the six-file allowlist.
+    4. Complete Architecture Gate and Owner Audit before any implementation Safe Commit.
+  - **External actions**:
+    - Implementation Safe Commit: NOT AUTHORIZED until implementation audit and Owner approval.
+    - Push, merge, and `main` promotion: NOT AUTHORIZED.
+
 - **DECISIONS #060 - Authorize PR-RECIPE-PROJECTION-001 Recipe Canonical Projection**
   - **Date**: Not recorded in repository authority.
   - **Status**: APPROVED by Architecture Owner.

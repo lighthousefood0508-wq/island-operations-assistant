@@ -2,6 +2,57 @@
 
 ## Approval Register
 
+- **DECISIONS #058 - Authorize PR-INGREDIENT-001 Canonical Ingredient Catalog Foundation**
+  - **Date**: Not recorded in repository authority.
+  - **Status**: APPROVED by Architecture Owner.
+  - **Related PR**: PR-INGREDIENT-001.
+  - **Approved baseline**:
+    - Branch: `feature/pr-measure-001`.
+    - Commit: `354bda24547b467f14ad4455dc4daa969ca2812b`.
+    - This is the Architecture Development Baseline for the approved Ingredient foundation sequence. It does not promote `main`, modify the recovery worktree, or authorize unrelated implementation.
+  - **Authority and hosting**:
+    - Architectural Owner: Canonical Ingredient Identity Authority.
+    - Current Host: Recipe Core only. Hosting does not make Canonical Ingredient Recipe-owned.
+    - The immutable public identity is `ing_<uuid>`.
+  - **Approved Domain scope**:
+    - One `CanonicalIngredient` Aggregate representing a generic company Ingredient concept, not a supplier SKU, branded item, purchase package, package size, or supplier identity.
+    - One authoritative `name` field in v1. Search-normalized text is derived evidence and is not identity or uniqueness authority.
+    - Extensible Ingredient category codes. v1 writers accept only the approved v1 code set; readers must tolerate future approved codes with safe fallback presentation.
+    - Status lifecycle `Active -> Archived`. Archive preserves identity and all historical Recipe, Cost, and Measurement Profile references, prevents ordinary future selection, never hard-deletes, and never releases or reuses the ID.
+    - Rename is permitted only when Ingredient semantics remain materially unchanged. It retains the Ingredient ID, requires actor, timestamp, and reason, appends immutable rename evidence, increments `aggregateVersion`, and never rewrites historical evidence.
+    - A material specification change normally creates a new Ingredient identity.
+    - A versioned Canonical Ingredient public contract, a Domain-owned Repository Port, pure Domain tests, and the required Architecture Guard update.
+  - **Repository Port rules**:
+    - Creation and mutation authority must be explicit, such as `saveNew(...)` and `saveWithExpectedVersion(...)`, or an equivalent contract with the same guarantees.
+    - A generic `save()` that can bypass aggregate-version enforcement is prohibited.
+    - Updates require expected-version enforcement; silent overwrite and last-write-wins are prohibited; conflicts return `CanonicalIngredientVersionConflict`.
+    - `searchByName` and `findDuplicateCandidates` return candidate collections only. They must not choose an arbitrary winner, merge records, rewrite identity, or make normalized name a uniqueness authority.
+  - **Measurement boundary**:
+    - Canonical Ingredient does not own or duplicate base unit, Measurement Dimension, canonical unit, conversion ratio, unit alias, normalization, or rounding policy.
+    - Ingredient Measurement Profile remains the sole Ingredient-measurement authority.
+  - **Approved implementation allowlist**:
+    - `src/domains/recipe/contracts/canonical-ingredient-contract.ts`.
+    - `src/domains/recipe/contracts/ingredient-measurement-profile-contract.ts`, limited to the minimal `CanonicalIngredientIdV1` import/re-export.
+    - `src/domains/recipe/ingredient-catalog/errors.ts`.
+    - `src/domains/recipe/ingredient-catalog/identities.ts`.
+    - `src/domains/recipe/ingredient-catalog/ingredient-category.ts`.
+    - `src/domains/recipe/ingredient-catalog/canonical-ingredient.ts`.
+    - `src/domains/recipe/ingredient-catalog/canonical-ingredient-repository.ts`.
+    - `src/domains/recipe/index.ts`.
+    - `src/tests/canonical-ingredient-catalog.test.ts`.
+    - `src/tests/architecture-guards.test.ts`.
+  - **Explicitly deferred**:
+    - Persistence, migration, SQLite, API, UI, Global Search implementation, Ingredient Alias, Ingredient Merge, Supplier, Supplier Item, Brand master, Purchase, Inventory, package specifications and conversions, Recipe modifications, Cost calculation, Production, Multi-store, approval workflow, and AI inference.
+    - Legacy `cost_ingredients` and `cost_ingredient_aliases` remain non-authoritative and must not be reused as Canonical Ingredient authority.
+  - **Execution sequence**:
+    1. Commit this governance and baseline synchronization separately.
+    2. Verify a clean worktree and the governance commit.
+    3. Only then begin PR-INGREDIENT-001 within the exact implementation allowlist.
+  - **External actions**:
+    - `main` promotion: NOT AUTHORIZED.
+    - Merge: NOT AUTHORIZED.
+    - Unrelated implementation: NOT AUTHORIZED.
+
 - **DECISIONS #057 - Measurement Governance Synchronization Safe Commit Authorization**
   - **Date**: Not recorded in repository authority.
   - **Related PR**: PR-GOV-002.

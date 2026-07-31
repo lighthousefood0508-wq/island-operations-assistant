@@ -1,22 +1,22 @@
 # ROS Active Branches
 
-Approval record: DECISION #055 — PR-REPO-001 Repository Control Recovery.
+Approval record: DECISIONS #055 and #058.
 
-Last reviewed: 2026-07-30
+Last reviewed: 2026-07-31
 
 ## Branches requiring current attention
 
 | Branch | Purpose | Owner | Status | Depends on | Next action |
 |---|---|---|---|---|---|
-| `feature/pr-measure-001` | Measurement Foundation v1 and current architecture baseline | Architecture Owner: Miles / Lin Zi-Mao | **ACTIVE — FORMAL DEVELOPMENT BASELINE** | DECISION #053 | Keep clean. Use it as the source of the future official integration branch. |
-| `feature/catalog-category-auto-code` | Branch currently attached to the original mixed recovery worktree | Ownership of individual uncommitted changes is mixed or unconfirmed | **FROZEN — RECOVERY ONLY** | Parent baseline `2e27f8f` | Do not develop or bulk-commit. Recover each workstream into a clean branch from `e10dd23`. |
+| `feature/pr-measure-001` | Measurement Foundation, Ingredient Measurement Profile, and current architecture baseline | Architecture Owner: Miles / Lin Zi-Mao | **ACTIVE — FORMAL DEVELOPMENT BASELINE** | DECISIONS #053, #056, #057, and #058 | Keep governance and feature work isolated. Begin PR-INGREDIENT-001 only after its governance synchronization commit is verified. |
+| `feature/catalog-category-auto-code` | Branch currently attached to the original mixed recovery worktree | Ownership of individual uncommitted changes is mixed or unconfirmed | **FROZEN — RECOVERY ONLY** | Parent baseline `2e27f8f` | Do not develop or bulk-commit. Recover each workstream into a clean branch from the current approved baseline. |
 | `main` | Local release branch | Architecture Owner / Release Gate | **FROZEN — NOT PROMOTED** | Full repository recovery and Release Gate | Keep unchanged until explicit promotion authorization. |
 | `audit/phase-a-pos-ui-restoration` | Historical POS restoration audit and legacy parity documents | Historical audit workstream; current owner not proven | **HISTORICAL — UNIQUE DOCUMENTS** | Earlier POS/legacy analysis | Preserve until its six unique documents are integrated, archived, or explicitly retired. |
 | `design/legacy-feature-parity-matrix` | Historical legacy-to-ROS parity plan | Historical design workstream; current owner not proven | **HISTORICAL — UNIQUE COMMIT** | None beyond earlier repository history | It is contained by `audit/phase-a-pos-ui-restoration`; review before deleting the duplicate branch reference. |
 
 ## Completed branches already contained in the baseline
 
-The following branches have no commit that is unique relative to `e10dd23`. They are frozen historical references, not active development baselines:
+The following branches had no commit unique relative to the repository baseline recorded by DECISION #055 and remain frozen historical references, not active development baselines:
 
 - `audit/phase-1c2-governance-review`
 - `chore/constitution-v2-alignment`
@@ -47,7 +47,7 @@ Status for every branch in this list:
 - purpose: historical completed workstream;
 - owner: original feature/audit owner, where known from its approval record;
 - status: **HISTORICAL / SUPERSEDED BY BASELINE**;
-- depends on: repository history already contained in `e10dd23`;
+- depends on: repository history already contained in the approved development baseline;
 - next action: retain until a cleanup review proves no worktree or recovery need remains, then request Owner authorization before deleting the branch reference.
 
 `feature/20260726-external-shadow-run` and `feature/ros-independent-external-endpoint` point to the same commit. One reference is a likely future deletion candidate, but DECISION #055 authorizes no deletion.

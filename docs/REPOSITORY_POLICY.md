@@ -1,6 +1,6 @@
 # ROS Repository Policy
 
-Approval record: DECISION #055 — PR-REPO-001 Repository Control Recovery.
+Approval record: DECISIONS #055 and #058.
 
 Status: Approved repository working policy.
 
@@ -8,9 +8,9 @@ This policy supplements `docs/REPOSITORY_WORKING_GUIDE.md`. It does not grant fe
 
 ## 1. Future PR Baseline Policy
 
-1. Future feature PRs start from commit `e10dd23`, or from the official integration branch pointing to it.
+1. Future feature PRs start from commit `354bda24547b467f14ad4455dc4daa969ca2812b`, or from an official integration branch pointing to it.
 2. The current source branch is `feature/pr-measure-001`.
-3. A later baseline replaces `e10dd23` only after Architecture Owner approval is recorded.
+3. A later baseline replaces `354bda24547b467f14ad4455dc4daa969ca2812b` only after Architecture Owner approval is recorded.
 4. A roadmap entry, completed proposal, local patch, or dirty worktree does not establish a baseline.
 5. Direct feature development on `main` is prohibited.
 6. `main` is updated only after an explicit Release Gate approval.
@@ -152,6 +152,9 @@ Measurement Foundation
         |
         v
 Ingredient Measurement Profile
+        |
+        v
+Canonical Ingredient Catalog Foundation
         |
         v
 Recipe Canonical Projection

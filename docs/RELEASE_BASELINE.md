@@ -1,39 +1,42 @@
 # ROS Architecture Development Baseline
 
-Approval record: DECISION #055 — PR-REPO-001 Repository Control Recovery.
+Approval record: DECISIONS #055 and #058.
 
-Last reviewed: 2026-07-30
+Last reviewed: 2026-07-31
 
 ## Current approved baseline
 
 ```text
 Branch: feature/pr-measure-001
-HEAD:   e10dd23
+HEAD:   354bda24547b467f14ad4455dc4daa969ca2812b
 ```
 
 **This is the current Architecture Development Baseline.**
 
-Commit `e10dd23` is not a production release, a deployment-verified version, or an operational deployment record. It is the approved Architecture Development Baseline for future proposal and implementation work.
+Commit `354bda24547b467f14ad4455dc4daa969ca2812b` is not a production release, a deployment-verified version, or an operational deployment record. It is the approved Architecture Development Baseline for the Ingredient foundation sequence and subsequent Owner-approved work.
 
 It contains:
 
-- DECISION #053 in its ancestry;
+- DECISIONS #053, #055, #056, and #057 in its ancestry;
 - Measurement Foundation v1;
-- the approved PR-MEASURE-001 implementation;
-- the completed read-only Owner audit; and
-- 195 of 195 passing relevant tests at approval time.
+- Ingredient Measurement Profile;
+- the approved PR-MEASURE-001 and PR-MEASURE-002 implementations;
+- the completed implementation audits and focused correction audit; and
+- the safely committed PR-MEASURE-002 implementation at `354bda2`.
 
 ## Status of main
 
 `main` is **not yet promoted**.
 
-At the last repository audit:
+At the repository recovery audit:
 
 - local `main` pointed to `2616fc8`;
-- `main` was an ancestor of `e10dd23`;
-- `main` was 69 commits behind `e10dd23`;
+- `main` was an ancestor of the then-current baseline;
+- `main` was behind that baseline;
 - no remote default branch was configured; and
 - a fast-forward was technically possible but had not passed a Release Gate.
+
+The feature branch is now backed up at `origin/feature/pr-measure-001`. This does not promote or push `main`.
 
 The fact that a fast-forward is technically possible is not promotion authority.
 
@@ -47,8 +50,8 @@ The fact that a fast-forward is technically possible is not promotion authority.
 
 ## Use of this baseline
 
-- New PR proposals use `e10dd23` as their evidence baseline.
-- New implementation work starts from `e10dd23` or the official integration branch pointing to it.
+- New PR proposals use `354bda24547b467f14ad4455dc4daa969ca2812b` as their evidence baseline.
+- New implementation work starts from that commit or an official integration branch pointing to it.
 - A dirty worktree is never a valid baseline.
 - PR-COST-004 changes from the recovery worktree must not be copied wholesale.
 - Dependent work must follow the sequence recorded in `docs/REPOSITORY_STATUS.md`.

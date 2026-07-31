@@ -1,42 +1,43 @@
 # ROS Repository Status
 
-Approval record: DECISION #055 — PR-REPO-001 Repository Control Recovery.
+Approval record: DECISIONS #055 and #058.
 
-Last reviewed: 2026-07-30
+Last reviewed: 2026-07-31
 
 ## Current recommended development baseline
 
 The current Architecture Development Baseline is:
 
 - Branch: `feature/pr-measure-001`
-- Commit: `e10dd23`
+- Commit: `354bda24547b467f14ad4455dc4daa969ca2812b`
 - Baseline commit state: clean, reviewed, approved, and committed
-- Included authority: DECISION #053 and Measurement Foundation v1
-- Verification at approval: 195 of 195 relevant tests passed
+- Included authority: Measurement Foundation v1, Ingredient Measurement Profile, and governance ancestry through DECISIONS #057
+- Remote backup: `origin/feature/pr-measure-001` points to the approved baseline
 
-The baseline statement above describes commit `e10dd23`. PR-REPO-001 was later committed at `91da6ec`. The current `desert-island-ros-pr-measure-001` worktree contains only PR-GOV-002 governance synchronization pending Owner review; no production or feature file is modified there. The original 40-file dirty recovery worktree is separate and remains untouched.
+The baseline statement above describes commit `354bda24547b467f14ad4455dc4daa969ca2812b`. The original 40-file dirty recovery worktree is separate and remains untouched.
 
-`main` has not been promoted to this baseline. New feature proposals and approved feature work must start from `e10dd23`, or from the official integration branch when the Owner creates one pointing to this baseline.
+`main` has not been promoted to this baseline. New feature proposals and approved feature work must start from `354bda24547b467f14ad4455dc4daa969ca2812b`, or from an official integration branch pointing to it.
 
 ## Repository health
 
 | Area | Status | Explanation |
 |---|---|---|
-| Architecture baseline | Healthy | Commit `e10dd23` was clean and audited when approved. |
+| Architecture baseline | Healthy | Commit `354bda2` is the Owner-approved Architecture Development Baseline. |
 | Measurement Foundation | Completed | PR-MEASURE-001 is safely committed. |
-| Current documentation worktree | Review pending | It contains PR-GOV-002 governance documentation only, no production or feature changes, and an empty staged area. |
-| `main` | Outdated, not broken | It is 69 commits behind `e10dd23` and has not passed a Release Gate for promotion. |
+| Ingredient Measurement Profile | Completed | PR-MEASURE-002 is audited, safely committed, and pushed on the feature branch. |
+| Current development worktree | Healthy | Governance synchronization is isolated from production and feature implementation. |
+| `main` | Outdated, not broken | It has not passed a Release Gate for promotion. |
 | Original development worktree | Recovery required | It contains 40 mixed, unstaged changes and must not be used as a PR baseline. |
 | PR-COST-004 | Blocked | It must be rebuilt as PR-COST-004R after the Measurement prerequisites in DECISION #053. |
-| PR-MEASURE-002 | Not implemented | Architecture proposal is approved under DECISION #056. Production implementation has not started and requires separate authorization. |
-| Governance documents | Synchronized, review pending | PR-GOV-002 aligns current authority documents with DECISIONS #053 and #056 and resolves the Exact Numeric Policy reference. Safe Commit still requires Owner documentation audit and authorization. |
-| Remote backup | Unproven | No Git remote or remote default branch was configured during the repository audit. |
+| PR-INGREDIENT-001 | Governance approved | DECISIONS #058 authorizes the bounded Canonical Ingredient Catalog Foundation after this governance synchronization is safely committed. |
+| Governance documents | Synchronized | Current authority and baseline documents reflect the completed Measurement work and DECISIONS #058. |
+| Remote backup | Verified | `origin/feature/pr-measure-001` points to the approved baseline. |
 
 ## Active worktrees
 
 | Folder | Branch / state | Purpose | Classification | Next action |
 |---|---|---|---|---|
-| `desert-island-ros-pr-measure-001` | `feature/pr-measure-001`; PR-REPO-001 committed at `91da6ec`; PR-GOV-002 documentation pending Owner review | Approved architecture baseline and current governance-review worktree | KEEP ACTIVE | Keep feature and production files unchanged; after governance review, use the approved baseline as the source for a future official integration branch. |
+| `desert-island-ros-pr-measure-001` | `feature/pr-measure-001` at `354bda2`; clean before DECISIONS #058 synchronization | Approved architecture baseline and current governance worktree | KEEP ACTIVE | Safely commit DECISIONS #058 synchronization, verify clean state, then begin PR-INGREDIENT-001 only under its exact allowlist. |
 | `desert-island-ros` | `feature/catalog-category-auto-code` at `2e27f8f`, dirty | Recovery source for 40 mixed changes | KEEP FOR RECOVERY | Preserve unchanged; recover work by workstream into clean branches. |
 | `ros-commit10-*` | detached `c299381`, clean | Historical staged snapshot | REVIEW BEFORE DELETE | Confirm its equivalent patch is retained, then request removal approval. |
 | `ros-commit6-*` | detached `cf3e0d4`, clean | Older POS/E2E snapshot variant | REVIEW BEFORE DELETE | Compare with the accepted retry before removal. |
@@ -53,7 +54,7 @@ No worktree may be removed under DECISION #055. This document records status onl
 
 The branches requiring current attention are:
 
-- `feature/pr-measure-001`: approved baseline.
+- `feature/pr-measure-001`: approved baseline at `354bda2`.
 - `feature/catalog-category-auto-code`: frozen recovery carrier because its worktree is dirty.
 - `main`: protected release branch; not yet promoted.
 - `audit/phase-a-pos-ui-restoration`: retains unique historical audit documents.
@@ -89,7 +90,7 @@ Rules for this worktree:
 - do not reset, restore, clean, stash, rebase, or bulk-commit it;
 - do not start another PR from it;
 - preserve all content until it has been classified and backed up;
-- recreate approved work from `e10dd23` in separate clean branches;
+- recreate approved work from the current approved baseline in separate clean branches;
 - treat PR-COST-004 as design and test recovery material, not merge-ready implementation.
 
 ## Current development roadmap
@@ -100,6 +101,9 @@ Measurement Foundation
         |
         v
 Ingredient Measurement Profile
+        |
+        v
+Canonical Ingredient Catalog Foundation
         |
         v
 Recipe Canonical Projection

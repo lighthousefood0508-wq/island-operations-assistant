@@ -1,6 +1,6 @@
 # ROS Repository Policy
 
-Approval record: DECISIONS #055 and #058.
+Governance basis: DECISIONS #055, #058, and #059. Baseline synchronization approved by the Architecture Owner.
 
 Status: Approved repository working policy.
 
@@ -8,9 +8,9 @@ This policy supplements `docs/REPOSITORY_WORKING_GUIDE.md`. It does not grant fe
 
 ## 1. Future PR Baseline Policy
 
-1. Future feature PRs start from commit `354bda24547b467f14ad4455dc4daa969ca2812b`, or from an official integration branch pointing to it.
+1. Future feature PRs start from commit `261b8dd4d3b0761c22ef4a3c9ef39ae94040bdd2`, or from an official integration branch pointing to it.
 2. The current source branch is `feature/pr-measure-001`.
-3. A later baseline replaces `354bda24547b467f14ad4455dc4daa969ca2812b` only after Architecture Owner approval is recorded.
+3. A later baseline replaces `261b8dd4d3b0761c22ef4a3c9ef39ae94040bdd2` only after Architecture Owner approval is recorded.
 4. A roadmap entry, completed proposal, local patch, or dirty worktree does not establish a baseline.
 5. Direct feature development on `main` is prohibited.
 6. `main` is updated only after an explicit Release Gate approval.
@@ -152,9 +152,11 @@ Measurement Foundation
         |
         v
 Ingredient Measurement Profile
+(COMPLETED)
         |
         v
-Canonical Ingredient Catalog Foundation
+Canonical Ingredient Domain and Persistence
+(COMPLETED)
         |
         v
 Recipe Canonical Projection

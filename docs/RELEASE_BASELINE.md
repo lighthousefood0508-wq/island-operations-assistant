@@ -1,6 +1,6 @@
 # ROS Architecture Development Baseline
 
-Approval record: DECISIONS #055 and #058.
+Governance basis: DECISIONS #055, #058, and #059. Baseline synchronization approved by the Architecture Owner.
 
 Last reviewed: 2026-07-31
 
@@ -8,21 +8,23 @@ Last reviewed: 2026-07-31
 
 ```text
 Branch: feature/pr-measure-001
-HEAD:   354bda24547b467f14ad4455dc4daa969ca2812b
+HEAD:   261b8dd4d3b0761c22ef4a3c9ef39ae94040bdd2
 ```
 
 **This is the current Architecture Development Baseline.**
 
-Commit `354bda24547b467f14ad4455dc4daa969ca2812b` is not a production release, a deployment-verified version, or an operational deployment record. It is the approved Architecture Development Baseline for the Ingredient foundation sequence and subsequent Owner-approved work.
+Commit `261b8dd4d3b0761c22ef4a3c9ef39ae94040bdd2` is not a production release, a deployment-verified version, or an operational deployment record. It is the approved Architecture Development Baseline for subsequent Owner-approved work.
 
 It contains:
 
-- DECISIONS #053, #055, #056, and #057 in its ancestry;
+- DECISIONS #053, #055, #056, #057, #058, and #059 in its ancestry;
 - Measurement Foundation v1;
 - Ingredient Measurement Profile;
 - the approved PR-MEASURE-001 and PR-MEASURE-002 implementations;
-- the completed implementation audits and focused correction audit; and
-- the safely committed PR-MEASURE-002 implementation at `354bda2`.
+- Canonical Ingredient Domain Foundation;
+- Canonical Ingredient SQLite Persistence;
+- the completed implementation and focused audits for those capabilities; and
+- the safely committed and remotely backed-up Ingredient persistence implementation at `261b8dd`.
 
 ## Status of main
 
@@ -50,8 +52,9 @@ The fact that a fast-forward is technically possible is not promotion authority.
 
 ## Use of this baseline
 
-- New PR proposals use `354bda24547b467f14ad4455dc4daa969ca2812b` as their evidence baseline.
+- New PR proposals use `261b8dd4d3b0761c22ef4a3c9ef39ae94040bdd2` as their evidence baseline.
 - New implementation work starts from that commit or an official integration branch pointing to it.
+- New feature work uses a clean branch and worktree; no additional feature work is added to `feature/pr-measure-001`.
 - A dirty worktree is never a valid baseline.
 - PR-COST-004 changes from the recovery worktree must not be copied wholesale.
 - Dependent work must follow the sequence recorded in `docs/REPOSITORY_STATUS.md`.

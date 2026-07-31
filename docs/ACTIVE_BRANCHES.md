@@ -1,6 +1,6 @@
 # ROS Active Branches
 
-Approval record: DECISIONS #055 and #058.
+Governance basis: DECISIONS #055, #058, and #059. Baseline synchronization approved by the Architecture Owner.
 
 Last reviewed: 2026-07-31
 
@@ -8,7 +8,7 @@ Last reviewed: 2026-07-31
 
 | Branch | Purpose | Owner | Status | Depends on | Next action |
 |---|---|---|---|---|---|
-| `feature/pr-measure-001` | Measurement Foundation, Ingredient Measurement Profile, and current architecture baseline | Architecture Owner: Miles / Lin Zi-Mao | **ACTIVE — FORMAL DEVELOPMENT BASELINE** | DECISIONS #053, #056, #057, and #058 | Keep governance and feature work isolated. Begin PR-INGREDIENT-001 only after its governance synchronization commit is verified. |
+| `feature/pr-measure-001` | Measurement Foundation, Ingredient Measurement Profile, Canonical Ingredient Domain and Persistence, and current architecture baseline | Architecture Owner: Miles / Lin Zi-Mao | **ACTIVE — FORMAL DEVELOPMENT BASELINE; CLOSES TO NEW FEATURE WORK AFTER THIS SYNCHRONIZATION IS SAFELY COMMITTED** | DECISIONS #053, #056, #057, #058, and #059 | Finish the documentation-only baseline synchronization. After its Safe Commit, add no new feature work; later work starts from `261b8dd` in a separately authorized clean branch/worktree. |
 | `feature/catalog-category-auto-code` | Branch currently attached to the original mixed recovery worktree | Ownership of individual uncommitted changes is mixed or unconfirmed | **FROZEN — RECOVERY ONLY** | Parent baseline `2e27f8f` | Do not develop or bulk-commit. Recover each workstream into a clean branch from the current approved baseline. |
 | `main` | Local release branch | Architecture Owner / Release Gate | **FROZEN — NOT PROMOTED** | Full repository recovery and Release Gate | Keep unchanged until explicit promotion authorization. |
 | `audit/phase-a-pos-ui-restoration` | Historical POS restoration audit and legacy parity documents | Historical audit workstream; current owner not proven | **HISTORICAL — UNIQUE DOCUMENTS** | Earlier POS/legacy analysis | Preserve until its six unique documents are integrated, archived, or explicitly retired. |

@@ -1,6 +1,6 @@
 # ROS Repository Status
 
-Approval record: DECISIONS #055 and #058.
+Governance basis: DECISIONS #055, #058, and #059. Baseline synchronization approved by the Architecture Owner.
 
 Last reviewed: 2026-07-31
 
@@ -9,35 +9,36 @@ Last reviewed: 2026-07-31
 The current Architecture Development Baseline is:
 
 - Branch: `feature/pr-measure-001`
-- Commit: `354bda24547b467f14ad4455dc4daa969ca2812b`
+- Commit: `261b8dd4d3b0761c22ef4a3c9ef39ae94040bdd2`
 - Baseline commit state: clean, reviewed, approved, and committed
-- Included authority: Measurement Foundation v1, Ingredient Measurement Profile, and governance ancestry through DECISIONS #057
+- Included authority: Measurement Foundation v1, Ingredient Measurement Profile, Canonical Ingredient Domain Foundation, Canonical Ingredient Persistence, and governance ancestry through DECISIONS #059
 - Remote backup: `origin/feature/pr-measure-001` points to the approved baseline
 
-The baseline statement above describes commit `354bda24547b467f14ad4455dc4daa969ca2812b`. The original 40-file dirty recovery worktree is separate and remains untouched.
+The baseline statement above describes commit `261b8dd4d3b0761c22ef4a3c9ef39ae94040bdd2`. The current worktree is temporarily dirty only because the four baseline synchronization documents are under Owner review. No production, test, migration, runtime, or configuration file is modified. The original 40-file dirty recovery worktree is separate and remains untouched.
 
-`main` has not been promoted to this baseline. New feature proposals and approved feature work must start from `354bda24547b467f14ad4455dc4daa969ca2812b`, or from an official integration branch pointing to it.
+`main` has not been promoted to this baseline. New feature proposals and approved feature work must start from `261b8dd4d3b0761c22ef4a3c9ef39ae94040bdd2`, or from an official integration branch pointing to it, in a new clean branch and worktree.
 
 ## Repository health
 
 | Area | Status | Explanation |
 |---|---|---|
-| Architecture baseline | Healthy | Commit `354bda2` is the Owner-approved Architecture Development Baseline. |
+| Architecture baseline | Healthy | Commit `261b8dd` is the Owner-approved Architecture Development Baseline. |
 | Measurement Foundation | Completed | PR-MEASURE-001 is safely committed. |
 | Ingredient Measurement Profile | Completed | PR-MEASURE-002 is audited, safely committed, and pushed on the feature branch. |
-| Current development worktree | Healthy | Governance synchronization is isolated from production and feature implementation. |
+| Canonical Ingredient Domain | Completed | PR-INGREDIENT-001 is audited, safely committed, and remotely backed up. |
+| Canonical Ingredient Persistence | Completed | PR-INGREDIENT-002 and DECISIONS #059 are safely committed and remotely backed up. |
+| Current development worktree | Documentation review | Only the four baseline synchronization documents are currently modified. |
 | `main` | Outdated, not broken | It has not passed a Release Gate for promotion. |
 | Original development worktree | Recovery required | It contains 40 mixed, unstaged changes and must not be used as a PR baseline. |
 | PR-COST-004 | Blocked | It must be rebuilt as PR-COST-004R after the Measurement prerequisites in DECISION #053. |
-| PR-INGREDIENT-001 | Governance approved | DECISIONS #058 authorizes the bounded Canonical Ingredient Catalog Foundation after this governance synchronization is safely committed. |
-| Governance documents | Synchronized | Current authority and baseline documents reflect the completed Measurement work and DECISIONS #058. |
-| Remote backup | Verified | `origin/feature/pr-measure-001` points to the approved baseline. |
+| Governance documents | Synchronization in review | These four documents are being updated to reflect the completed Ingredient work and baseline `261b8dd`. |
+| Remote backup | Verified | `origin/feature/pr-measure-001` points to `261b8dd`. |
 
 ## Active worktrees
 
 | Folder | Branch / state | Purpose | Classification | Next action |
 |---|---|---|---|---|
-| `desert-island-ros-pr-measure-001` | `feature/pr-measure-001` at `354bda2`; clean before DECISIONS #058 synchronization | Approved architecture baseline and current governance worktree | KEEP ACTIVE | Safely commit DECISIONS #058 synchronization, verify clean state, then begin PR-INGREDIENT-001 only under its exact allowlist. |
+| `desert-island-ros-pr-measure-001` | `feature/pr-measure-001` at `261b8dd`; clean before this four-document synchronization | Approved architecture baseline and current governance worktree | KEEP ACTIVE FOR BASELINE | Complete Owner review and Safe Commit for this documentation-only synchronization. Start later feature work only in a separately authorized clean branch/worktree. |
 | `desert-island-ros` | `feature/catalog-category-auto-code` at `2e27f8f`, dirty | Recovery source for 40 mixed changes | KEEP FOR RECOVERY | Preserve unchanged; recover work by workstream into clean branches. |
 | `ros-commit10-*` | detached `c299381`, clean | Historical staged snapshot | REVIEW BEFORE DELETE | Confirm its equivalent patch is retained, then request removal approval. |
 | `ros-commit6-*` | detached `cf3e0d4`, clean | Older POS/E2E snapshot variant | REVIEW BEFORE DELETE | Compare with the accepted retry before removal. |
@@ -54,7 +55,7 @@ No worktree may be removed under DECISION #055. This document records status onl
 
 The branches requiring current attention are:
 
-- `feature/pr-measure-001`: approved baseline at `354bda2`.
+- `feature/pr-measure-001`: approved baseline at `261b8dd`; do not add another feature workstream.
 - `feature/catalog-category-auto-code`: frozen recovery carrier because its worktree is dirty.
 - `main`: protected release branch; not yet promoted.
 - `audit/phase-a-pos-ui-restoration`: retains unique historical audit documents.
@@ -101,9 +102,11 @@ Measurement Foundation
         |
         v
 Ingredient Measurement Profile
+(COMPLETED)
         |
         v
-Canonical Ingredient Catalog Foundation
+Canonical Ingredient Domain and Persistence
+(COMPLETED)
         |
         v
 Recipe Canonical Projection

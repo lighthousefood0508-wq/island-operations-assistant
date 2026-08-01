@@ -18,6 +18,7 @@
     "test": "tsc -p tsconfig.json && node --test dist/tests/health.test.js dist/tests/contracts.test.js dist/tests/architecture-guards.test.js dist/tests/catalog.test.js dist/tests/catalog-api.integration.test.js dist/tests/operations-events.test.js dist/tests/operations-events-api.integration.test.js dist/tests/order-core.test.js dist/tests/order-core-api.integration.test.js dist/tests/lifecycle-api.integration.test.js dist/tests/adr014-recovery.test.js",
     "architecture:guard": "tsc -p tsconfig.json && node --test dist/tests/architecture-guards.test.js",
     "migration:smoke": "tsc -p tsconfig.json && node scripts/migration-smoke.mjs",
+    "migration:upgrade:014": "tsc -p tsconfig.json && node scripts/migration-upgrade-014.mjs",
     "verify": "node scripts/verify.mjs",
     "verify:full": "node scripts/verify.mjs && node scripts/e2e-runner.mjs",
     "test:e2e": "node scripts/e2e-runner.mjs",

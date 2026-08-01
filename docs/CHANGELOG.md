@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-08-01 - DECISIONS #067 Existing Database Upgrade Verification
+
+- Added a disposable, populated migration-014 fixture that exercises the production migration runner through migrations 015 and 016.
+- Verification preserves and compares all pre-existing SQL values, checks foreign-key and SQLite integrity, proves the new Measurement Profile and Recipe history schema is usable after restart, and confirms migration rerun idempotency.
+- No migration, production database, Domain contract, runtime/API/UI behavior, Recovery content, or release state is changed.
+
 ## 2026-07-23 - DECISIONS #046 ROS Self-Starting Runtime
 
 - Added ROS-only Windows start and stop scripts plus thin batch wrappers. The start path uses formal ROS build/runtime files on local port 3092, verifies central SQLite health, starts the canonical Quick Tunnel, and writes the current public links under ignored `runtime/` state.

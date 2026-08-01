@@ -8,7 +8,8 @@ const commands = [
   ["architecture guards", ["node_modules/typescript/bin/tsc", "-p", "tsconfig.json"]],
   ["architecture guards", ["--test", "dist/tests/architecture-guards.test.js"]],
   ["migration smoke", ["node_modules/typescript/bin/tsc", "-p", "tsconfig.json"]],
-  ["migration smoke", ["scripts/migration-smoke.mjs"]]
+  ["migration smoke", ["scripts/migration-smoke.mjs"]],
+  ["migration 014 upgrade", ["scripts/migration-upgrade-014.mjs"]]
 ];
 
 for (const [label, args] of commands) {

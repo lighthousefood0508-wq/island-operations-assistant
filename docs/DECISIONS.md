@@ -2,6 +2,45 @@
 
 ## Approval Register
 
+- **DECISIONS #067 - Authorize Existing 001-014 Database Upgrade Fixture Verification**
+  - **Date**: 2026-08-01.
+  - **Status**: APPROVED by Architecture Owner for the single-purpose Main Release Gate verification requested after the read-only readiness audit.
+  - **Constitution Compatibility Gate**:
+    - Reviewed ADR: ADR-019 and DECISIONS #059, #065, and #066.
+    - Compatibility Result: PASS.
+    - The verification changes no Domain ownership, Contract, business rule, schema authority, runtime route, UI, or persistence behavior. It exercises the existing forward-only migration chain against a disposable populated database only.
+  - **Purpose**:
+    - Close the retained Main Release Gate evidence gap recorded by Decision #066: fresh migration 001 through 016 is verified, but an existing populated database at migration 014 has not yet been verified through migrations 015 and 016.
+    - Provide deterministic, repeatable evidence that pre-existing System, Catalog, Operations, Cost, and Canonical Ingredient records survive the upgrade unchanged, while the new Measurement Profile and Recipe history schema becomes usable and remains valid after database restart.
+  - **Authorized scope**:
+    - One disposable migration-upgrade verification script and its package/verification wiring.
+    - A representative populated fixture created only in an operating-system temporary directory by applying the immutable migrations 001 through 014 and inserting constraint-valid historical records.
+    - Before/after migration identity, row-content, foreign-key, schema, restart, and rerun/idempotency assertions.
+    - Minimal test-plan, changelog, and Decision documentation needed to make the evidence discoverable.
+  - **Exact allowlist**:
+    - `docs/DECISIONS.md`
+    - `docs/09_TEST_PLAN.md`
+    - `docs/CHANGELOG.md`
+    - `package.json`
+    - `scripts/verify.mjs`
+    - `scripts/migration-upgrade-014.mjs`
+  - **Data and migration boundary**:
+    - Migrations 001 through 016 are immutable and must not be edited.
+    - No repository database, development database, Recovery database, backup, or external resource may be opened for write by this verification.
+    - The fixture and all SQLite sidecars must live outside repository worktrees and be removed by the verification after success or failure.
+    - Direct SQL is permitted only inside the test fixture to construct and inspect historical database state; it creates no runtime or Domain authority.
+  - **Required verification**:
+    - Prove the fixture contains exactly migrations 001 through 014 before upgrade and meaningful pre-existing rows across the approved ownership prefixes.
+    - Capture deterministic pre-upgrade table contents and prove every pre-existing table and row remains byte-for-byte equivalent at the SQL-value level after applying migrations 015 and 016.
+    - Prove foreign-key integrity, expected new tables/indexes, valid post-upgrade Profile and Recipe records, restart persistence, and migration rerun idempotency.
+    - Run strict TypeScript, compile, the focused upgrade verification, Architecture Guard, fresh migration smoke, full repository tests, Browser E2E, and diff checks with no skipped/todo/cancelled tests.
+  - **Explicitly excluded**:
+    - Editing or adding a migration; production-data access; backfill; seed; legacy promotion; schema redesign; runtime/API/UI behavior; Domain or Contract changes; Snapshot; Reliability remediation; Recovery cleanup; `main` creation or promotion; release; and deployment.
+  - **Git authority**:
+    - Work is authorized on `chore/main-gate-migration-upgrade-fixture` from the Owner-verified integration HEAD `9f7aa9f6fb6466265fbb756da4beabfcad2afcfc`.
+    - Separate governance and verification commits are authorized after their respective scope and verification checks pass.
+    - Normal push of this feature branch is authorized only after the complete verification and commit audit pass. Integration, `main` promotion, release, and deployment remain separately gated.
+
 - **DECISIONS #066 - Accept Architecture Development Integration Baseline**
   - **Date**: Not recorded in repository authority.
   - **Status**: APPROVED by Architecture Owner for architecture development baseline synchronization only.

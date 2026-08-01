@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-08-01 - DECISIONS #068 Realtime Heartbeat Reliability Correction
+
+- Kept SSE heartbeat refresh and connection-health behavior while preventing the transport heartbeat from replacing the debug panel's last formal business event.
+- Added Browser E2E coverage that crosses a heartbeat interval and proves the business-event trace remains visible.
+- No Domain, Contract, API, database, migration, Cost, Recipe, Recovery, release, or deployment behavior changed.
+
 ## 2026-08-01 - DECISIONS #067 Existing Database Upgrade Verification
 
 - Added a disposable, populated migration-014 fixture that exercises the production migration runner through migrations 015 and 016.

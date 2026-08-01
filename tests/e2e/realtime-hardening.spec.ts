@@ -45,6 +45,7 @@ async function closeEvent(page: any, eventId: string) {
 }
 
 test("realtime clients refresh central state after order and Kitchen changes without reload", async ({ browser }) => {
+  test.setTimeout(60_000);
   const setupContext = await browser.newContext();
   const contexts: any[] = [setupContext];
   const setup = await setupContext.newPage();
@@ -98,6 +99,10 @@ test("realtime clients refresh central state after order and Kitchen changes wit
     await expect(statistics.locator("#summary")).toContainText("中央訂單");
     await expect(statistics.locator("#summary")).toContainText("1");
     await expect(posB.locator("#sync-last-event")).toHaveText(/order\.created|inventory\.changed/);
+    const lastBusinessEvent = await posB.locator("#sync-last-event").textContent();
+    expect(lastBusinessEvent).toBeTruthy();
+    await posB.waitForTimeout(16_000);
+    await expect(posB.locator("#sync-last-event")).toHaveText(lastBusinessEvent!);
 
     await kitchen.locator('[data-status="preparing"]').click();
     await expect(posA.locator("#preorder-orders")).toContainText("製作中");

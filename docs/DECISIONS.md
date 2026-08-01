@@ -2,6 +2,33 @@
 
 ## Approval Register
 
+- **DECISIONS #068 - Authorize Realtime Heartbeat Last-Event Reliability Correction**
+  - **Date**: 2026-08-01.
+  - **Status**: APPROVED by Architecture Owner after the Main Release integration verification reproduced the retained heartbeat race.
+  - **Constitution Compatibility Gate**:
+    - Reviewed ADR: ADR-019 and DECISIONS #016, #066, and #067.
+    - Compatibility Result: PASS.
+    - This correction changes only debug telemetry presentation responsibility. It creates no Domain fact, persistence authority, business event, API, database, or cross-domain dependency.
+  - **Problem**:
+    - Mandatory Browser E2E reproduced a race where the SSE `heartbeat` transport-health signal overwrote the debug panel's last formal business event immediately after `order.created` or `inventory.changed`.
+    - Current evidence shows the authoritative REST refresh still completed and does not prove production data loss, but a required integration test failed and therefore blocks integration push and Main Promotion Review.
+  - **Authorized correction**:
+    - Keep heartbeat transport handling, connection health, refresh behavior, and server-time evidence intact.
+    - Prevent heartbeat from replacing the debug panel's last formal business-event identity.
+    - Add deterministic Browser E2E coverage that observes a formal business event, crosses at least one heartbeat interval, and proves the formal event remains visible while central data remains refreshed.
+  - **Exact allowlist**:
+    - `docs/DECISIONS.md`
+    - `docs/CHANGELOG.md`
+    - `src/web/shared/realtime-debug.ts`
+    - `tests/e2e/realtime-hardening.spec.ts`
+  - **Explicitly excluded**:
+    - SSE protocol redesign; heartbeat interval changes; polling changes; Domain, Contract, API, migration, database, Cost, Recipe, POS workflow, Kitchen workflow, authentication, Recovery, backup, `main`, release, or deployment changes.
+  - **Verification and Git gates**:
+    - Focused realtime E2E, complete Browser E2E, strict TypeScript, full repository tests, Architecture Guard, fresh migration smoke, populated 014 upgrade verification, and diff checks must pass.
+    - Governance and implementation remain separate commits on `fix/realtime-heartbeat-last-event`, based on `c3742bce3f3baf471c28bf479eba418172efc61c`.
+    - After commit audit, fast-forward into the local integration branch and rerun the complete Integration Audit. Integration may be normally pushed only when every required verification passes.
+    - `main` promotion, release, deployment, Recovery modification, backup modification, and remote-default changes remain unauthorized.
+
 - **DECISIONS #067 - Authorize Existing 001-014 Database Upgrade Fixture Verification**
   - **Date**: 2026-08-01.
   - **Status**: APPROVED by Architecture Owner for the single-purpose Main Release Gate verification requested after the read-only readiness audit.

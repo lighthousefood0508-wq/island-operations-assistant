@@ -1,6 +1,6 @@
 # Desert Island ROS Architecture Constitution v3
 
-This document is the highest architecture rule for ROS. It supersedes earlier architecture documents where they conflict. ADR-019 and DECISIONS #048, #053, and #056 record the Architecture Owner approvals reflected by this version.
+This document is the highest architecture rule for ROS. It supersedes earlier architecture documents where they conflict. ADR-019 and DECISIONS #048, #053, #056, #058, #059, and #069 record the Architecture Owner approvals reflected by this version.
 
 ## Exclusive ownership
 
@@ -26,6 +26,19 @@ Recipe and Cost must not define independent Measurement unit or conversion autho
 - `包`, `袋`, `盒`, and `罐` are reserved future Package Identity and Package Specification concepts. They are not Measurement Units, and Measurement Profile v1 does not own or infer package contents.
 - Archiving an Ingredient does not delete or mutate its Profiles and does not invalidate historical Measurement evidence. Historical replay uses the pinned Profile Version and conversion evidence.
 - The existing Recipe `measurementDimension` field is compatibility-only until Recipe Canonical Projection replaces it. It is not a second Measurement authority.
+
+## Canonical Ingredient lifecycle policy
+
+- Canonical Ingredient Identity Authority is an independent authority currently hosted in Recipe Core. Hosting does not transfer ownership to Recipe.
+- Recipe, Cost, Purchase, Supplier, Inventory, and Prototype code must not create a second Canonical Ingredient master or reinterpret a display name as identity.
+- The only approved lifecycle transition is `Active -> Archived`. Reactivation (`Archived -> Active`), permanent deletion, and Ingredient merge are not approved capabilities.
+- Renaming preserves the immutable Ingredient ID and records append-only audit evidence. It must not rewrite Accepted Purchase Evidence, Cost Quotes, Published Recipe Versions, Cost Snapshots, or any other historical evidence.
+- Equal or normalized names produce duplicate-candidate warnings only. They do not block creation or rename, establish identity, or authorize automatic merge.
+- Draft references are never removed by cascade. A user must explicitly remove or change each Draft reference under its owning workflow.
+- Cost Quotes are formal immutable Cost Evidence. An Archived Ingredient remains readable wherever formal historical evidence references it.
+- Reference impact is assembled by an application-level coordinator over Domain-owned read ports. Canonical Ingredient Identity Authority must not query Recipe, Cost, Purchase, or Snapshot repositories directly.
+- Until Cost Snapshot persistence exists, Snapshot reference status is `Unavailable`, never a numeric zero. Any deletion eligibility that depends on it is `Indeterminate` and therefore blocked.
+- Browser `localStorage` Prototype data is not formal Ingredient persistence, authority, or migration evidence.
 
 ## Storage, namespace, and boundaries
 

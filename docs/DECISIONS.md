@@ -2,6 +2,34 @@
 
 ## Approval Register
 
+- **DECISIONS #069 - Canonical Ingredient Lifecycle Governance Alignment**
+  - **Date**: 2026-08-02.
+  - **Status**: APPROVED by Architecture Owner for governance alignment only.
+  - **Authority and hosting**:
+    - Canonical Ingredient Identity Authority is an independent authority currently hosted in Recipe Core.
+    - Hosting does not make Canonical Ingredient Recipe-owned.
+    - Recipe, Cost, Purchase, Supplier, Inventory, and Prototype code must not create a second Canonical Ingredient authority.
+  - **Lifecycle**:
+    - The only approved transition is `Active -> Archived`.
+    - Reactivation (`Archived -> Active`), permanent deletion, and Ingredient merge are not approved.
+    - Rename preserves Ingredient ID and records append-only audit evidence without rewriting Accepted Purchase Evidence, Cost Quotes, Published Recipe Versions, Cost Snapshots, or other historical evidence.
+    - Equal or normalized names are duplicate-candidate warnings only. They do not block create or rename, establish identity, or authorize automatic merge.
+    - Draft references are not removed by cascade. Users must explicitly remove or change them in the owning workflow.
+  - **Historical evidence**:
+    - Cost Quotes are formal immutable Cost Evidence.
+    - Archived Ingredient identity and display history remain readable to formal historical references.
+  - **Reference impact boundary**:
+    - An application-level coordinator composes Domain-owned read ports for Accepted Purchase, Published Recipe or BOM, Cost Quote, future Cost Snapshot, and Draft impact.
+    - Canonical Ingredient Identity Authority must not query Recipe, Cost, Purchase, or Snapshot repositories directly.
+    - Until Cost Snapshot persistence exists, Snapshot reference status is `Unavailable`, never zero. Deletion eligibility is `Indeterminate` and blocked.
+    - This Decision approves the boundary and status semantics only. Coordinator, read-port, API, UI, and lifecycle implementation remain separately gated.
+  - **Prototype boundary**:
+    - Browser `localStorage` Ingredient data is Prototype state only. It is not formal Ingredient persistence, implementation completion, or migration evidence.
+  - **Baseline and Git boundary**:
+    - Governance alignment must use a clean baseline containing `950f6d1`, `261b8dd`, and immutable Migration 014.
+    - Those commits and Migration 014 must not be reconstructed, copied, rewritten, or cherry-picked as part of this governance change.
+    - Work on `feature/catalog-category-auto-code`, Ingredient runtime implementation, schema, migration, API, UI, tests, commit, and push are not authorized by this Decision.
+
 - **DECISIONS #068 - Authorize Realtime Heartbeat Last-Event Reliability Correction**
   - **Date**: 2026-08-01.
   - **Status**: APPROVED by Architecture Owner after the Main Release integration verification reproduced the retained heartbeat race.
@@ -976,16 +1004,19 @@
   - **Persistence constraints**: Cost retains ownership of the Repository Port; the Adapter implements that Port and must not redefine the Domain contract. Database rows are persistence records, not Domain authority. ExactDecimal coefficient and scale are stored separately without float, SQLite `REAL`, lossy number conversion, or implicit rounding. Currency uses its stable code. Effective Period remains start-inclusive and end-exclusive, including open-ended periods. Supersession is preserved as append-first history and never deletes the prior Quote; mutable `is_current` cannot be the sole authority. Multiple effective Quotes must produce the approved ambiguity failure and must never be resolved by insertion order or another implicit tie-breaker.
   - **Concurrency and time constraints**: Optimistic concurrency uses aggregateVersion and expectedVersion. The Adapter must not obtain the current time or invent audit facts; `recordedAt`, `effectiveFrom`, optional `effectiveTo`, and `supersededAt` are supplied by the upper layer and preserved exactly.
   - **Boundary constraints**: The Adapter must not modify Recipe, Operations, or the Recipe-owned Ingredient authority. The migration must not redefine legacy `cost_boms` or any Legacy BOM data as authoritative Recipe truth.
+  - **Current ownership clarification**: The historical `Recipe-owned Ingredient authority` wording above is superseded by DECISIONS #053, #058, and #069. Canonical Ingredient Identity Authority is independent and currently hosted in Recipe Core.
   - **Explicitly deferred**: Recipe Cost Calculation; Recipe Cost Evaluation; Recipe Cost Snapshot; Recipe Event Consumer; Cost Domain Events; Unit Conversion; Normalized Unit Cost Calculation; Rounding Policy; Yield Loss; Waste Rate; Supplier Domain; Purchase Order; Invoice or Receipt ingestion; API; UI; Runtime orchestration; Broker; Outbox; Inventory Integration; Operations Integration; Reporting; and Legacy BOM authority.
   - **Relationship to DECISIONS #048 and #049**: DECISIONS #048 remains effective except where a later Decision explicitly adds a limited authorization. DECISIONS #049 approved only the Cost Domain Foundation. This Decision is the limited additional authorization for PR-COST-002 Persistence only; it does not rewrite or delete either prior Decision, and every capability outside the scope above remains deferred.
 - **DECISIONS #049 — Authorize PR-COST-001 Cost Domain Foundation**
   - **Status**: APPROVED on 2026-07-29 by Architecture Owner Miles / Lin Zi-Mao.
   - **Context**: Recipe Domain Foundation, Persistence, Publish Lifecycle, and Domain Event Contract are complete. The next implementation slice requires a pure Cost Domain foundation. DECISIONS #048 did not approve implementation, so this Decision provides a new, explicit, and limited authorization.
   - **Decision**: Approve implementation of **PR-COST-001 — Cost Domain Foundation** only. Approved scope is Cost identities; the canonical Recipe-owned Ingredient identity reference; Currency; exact Monetary Amount; Cost Source; Effective Period; Ingredient Cost Quote; the `Recorded -> Superseded` lifecycle; append-first Quote history; a versioned Cost-owned Repository Port; Domain Errors; pure TypeScript unit tests; and minimal Cost Domain public exports.
+  - **Current ownership clarification**: The preceding historical phrase `canonical Recipe-owned Ingredient identity reference` is superseded by DECISIONS #053, #058, and #069. Canonical Ingredient Identity Authority is independent and hosted in Recipe Core.
   - **Constraints**: Cost must not depend on Recipe implementation and may reference Ingredient only through its formal identity. This slice must not consume Recipe Events, calculate Recipe cost, create a Recipe Cost Snapshot, implement persistence, Database, Migration, API, UI, Runtime, Broker, or Outbox, or create a new Legacy BOM dependency. Exact Numeric evidence must remain authoritative, Quote history must be append-first, and the Repository Port must remain owned by Cost.
   - **Explicitly deferred**: Cost Persistence; Database Adapter; Recipe Published Event Consumer; Unit Conversion; Normalized Unit Cost Calculation; Rounding Policy; Recipe Cost Evaluation; Recipe Cost Snapshot; Cost Events; Cost API; Cost UI; Reports; Supplier Domain; Inventory Integration; and Operations Integration.
   - **Relationship to DECISIONS #048**: DECISIONS #048 remains valid and is neither deleted nor rewritten. This Decision is a limited additional authorization for PR-COST-001 only. Every restriction in DECISIONS #048 remains effective except to the exact extent that this Decision explicitly approves the PR-COST-001 scope above.
 - **DECISIONS #048**: Recipe / BOM Independent Core Gate 0 and Governance Implementation approval on 2026-07-29 by Architecture Owner Miles / Lin Zi-Mao. Constitution v3 and ADR-019 supersede the Phase 0.5 rules that assigned BOM to Cost, limited business namespaces to three prefixes, and treated Product Contract and Sales Contract as the exhaustive cross-domain interface set. Current ownership is exclusive: Recipe owns canonical Recipe Ingredient Reference identity, Drafts, immutable Published Versions/Lines, Standard Input/Output/Yield, Scaling, and Measurement; Operations owns Event Product Plan and Production Batch raw facts; Cost owns Purchase/Valuation/Allocation evidence and Standard/Actual Cost Snapshots. Approved dependency directions are Recipe -> Operations, Recipe -> Cost, and Operations -> Cost. `recipe_*` is approved; legacy `cost_boms` and `cost_bom_items` are deprecated and non-authoritative. Exact numeric and immutable publication policies are accepted. This approval permits governance-document synchronization only and does not approve PR-001, Runtime, schema, migration, API, contract implementation, tests, build, CI, or commit.
+  - **Current ownership clarification**: The historical Canonical Ingredient and Measurement ownership wording above is superseded by DECISIONS #053, #058, and #069. Canonical Ingredient Identity Authority and Measurement Foundation are independent authorities currently hosted in Recipe Core. Hosting does not transfer ownership to Recipe.
 - **DECISIONS #047**: Event Lifecycle Implementation Slice 1 approval on 2026-07-23 by Architecture Owner Miles / Lin Zi-Mao. Approved scope: Operations-owned `paused` Event state; pause/resume; atomic page-level sellable-inventory batch save while Draft or Paused; Operations audit/idempotency persistence for that batch; per-product waste and retained closeout records; formal close requiring confirmed per-product closeout; and the corresponding Back Office, POS, Kitchen, Statistics, API, migration, and test work. The formal Lifecycle close path remains the only close path. Excluded: Order item editing, Order cancellation changes, payment confirmation/status changes, Payment provider work, Cost/BOM, Customer/Kiosk/Preorder, Sales Contract behavior, Legacy, and Event Analysis implementation.
 - **DECISIONS #046**: ROS Self-Starting Runtime approval on 2026-07-23 by Architecture Owner Miles / Lin Zi-Mao. ROS may use Windows-local start and stop scripts, a temporary Quick Tunnel, ignored runtime PID/link files, and an at-logon Task Scheduler entry delayed by 30 seconds. The runtime may start only ROS and its own recorded cloudflared process; it must not stop or modify Legacy, Legacy ngrok, Docker, n8n, or unrelated Node processes. No domain, API, schema, migration, contract, business rule, or Legacy change is approved.
 - **DECISIONS #034**: Device connectivity dashboard approval on 2026-07-21 by Architecture Owner Miles / Lin Zi-Mao. The ROS-only debug tool may expose the live in-memory SSE connection list at `/debug/devices`. It must reuse the shared realtime client and SseHub, must not persist telemetry or modify Operations, Catalog, Cost, contracts, business rules, or Legacy.

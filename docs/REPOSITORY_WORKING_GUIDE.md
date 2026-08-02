@@ -45,6 +45,33 @@ Each PR must have one reviewable responsibility and one explicit owner. Do not m
 
 Do not pull findings, recommendations, or future work into the current PR unless the Architecture Owner explicitly expands its scope.
 
+### Current Owner Goal and audit-finding triage
+
+Every authorized task must retain an explicit Current Owner Goal.
+
+A gap, risk, recommendation, or future-work item discovered during an
+audit does not automatically become the current task's next step.
+
+A discovered item is a direct blocker only when the Current Owner Goal
+cannot be completed, safely verified, or accepted without resolving it.
+Even a direct blocker does not expand scope automatically; it must be
+reported and receive the required Owner authorization before work begins.
+
+Items that do not directly block the Current Owner Goal must be recorded
+as deferred findings. They must not be promoted into the current task,
+scheduled as the next PR, or used to trigger implementation without a
+separate Owner Decision.
+
+After an authorized direct blocker is resolved, work must return to the
+original Current Owner Goal unless the Owner explicitly replaces that goal.
+
+Completion of a Proposal, audit, review, or planning document does not
+authorize implementation.
+
+Every proposed next PR must state its direct relationship to the Current
+Owner Goal and explain why it is necessary now. If that relationship
+cannot be demonstrated, the proposal remains deferred.
+
 ## 4. Exact allowlist
 
 Before editing:

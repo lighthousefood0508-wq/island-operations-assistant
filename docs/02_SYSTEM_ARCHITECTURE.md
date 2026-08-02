@@ -26,7 +26,11 @@ flowchart LR
   Sales --> Cost
 ```
 
-Measurement Foundation owns unit, dimension, exact conversion, locale policy, normalization, evidence, precision, and profile-validation semantics. Canonical Ingredient Identity Authority owns Ingredient identity and Measurement Profile identity, binding, lifecycle, versions, uniqueness, and history. Both are currently hosted in Recipe Core, but hosting does not transfer ownership to Recipe.
+Measurement Foundation owns unit, dimension, exact conversion, locale policy, normalization, evidence, precision, and profile-validation semantics. Canonical Ingredient Identity Authority owns Ingredient identity and Measurement Profile identity, binding, lifecycle, versions, Active Profile uniqueness, and history. Both are currently hosted in Recipe Core, but hosting does not transfer ownership to Recipe.
+
+Canonical Ingredient lifecycle currently permits only `Active -> Archived`. Reactivation, permanent deletion, and Ingredient merge are not approved. Rename preserves Ingredient ID and uses append-only audit evidence. Equal or normalized names produce candidate warnings only and are never identity, rejection, or automatic-merge rules. Archived identity remains readable to formal Recipe, Purchase, Quote, and future Snapshot history.
+
+Reference impact is composed by an application-level coordinator over Domain-owned read ports. Canonical Ingredient Identity Authority does not inspect Recipe, Cost, Purchase, or Snapshot repositories. Until Cost Snapshot persistence exists, Snapshot impact is `Unavailable`; it must not be presented as zero, and deletion eligibility remains `Indeterminate` and blocked. The coordinator and its runtime surface remain deferred until separately authorized.
 
 Recipe owns Recipe truth and canonical projection requests. Cost owns Quotes and costing evidence received through approved contracts. Recipe and Cost must not define independent conversion authority.
 
@@ -34,4 +38,4 @@ No authority reads another authority's tables or imports its internals. Approved
 
 Package Identity and Package Specification remain deferred. They are not Measurement Units. Taiwan `tw_catty` is Measurement-owned and always equals exactly `600 g`; no Profile or Supplier override is permitted.
 
-Google Sheets remains a future reporting export only. Local Windows remains the development environment, and Legacy remains independent.
+Google Sheets remains a future reporting export only. Browser `localStorage` Cost or Recipe Prototypes are non-authoritative interaction models, not formal persistence or migration sources. Local Windows remains the development environment, and Legacy remains independent.

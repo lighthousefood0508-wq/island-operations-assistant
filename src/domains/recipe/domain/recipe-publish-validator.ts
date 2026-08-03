@@ -1,6 +1,7 @@
 import {
   InvalidPublishState,
-  PublishValidationFailed
+  PublishValidationFailed,
+  RecipeDraftAbandoned
 } from "./errors.js";
 import type { RecipeAggregate } from "./recipe-aggregate.js";
 import type { VersionNumber } from "./version-number.js";
@@ -10,6 +11,9 @@ const UNIT_CODE_PATTERN = /^[a-z][a-z0-9_]{0,31}$/;
 export class RecipePublishValidator {
   validate(aggregate: RecipeAggregate, versionNumber: VersionNumber): void {
     const snapshot = aggregate.snapshot();
+    if (snapshot.state === "Abandoned") {
+      throw new RecipeDraftAbandoned(snapshot.draftId.value);
+    }
     if (snapshot.state !== "Draft") {
       throw new InvalidPublishState(snapshot.state);
     }
@@ -22,13 +26,8 @@ export class RecipePublishValidator {
       issues.push("at least one Ingredient Line is required");
     }
 
-    const ingredientIds = new Set<string>();
     for (const line of snapshot.lines) {
       const ingredientId = line.ingredient.ingredientReferenceId.value;
-      if (ingredientIds.has(ingredientId)) {
-        issues.push(`duplicate Ingredient ${ingredientId}`);
-      }
-      ingredientIds.add(ingredientId);
       if (line.ingredient.status !== "active") {
         issues.push(`Ingredient ${ingredientId} is inactive`);
       }

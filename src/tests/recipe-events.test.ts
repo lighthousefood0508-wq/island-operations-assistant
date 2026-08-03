@@ -11,6 +11,8 @@ import {
   RECIPE_EVENT_TYPES,
   RECIPE_EVENT_VERSION,
   RecipeDraftId,
+  RecipeAggregate,
+  RecipeAlreadyAbandoned,
   RecipeEventAlreadyConsumed,
   RecipeEventFactory,
   RecipeId,
@@ -287,9 +289,52 @@ test("eventType values are stable constants independent of class names", () => {
   const event = publishVersion1().published.events.peek()[0]!;
 
   assert.equal(RECIPE_EVENT_TYPES.draftCreated, "recipe.draft-created");
+  assert.equal(RECIPE_EVENT_TYPES.draftAbandoned, "recipe.draft-abandoned");
   assert.equal(RECIPE_EVENT_TYPES.published, "recipe.published");
   assert.equal(RECIPE_EVENT_TYPES.superseded, "recipe.superseded");
   assert.notEqual(event.eventType, event.constructor.name);
+});
+
+test("Draft abandonment produces one stable event with explicit evidence", () => {
+  const draft = RecipeAggregate.createDraft({
+    recipeId: RecipeId.fromUuid(UUID.recipe),
+    draftId: RecipeDraftId.fromUuid(UUID.draft1),
+    name: "Duplicate draft",
+    createdBy: "owner",
+    createdAt
+  });
+  const abandonment = draft.abandon({
+    actor: "owner",
+    occurredAt: "2026-07-29T13:30:00.000Z",
+    reason: "Duplicate draft",
+    previousAggregateVersion: 2
+  });
+  const factory = new RecipeEventFactory();
+  const event = factory.draftAbandoned({
+    recipeId: draft.recipeId.value,
+    recipeFamilyId: draft.recipeFamilyId.value,
+    draftId: draft.draftId.value,
+    abandonment,
+    aggregateVersion: abandonment.resultingAggregateVersion
+  });
+  const retry = factory.draftAbandoned({
+    recipeId: draft.recipeId.value,
+    recipeFamilyId: draft.recipeFamilyId.value,
+    draftId: draft.draftId.value,
+    abandonment,
+    aggregateVersion: abandonment.resultingAggregateVersion
+  });
+  assert.equal(event.eventType, RECIPE_EVENT_TYPES.draftAbandoned);
+  assert.equal(event.eventId, retry.eventId);
+  assert.equal(event.payload.resultingState, "Abandoned");
+  assert.equal(event.payload.reason, "Duplicate draft");
+  assert.equal(event.payload.previousAggregateVersion, 2);
+  assert.throws(() => draft.abandon({
+    actor: "owner",
+    occurredAt: createdAt,
+    reason: "again",
+    previousAggregateVersion: 3
+  }), RecipeAlreadyAbandoned);
 });
 
 test("every Recipe event declares explicit positive eventVersion 1", () => {

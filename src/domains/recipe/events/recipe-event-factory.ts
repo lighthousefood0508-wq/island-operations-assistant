@@ -1,10 +1,13 @@
 import type { PublishedRecipeSnapshot } from "../domain/published-recipe-snapshot.js";
+import type { RecipeAbandonment } from "../domain/types.js";
 import { InvalidRecipeEvent } from "./errors.js";
 import {
   RECIPE_EVENT_TYPES,
   RECIPE_EVENT_VERSION,
   type RecipeDraftCreatedPayload,
   type RecipeDraftCreatedV1,
+  type RecipeDraftAbandonedPayload,
+  type RecipeDraftAbandonedV1,
   type RecipeEventContext,
   type RecipePublishedPayload,
   type RecipePublishedV1,
@@ -39,7 +42,7 @@ function assertFactMetadata(
   }
 }
 
-function envelope<TType extends RecipeDraftCreatedV1["eventType"] | RecipePublishedV1["eventType"] | RecipeSupersededV1["eventType"], TPayload>(
+function envelope<TType extends RecipeDraftCreatedV1["eventType"] | RecipeDraftAbandonedV1["eventType"] | RecipePublishedV1["eventType"] | RecipeSupersededV1["eventType"], TPayload>(
   input: {
     eventId: string;
     eventType: TType;
@@ -114,6 +117,36 @@ export class RecipeEventFactory {
       aggregateVersion: input.aggregateVersion,
       occurredAt: input.createdAt,
       actorId: input.createdBy,
+      context: input.context,
+      payload
+    });
+  }
+
+  draftAbandoned(input: {
+    recipeId: string;
+    recipeFamilyId: string;
+    draftId: string;
+    abandonment: RecipeAbandonment;
+    aggregateVersion: number;
+    context?: RecipeEventContext;
+  }): RecipeDraftAbandonedV1 {
+    const payload: RecipeDraftAbandonedPayload = Object.freeze({
+      recipeId: input.recipeId,
+      recipeFamilyId: input.recipeFamilyId,
+      draftId: input.draftId,
+      resultingState: input.abandonment.resultingState,
+      abandonedAt: input.abandonment.occurredAt,
+      abandonedBy: input.abandonment.actor,
+      reason: input.abandonment.reason,
+      previousAggregateVersion: input.abandonment.previousAggregateVersion
+    });
+    return envelope({
+      eventId: `recipe-event:draft-abandoned:${input.draftId}`,
+      eventType: RECIPE_EVENT_TYPES.draftAbandoned,
+      aggregateId: input.recipeId,
+      aggregateVersion: input.aggregateVersion,
+      occurredAt: input.abandonment.occurredAt,
+      actorId: input.abandonment.actor,
       context: input.context,
       payload
     });

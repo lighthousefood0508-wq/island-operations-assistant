@@ -16,6 +16,8 @@ export type PublishedExactQuantity = Readonly<{
 }>;
 
 export type PublishedRecipeLineSnapshot = Readonly<{
+  recipeLineId: string;
+  linePosition: number;
   ingredient: Readonly<{
     ingredientReferenceId: string;
     canonicalName: string;
@@ -24,15 +26,18 @@ export type PublishedRecipeLineSnapshot = Readonly<{
     createdAt: string;
   }>;
   quantity: PublishedExactQuantity;
+  preparationNote: string | null;
 }>;
 
 export type PublishedRecipeSnapshot = Readonly<{
   recipeId: string;
+  recipeFamilyId: string;
   sourceDraftId: string;
   recipeVersionId: string;
   versionNumber: number;
   state: "Published" | "Superseded";
   name: string;
+  instructions: string | null;
   product: Readonly<{
     productId: string;
     productVersionId: string;
@@ -82,6 +87,8 @@ export class RecipeSnapshotBuilder {
     }
 
     const lines = source.lines.map((line) => Object.freeze({
+      recipeLineId: line.recipeLineId.value,
+      linePosition: line.linePosition,
       ingredient: Object.freeze({
         ingredientReferenceId: line.ingredient.ingredientReferenceId.value,
         canonicalName: line.ingredient.canonicalName,
@@ -89,16 +96,19 @@ export class RecipeSnapshotBuilder {
         status: line.ingredient.status,
         createdAt: line.ingredient.createdAt
       }),
-      quantity: freezeQuantity(line.quantity)
+      quantity: freezeQuantity(line.quantity),
+      preparationNote: line.preparationNote
     }));
 
     const snapshot: PublishedRecipeSnapshot = Object.freeze({
       recipeId: source.recipeId.value,
+      recipeFamilyId: source.recipeFamilyId.value,
       sourceDraftId: source.draftId.value,
       recipeVersionId: source.publication.recipeVersionId.value,
       versionNumber: source.publication.versionNumber.value,
       state: source.state,
       name: source.name,
+      instructions: source.instructions,
       product: Object.freeze({ ...source.product }),
       lines: Object.freeze(lines),
       standardOutput: freezeQuantity(source.standardOutput),

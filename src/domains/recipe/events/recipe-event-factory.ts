@@ -123,30 +123,27 @@ export class RecipeEventFactory {
   }
 
   draftAbandoned(input: {
-    recipeId: string;
-    recipeFamilyId: string;
-    draftId: string;
     abandonment: RecipeAbandonment;
-    aggregateVersion: number;
     context?: RecipeEventContext;
   }): RecipeDraftAbandonedV1 {
+    const { abandonment } = input;
     const payload: RecipeDraftAbandonedPayload = Object.freeze({
-      recipeId: input.recipeId,
-      recipeFamilyId: input.recipeFamilyId,
-      draftId: input.draftId,
-      resultingState: input.abandonment.resultingState,
-      abandonedAt: input.abandonment.occurredAt,
-      abandonedBy: input.abandonment.actor,
-      reason: input.abandonment.reason,
-      previousAggregateVersion: input.abandonment.previousAggregateVersion
+      recipeId: abandonment.recipeId.value,
+      recipeFamilyId: abandonment.recipeFamilyId.value,
+      draftId: abandonment.draftId.value,
+      resultingState: abandonment.resultingState,
+      abandonedAt: abandonment.occurredAt,
+      abandonedBy: abandonment.actor,
+      reason: abandonment.reason,
+      previousAggregateVersion: abandonment.previousAggregateVersion
     });
     return envelope({
-      eventId: `recipe-event:draft-abandoned:${input.draftId}`,
+      eventId: `recipe-event:draft-abandoned:${abandonment.draftId.value}`,
       eventType: RECIPE_EVENT_TYPES.draftAbandoned,
-      aggregateId: input.recipeId,
-      aggregateVersion: input.aggregateVersion,
-      occurredAt: input.abandonment.occurredAt,
-      actorId: input.abandonment.actor,
+      aggregateId: abandonment.recipeId.value,
+      aggregateVersion: abandonment.resultingAggregateVersion,
+      occurredAt: abandonment.occurredAt,
+      actorId: abandonment.actor,
       context: input.context,
       payload
     });

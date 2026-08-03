@@ -310,22 +310,26 @@ test("Draft abandonment produces one stable event with explicit evidence", () =>
     previousAggregateVersion: 2
   });
   const factory = new RecipeEventFactory();
-  const event = factory.draftAbandoned({
-    recipeId: draft.recipeId.value,
-    recipeFamilyId: draft.recipeFamilyId.value,
-    draftId: draft.draftId.value,
-    abandonment,
-    aggregateVersion: abandonment.resultingAggregateVersion
-  });
-  const retry = factory.draftAbandoned({
-    recipeId: draft.recipeId.value,
-    recipeFamilyId: draft.recipeFamilyId.value,
-    draftId: draft.draftId.value,
-    abandonment,
-    aggregateVersion: abandonment.resultingAggregateVersion
-  });
+  type DraftAbandonedInput = Parameters<RecipeEventFactory["draftAbandoned"]>[0];
+  type DuplicateEvidenceKeys = Extract<
+    keyof DraftAbandonedInput,
+    "recipeId" | "recipeFamilyId" | "draftId" | "aggregateVersion"
+  >;
+  const callerCanSupplyDuplicateEvidence: DuplicateEvidenceKeys extends never
+    ? false
+    : true = false;
+  const event = factory.draftAbandoned({ abandonment });
+  const retry = factory.draftAbandoned({ abandonment });
+
+  assert.equal(callerCanSupplyDuplicateEvidence, false);
   assert.equal(event.eventType, RECIPE_EVENT_TYPES.draftAbandoned);
   assert.equal(event.eventId, retry.eventId);
+  assert.equal(event.eventId, `recipe-event:draft-abandoned:${abandonment.draftId.value}`);
+  assert.equal(event.aggregateId, abandonment.recipeId.value);
+  assert.equal(event.aggregateVersion, abandonment.resultingAggregateVersion);
+  assert.equal(event.payload.recipeId, abandonment.recipeId.value);
+  assert.equal(event.payload.recipeFamilyId, abandonment.recipeFamilyId.value);
+  assert.equal(event.payload.draftId, abandonment.draftId.value);
   assert.equal(event.payload.resultingState, "Abandoned");
   assert.equal(event.payload.reason, "Duplicate draft");
   assert.equal(event.payload.previousAggregateVersion, 2);

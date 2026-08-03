@@ -23,11 +23,76 @@ export class InvalidRecipeState extends RecipeDomainError {
   }
 }
 
+export class RecipeProductBindingConflict extends RecipeDomainError {
+  readonly code = "RECIPE_PRODUCT_BINDING_CONFLICT";
+
+  constructor(boundProductId: string, requestedProductId: string) {
+    super(`Recipe Family is bound to Product ${boundProductId}, not ${requestedProductId}.`);
+  }
+}
+
+/** @deprecated Pre-001A compatibility error for the legacy addIngredient API. */
 export class DuplicateIngredient extends RecipeDomainError {
   readonly code = "DUPLICATE_INGREDIENT";
 
   constructor(ingredientReferenceId: string) {
-    super(`Ingredient ${ingredientReferenceId} already exists in this Recipe Draft.`);
+    super(`Ingredient ${ingredientReferenceId} already exists in this legacy Recipe Draft path.`);
+  }
+}
+
+export class RecipeLineNotFound extends RecipeDomainError {
+  readonly code = "RECIPE_LINE_NOT_FOUND";
+
+  constructor(recipeLineId: string) {
+    super(`Recipe Line ${recipeLineId} was not found.`);
+  }
+}
+
+export class RecipeLineIdentityCollision extends RecipeDomainError {
+  readonly code = "RECIPE_LINE_IDENTITY_COLLISION";
+
+  constructor(recipeLineId: string) {
+    super(`Recipe Line identity ${recipeLineId} already exists in this Draft.`);
+  }
+}
+
+export class InvalidRecipeLineOrder extends RecipeDomainError {
+  readonly code = "RECIPE_LINE_ORDER_INVALID";
+
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+export class InvalidRecipeLine extends RecipeDomainError {
+  readonly code = "RECIPE_LINE_INVALID";
+
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+export class RecipeAlreadyAbandoned extends RecipeDomainError {
+  readonly code = "RECIPE_ALREADY_ABANDONED";
+
+  constructor(draftId: string) {
+    super(`Recipe Draft ${draftId} is already abandoned.`);
+  }
+}
+
+export class RecipeDraftAbandoned extends RecipeDomainError {
+  readonly code = "RECIPE_DRAFT_ABANDONED";
+
+  constructor(draftId: string) {
+    super(`Recipe Draft ${draftId} is abandoned and cannot be changed or published.`);
+  }
+}
+
+export class RecipeInvalidTransition extends RecipeDomainError {
+  readonly code = "RECIPE_INVALID_TRANSITION";
+
+  constructor(from: string, to: string) {
+    super(`Recipe cannot transition from ${from} to ${to}.`);
   }
 }
 

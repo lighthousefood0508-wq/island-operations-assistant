@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DraftCreationFailed,
-  DuplicateIngredient,
   InMemoryRecipeRepository,
   IngredientReference,
   IngredientReferenceId,
@@ -14,6 +13,7 @@ import {
   RecipeAggregate,
   RecipeDraftId,
   RecipeId,
+  RecipeLineId,
   RecipePublishService,
   RecipeSnapshotBuilder,
   RecipeSnapshotComparator,
@@ -30,6 +30,7 @@ const UUID = {
   draft2: "21000000-0000-4000-8000-000000000002",
   ingredient1: "31000000-0000-4000-8000-000000000001",
   ingredient2: "31000000-0000-4000-8000-000000000002",
+  line2: "51000000-0000-4000-8000-000000000002",
   version1: "41000000-0000-4000-8000-000000000001",
   version2: "41000000-0000-4000-8000-000000000002"
 } as const;
@@ -198,6 +199,7 @@ test("Create Draft From Published copies frozen content into a new editable Draf
   created.draft.rename("Editable Recipe Draft");
 
   assert.equal(created.draft.state, "Draft");
+  assert.equal(created.draft.recipeFamilyId.value, result.snapshot.recipeFamilyId);
   assert.equal(created.draft.snapshot().lines[0]?.quantity.coefficient, 600n);
   assert.equal(created.draft.snapshot().name, "Editable Recipe Draft");
   assert.equal(
@@ -373,7 +375,15 @@ test("invalid repeat Publish is rejected", () => {
   );
 });
 
-test("Duplicate Ingredient cannot enter a Publish candidate", () => {
+test("Published Snapshot retains distinct repeated Ingredient Lines", () => {
+  const beforeCandidate = completeDraft();
+  beforeCandidate.publish({
+    recipeVersionId: RecipeVersionId.fromUuid(UUID.version1),
+    versionNumber: VersionNumber.create(1),
+    publishedBy: "owner",
+    publishedAt: createdAt
+  });
+  const before = new RecipeSnapshotBuilder().build(beforeCandidate);
   const candidate = completeDraft();
   const duplicate = IngredientReference.create({
     ingredientReferenceId: IngredientReferenceId.fromUuid(UUID.ingredient1),
@@ -382,9 +392,33 @@ test("Duplicate Ingredient cannot enter a Publish candidate", () => {
     createdAt
   });
 
-  assert.throws(
-    () => candidate.addIngredient(duplicate, Quantity.create(1n, 0, gram)),
-    DuplicateIngredient
-  );
-  assert.equal(candidate.snapshot().lines.length, 1);
+  candidate.addLine({
+    recipeLineId: RecipeLineId.fromUuid(UUID.line2),
+    ingredient: duplicate,
+    quantity: Quantity.create(1n, 0, gram),
+    preparationNote: "finishing line"
+  });
+  const firstLineId = candidate.snapshot().lines[0]!.recipeLineId;
+  candidate.updateLine({ recipeLineId: firstLineId, preparationNote: "base line" });
+  candidate.moveLine(RecipeLineId.fromUuid(UUID.line2), 0);
+  candidate.setInstructions("Cook slowly.");
+  candidate.publish({
+    recipeVersionId: RecipeVersionId.fromUuid(UUID.version2),
+    versionNumber: VersionNumber.create(2),
+    publishedBy: "owner",
+    publishedAt: createdAt
+  });
+  const snapshot = new RecipeSnapshotBuilder().build(candidate);
+  assert.equal(snapshot.lines.length, 2);
+  assert.equal(new Set(snapshot.lines.map((line) => line.recipeLineId)).size, 2);
+  assert.equal(snapshot.lines[0]?.preparationNote, "finishing line");
+  assert.equal(snapshot.lines[1]?.preparationNote, "base line");
+  assert.equal(snapshot.instructions, "Cook slowly.");
+  const comparator = new RecipeSnapshotComparator();
+  assert.equal(comparator.compare(snapshot, snapshot).equal, true);
+  const report = comparator.compare(before, snapshot);
+  assert.ok(report.differences.some((difference) => difference.kind === "ingredient_added"));
+  assert.ok(report.differences.some((difference) => difference.kind === "line_position_changed"));
+  assert.ok(report.differences.some((difference) => difference.kind === "preparation_note_changed"));
+  assert.ok(report.differences.some((difference) => difference.kind === "instructions_changed"));
 });

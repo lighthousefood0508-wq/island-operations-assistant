@@ -1,5 +1,6 @@
 import type { RecipeAggregate } from "./recipe-aggregate.js";
 import type { RecipeDraftId, RecipeId, RecipeVersionId } from "./identities.js";
+import type { RecipeState } from "./types.js";
 
 export interface RecipeRepository {
   findById(recipeId: RecipeId): RecipeAggregate | undefined;
@@ -16,7 +17,7 @@ export type RecipeBackOfficeListItem = Readonly<{
   currentDraftId: string;
   currentRecipeVersionId: string | null;
   aggregateVersion: number;
-  state: "Draft" | "Published" | "Superseded";
+  state: RecipeState;
   name: string;
   versionNumber: number | null;
 }>;

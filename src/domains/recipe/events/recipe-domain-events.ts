@@ -2,6 +2,7 @@ import type { PublishedRecipeSnapshot } from "../domain/published-recipe-snapsho
 
 export const RECIPE_EVENT_TYPES = Object.freeze({
   draftCreated: "recipe.draft-created",
+  draftAbandoned: "recipe.draft-abandoned",
   published: "recipe.published",
   superseded: "recipe.superseded"
 } as const);
@@ -59,6 +60,17 @@ export type RecipePublishedPayload = Readonly<{
   publishedBy: string;
 }>;
 
+export type RecipeDraftAbandonedPayload = Readonly<{
+  recipeId: string;
+  recipeFamilyId: string;
+  draftId: string;
+  resultingState: "Abandoned";
+  abandonedAt: string;
+  abandonedBy: string;
+  reason: string;
+  previousAggregateVersion: number;
+}>;
+
 export type RecipeSupersededPayload = Readonly<{
   recipeId: string;
   supersededVersionId: string;
@@ -78,6 +90,11 @@ export type RecipePublishedV1 = RecipeDomainEventEnvelope<
   RecipePublishedPayload
 >;
 
+export type RecipeDraftAbandonedV1 = RecipeDomainEventEnvelope<
+  typeof RECIPE_EVENT_TYPES.draftAbandoned,
+  RecipeDraftAbandonedPayload
+>;
+
 export type RecipeSupersededV1 = RecipeDomainEventEnvelope<
   typeof RECIPE_EVENT_TYPES.superseded,
   RecipeSupersededPayload
@@ -85,6 +102,7 @@ export type RecipeSupersededV1 = RecipeDomainEventEnvelope<
 
 export type RecipeDomainEvent =
   | RecipeDraftCreatedV1
+  | RecipeDraftAbandonedV1
   | RecipePublishedV1
   | RecipeSupersededV1;
 

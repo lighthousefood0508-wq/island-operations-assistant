@@ -7,13 +7,23 @@ export {
   InvalidVersionTransition,
   PublishValidationFailed,
   RecipeDomainError,
+  RecipeAlreadyAbandoned,
+  RecipeDraftAbandoned,
+  RecipeInvalidTransition,
+  RecipeLineIdentityCollision,
+  RecipeLineNotFound,
+  RecipeProductBindingConflict,
+  InvalidRecipeLine,
+  InvalidRecipeLineOrder,
   RecipeNotFound,
   SnapshotImmutableViolation
 } from "./domain/errors.js";
 export {
   IngredientReferenceId,
   RecipeDraftId,
+  RecipeFamilyId,
   RecipeId,
+  RecipeLineId,
   RecipeVersionId
 } from "./domain/identities.js";
 export {
@@ -37,6 +47,7 @@ export type {
 } from "./domain/recipe-repository.js";
 export type {
   ProductReference,
+  RecipeAbandonment,
   RecipePublication,
   RecipeSnapshot,
   RecipeState,
@@ -85,6 +96,8 @@ export {
   type RecipeDomainEventEnvelope,
   type RecipeDraftCreatedPayload,
   type RecipeDraftCreatedV1,
+  type RecipeDraftAbandonedPayload,
+  type RecipeDraftAbandonedV1,
   type RecipeEventContext,
   type RecipeEventType,
   type RecipePublishedPayload,

@@ -118,6 +118,8 @@ function line(
   dimension: Dimension
 ): PublishedRecipeLineSnapshot {
   return {
+    recipeLineId: `recipe_line_${ingredientId}`,
+    linePosition: 0,
     ingredient: {
       ingredientReferenceId: ingredientId,
       canonicalName: "Display only",
@@ -129,7 +131,8 @@ function line(
       coefficient,
       scale,
       unit: { code, dimension }
-    }
+    },
+    preparationNote: null
   };
 }
 
@@ -144,16 +147,18 @@ function snapshot(
 ): PublishedRecipeSnapshot {
   return {
     recipeId: "recipe_11111111-1111-4111-8111-111111111111",
+    recipeFamilyId: "recipe_family_11111111-1111-4111-8111-111111111111",
     sourceDraftId: "recipe_draft_22222222-2222-4222-8222-222222222222",
     recipeVersionId: "recipe_version_33333333-3333-4333-8333-333333333333",
     versionNumber: 1,
     state: input.state ?? "Published",
     name: "Projection test",
+    instructions: null,
     product: {
       productId: "prod_44444444-4444-4444-8444-444444444444",
       productVersionId: "pver_55555555-5555-4555-8555-555555555555"
     },
-    lines,
+    lines: lines.map((recipeLine, linePosition) => ({ ...recipeLine, linePosition })),
     standardOutput: {
       coefficient: "500",
       scale: 0,

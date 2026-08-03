@@ -1,10 +1,13 @@
 import type { PublishedRecipeSnapshot } from "../domain/published-recipe-snapshot.js";
+import type { RecipeAbandonment } from "../domain/types.js";
 import { InvalidRecipeEvent } from "./errors.js";
 import {
   RECIPE_EVENT_TYPES,
   RECIPE_EVENT_VERSION,
   type RecipeDraftCreatedPayload,
   type RecipeDraftCreatedV1,
+  type RecipeDraftAbandonedPayload,
+  type RecipeDraftAbandonedV1,
   type RecipeEventContext,
   type RecipePublishedPayload,
   type RecipePublishedV1,
@@ -39,7 +42,7 @@ function assertFactMetadata(
   }
 }
 
-function envelope<TType extends RecipeDraftCreatedV1["eventType"] | RecipePublishedV1["eventType"] | RecipeSupersededV1["eventType"], TPayload>(
+function envelope<TType extends RecipeDraftCreatedV1["eventType"] | RecipeDraftAbandonedV1["eventType"] | RecipePublishedV1["eventType"] | RecipeSupersededV1["eventType"], TPayload>(
   input: {
     eventId: string;
     eventType: TType;
@@ -114,6 +117,33 @@ export class RecipeEventFactory {
       aggregateVersion: input.aggregateVersion,
       occurredAt: input.createdAt,
       actorId: input.createdBy,
+      context: input.context,
+      payload
+    });
+  }
+
+  draftAbandoned(input: {
+    abandonment: RecipeAbandonment;
+    context?: RecipeEventContext;
+  }): RecipeDraftAbandonedV1 {
+    const { abandonment } = input;
+    const payload: RecipeDraftAbandonedPayload = Object.freeze({
+      recipeId: abandonment.recipeId.value,
+      recipeFamilyId: abandonment.recipeFamilyId.value,
+      draftId: abandonment.draftId.value,
+      resultingState: abandonment.resultingState,
+      abandonedAt: abandonment.occurredAt,
+      abandonedBy: abandonment.actor,
+      reason: abandonment.reason,
+      previousAggregateVersion: abandonment.previousAggregateVersion
+    });
+    return envelope({
+      eventId: `recipe-event:draft-abandoned:${abandonment.draftId.value}`,
+      eventType: RECIPE_EVENT_TYPES.draftAbandoned,
+      aggregateId: abandonment.recipeId.value,
+      aggregateVersion: abandonment.resultingAggregateVersion,
+      occurredAt: abandonment.occurredAt,
+      actorId: abandonment.actor,
       context: input.context,
       payload
     });

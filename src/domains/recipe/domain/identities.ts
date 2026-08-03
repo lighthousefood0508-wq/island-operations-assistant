@@ -55,6 +55,22 @@ export class RecipeId extends PrefixedIdentity {
   }
 }
 
+export class RecipeFamilyId extends PrefixedIdentity {
+  private static readonly prefix = "recipe_family_";
+
+  private constructor(value: string) {
+    super(value, RecipeFamilyId.prefix);
+  }
+
+  static parse(value: string): RecipeFamilyId {
+    return new RecipeFamilyId(value);
+  }
+
+  static fromUuid(uuid: string): RecipeFamilyId {
+    return new RecipeFamilyId(`${RecipeFamilyId.prefix}${uuid}`);
+  }
+}
+
 export class RecipeDraftId extends PrefixedIdentity {
   private static readonly prefix = "recipe_draft_";
 
@@ -84,5 +100,21 @@ export class RecipeVersionId extends PrefixedIdentity {
 
   static fromUuid(uuid: string): RecipeVersionId {
     return new RecipeVersionId(`${RecipeVersionId.prefix}${uuid}`);
+  }
+}
+
+export class RecipeLineId extends PrefixedIdentity {
+  private static readonly prefix = "recipe_line_";
+
+  private constructor(value: string) {
+    super(value, RecipeLineId.prefix);
+  }
+
+  static parse(value: string): RecipeLineId {
+    return new RecipeLineId(value);
+  }
+
+  static fromUuid(uuid: string): RecipeLineId {
+    return new RecipeLineId(`${RecipeLineId.prefix}${uuid}`);
   }
 }

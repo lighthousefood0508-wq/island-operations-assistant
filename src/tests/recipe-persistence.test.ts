@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  DuplicateIngredient,
   InMemoryRecipeRepository,
   IngredientReference,
   IngredientReferenceId,
@@ -11,6 +10,7 @@ import {
   RecipeConcurrencyConflict,
   RecipeDraftId,
   RecipeId,
+  RecipeLineIdentityCollision,
   RecipePersistenceMapper,
   RecipeRecordNotFound,
   RecipeVersionId,
@@ -135,22 +135,33 @@ test("canonical Ingredient identity and exact numeric representation are preserv
   assert.equal(mapper.fromRecords(records).snapshot().lines[0]?.quantity.coefficient, 2667n);
 });
 
-test("rehydration cannot bypass duplicate Ingredient invariant", () => {
+test("repeated Ingredient Lines round-trip while duplicate Line identity fails", () => {
   const valid = mapper.toRecords(draft(), 1);
   const first = valid.draftLines[0]!;
-  const invalid: RecipePersistenceRecords = {
+  const repeatedIngredient: RecipePersistenceRecords = {
     ...valid,
     draftLines: [
       first,
-      { ...first, position: 1 }
+      {
+        ...first,
+        recipeLineId: `recipe_line_${UUID.ingredient2}`,
+        position: 1
+      }
     ]
   };
 
+  assert.equal(mapper.fromRecords(repeatedIngredient).snapshot().lines.length, 2);
+
+  const duplicateLineIdentity: RecipePersistenceRecords = {
+    ...valid,
+    draftLines: [first, { ...first, position: 1 }]
+  };
+
   assert.throws(
-    () => mapper.fromRecords(invalid),
+    () => mapper.fromRecords(duplicateLineIdentity),
     (error: unknown) =>
       error instanceof InvalidRecipePersistenceState &&
-      error.cause instanceof DuplicateIngredient
+      error.cause instanceof RecipeLineIdentityCollision
   );
 });
 
@@ -188,6 +199,24 @@ test("Repository replaces Draft only with expected aggregate version", () => {
   assert.equal(nextVersion, 2);
   assert.equal(repository.findById(original.recipeId)?.snapshot().name, "Dongpo Pork v2 Draft");
   assert.equal(repository.findByDraftId(original.draftId)?.aggregateVersion, 2);
+});
+
+test("in-memory repository propagates Abandoned evidence and terminal state", () => {
+  const repository = new InMemoryRecipeRepository();
+  repository.save(draft());
+  const loaded = repository.findWithVersion(RecipeId.fromUuid(UUID.recipe))!;
+  loaded.aggregate.abandon({
+    actor: "owner",
+    occurredAt: "2026-07-29T11:00:00.000Z",
+    reason: "Draft no longer applies",
+    previousAggregateVersion: loaded.aggregateVersion
+  });
+  repository.saveWithExpectedVersion(loaded.aggregate, loaded.aggregateVersion);
+
+  const restored = repository.findWithVersion(RecipeId.fromUuid(UUID.recipe))!;
+  assert.equal(restored.aggregate.snapshot().state, "Abandoned");
+  assert.equal(restored.aggregate.snapshot().abandonment?.reason, "Draft no longer applies");
+  assert.equal(restored.aggregateVersion, 2);
 });
 
 test("stale write and unversioned overwrite are rejected", () => {

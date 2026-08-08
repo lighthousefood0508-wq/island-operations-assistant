@@ -11,6 +11,7 @@ import {
 } from "../persistence/errors.js";
 import { RecipePersistenceMapper } from "../persistence/recipe-persistence-mapper.js";
 import type {
+  RecipeAbandonmentAuditRecord,
   RecipeDraftRecord,
   RecipeLineRecord,
   RecipePersistenceRecords,
@@ -33,6 +34,7 @@ type StoredRecipe = {
   currentDraftLines: readonly RecipeLineRecord[];
   versions: Map<string, StoredVersion>;
   supersessions: Map<string, RecipeSupersessionAuditRecord>;
+  abandonmentAudit: RecipeAbandonmentAuditRecord | null;
 };
 
 function sameRecord(left: unknown, right: unknown): boolean {
@@ -144,7 +146,8 @@ export class InMemoryRecipeRepository implements RecipeBackOfficeRepository {
       currentDraft: records.draft,
       currentDraftLines: Object.freeze([...records.draftLines]),
       versions,
-      supersessions
+      supersessions,
+      abandonmentAudit: records.abandonmentAudit
     };
   }
 
@@ -155,7 +158,7 @@ export class InMemoryRecipeRepository implements RecipeBackOfficeRepository {
     if (incoming.version && incoming.publishAudit) {
       const storedVersion = versions.get(incoming.version.recipeVersionId);
       const candidate = Object.freeze({
-        version: incoming.version,
+        version: Object.freeze({ ...incoming.version, state: "Published" as const }),
         sourceDraft: publishedSourceDraft(incoming.draft),
         lines: Object.freeze([...incoming.versionLines]),
         publishAudit: incoming.publishAudit
@@ -206,12 +209,15 @@ export class InMemoryRecipeRepository implements RecipeBackOfficeRepository {
         ? existing.currentDraftLines
         : Object.freeze([...incoming.draftLines]),
       versions,
-      supersessions
+      supersessions,
+      abandonmentAudit: isHistoricalSupersession
+        ? existing.abandonmentAudit
+        : incoming.abandonmentAudit
     };
   }
 
   private recordsForCurrent(stored: StoredRecipe): RecipePersistenceRecords {
-    if (!stored.recipe.currentRecipeVersionId) {
+    if (!stored.recipe.currentRecipeVersionId || stored.recipe.state === "Abandoned") {
       return Object.freeze({
         recipe: stored.recipe,
         draft: stored.currentDraft,
@@ -219,7 +225,8 @@ export class InMemoryRecipeRepository implements RecipeBackOfficeRepository {
         version: null,
         versionLines: Object.freeze([]),
         publishAudit: null,
-        supersessionAudits: Object.freeze([])
+        supersessionAudits: Object.freeze([]),
+        abandonmentAudit: stored.abandonmentAudit
       });
     }
     const version = stored.versions.get(stored.recipe.currentRecipeVersionId);
@@ -238,6 +245,8 @@ export class InMemoryRecipeRepository implements RecipeBackOfficeRepository {
     });
     const recipe: RecipeRecord = Object.freeze({
       recipeId: storedVersion.version.recipeId,
+      recipeFamilyId: storedVersion.version.recipeFamilyId,
+      productId: storedVersion.version.productId,
       currentDraftId: storedVersion.version.sourceDraftId,
       currentRecipeVersionId: storedVersion.version.recipeVersionId,
       aggregateVersion: stored.recipe.aggregateVersion,
@@ -250,7 +259,8 @@ export class InMemoryRecipeRepository implements RecipeBackOfficeRepository {
       version: storedVersion.version,
       versionLines: Object.freeze([...storedVersion.lines]),
       publishAudit: storedVersion.publishAudit,
-      supersessionAudits: Object.freeze(supersession ? [supersession] : [])
+      supersessionAudits: Object.freeze(supersession ? [supersession] : []),
+      abandonmentAudit: null
     });
   }
 

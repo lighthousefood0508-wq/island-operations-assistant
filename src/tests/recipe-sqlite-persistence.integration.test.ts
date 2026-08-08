@@ -298,17 +298,19 @@ test("non-monotonic Version number and Version overwrite fail closed", (t) => {
   assert.equal(repository.listRecipes()[0]?.versionNumber, 2);
 });
 
-test("malformed persisted quantity fails Domain hydration", (t) => {
+test("Published Recipe Line mutation is rejected before historical hydration can drift", (t) => {
   const { database, repository } = fixture(t);
   repository.save(publish(draft()));
-  database.execute(
-    `UPDATE recipe_version_lines
-        SET quantity_coefficient = '600.0'
-      WHERE recipe_version_id = ?`,
-    [RecipeVersionId.fromUuid(UUIDS.version1).value]
-  );
   assert.throws(
-    () => repository.findPublishedVersion(recipeId),
-    InvalidRecipePersistenceState
+    () => database.execute(
+      `UPDATE recipe_version_lines
+          SET quantity_coefficient = '600.0'
+        WHERE recipe_version_id = ?`,
+      [RecipeVersionId.fromUuid(UUIDS.version1).value]
+    )
+  );
+  assert.equal(
+    repository.findPublishedVersion(recipeId)?.aggregate.snapshot().lines[0]?.quantity.coefficient,
+    600n
   );
 });

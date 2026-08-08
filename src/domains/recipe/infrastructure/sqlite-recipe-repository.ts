@@ -19,6 +19,7 @@ import { RecipePersistenceMapper } from "../persistence/recipe-persistence-mappe
 import type {
   ExactQuantityRecord,
   RecipeDraftRecord,
+  RecipeAbandonmentAuditRecord,
   RecipeLineRecord,
   RecipePersistenceRecords,
   RecipePublishAuditRecord,
@@ -29,6 +30,8 @@ import type {
 
 type RecipeRow = Readonly<{
   recipe_id: string;
+  recipe_family_id: string;
+  product_id: string | null;
   current_draft_id: string;
   current_recipe_version_id: string | null;
   aggregate_version: number;
@@ -38,10 +41,12 @@ type RecipeRow = Readonly<{
 type DraftRow = Readonly<{
   draft_id: string;
   recipe_id: string;
+  recipe_family_id: string;
   name: string;
   state: RecipeDraftRecord["state"];
   product_id: string | null;
   product_version_id: string | null;
+  instructions: string | null;
   standard_output_coefficient: string | null;
   standard_output_scale: number | null;
   standard_output_unit_code: string | null;
@@ -57,11 +62,14 @@ type DraftRow = Readonly<{
 type VersionRow = Readonly<{
   recipe_version_id: string;
   recipe_id: string;
+  recipe_family_id: string;
   source_draft_id: string;
   version_number: number;
+  state: "Published" | "Superseded";
   name: string;
   product_id: string;
   product_version_id: string;
+  instructions: string | null;
   standard_output_coefficient: string;
   standard_output_scale: number;
   standard_output_unit_code: string;
@@ -76,6 +84,7 @@ type VersionRow = Readonly<{
 
 type LineRow = Readonly<{
   owner_id: string;
+  recipe_line_id: string;
   position: number;
   ingredient_id: string;
   ingredient_canonical_name: string;
@@ -87,6 +96,19 @@ type LineRow = Readonly<{
   quantity_scale: number;
   quantity_unit_code: string;
   quantity_dimension: ExactQuantityRecord["measurementDimension"];
+  preparation_note: string | null;
+}>;
+
+type AbandonmentAuditRow = Readonly<{
+  event_key: string;
+  recipe_family_id: string;
+  recipe_id: string;
+  draft_id: string;
+  actor: string;
+  occurred_at: string;
+  reason: string;
+  previous_aggregate_version: number;
+  resulting_aggregate_version: number;
 }>;
 
 type PublishAuditRow = Readonly<{
@@ -143,10 +165,12 @@ function draftRecord(row: DraftRow): RecipeDraftRecord {
   return Object.freeze({
     draftId: row.draft_id,
     recipeId: row.recipe_id,
+    recipeFamilyId: row.recipe_family_id,
     name: row.name,
     state: row.state,
     productId: row.product_id,
     productVersionId: row.product_version_id,
+    instructions: row.instructions,
     standardOutput: quantity(
       row.standard_output_coefficient,
       row.standard_output_scale,
@@ -168,11 +192,14 @@ function versionRecord(row: VersionRow): RecipeVersionRecord {
   return Object.freeze({
     recipeVersionId: row.recipe_version_id,
     recipeId: row.recipe_id,
+    recipeFamilyId: row.recipe_family_id,
     sourceDraftId: row.source_draft_id,
     versionNumber: row.version_number,
+    state: row.state,
     name: row.name,
     productId: row.product_id,
     productVersionId: row.product_version_id,
+    instructions: row.instructions,
     standardOutput: quantity(
       row.standard_output_coefficient,
       row.standard_output_scale,
@@ -198,6 +225,7 @@ function lineRecord(
     ownerType,
     ownerId: row.owner_id,
     position: row.position,
+    recipeLineId: row.recipe_line_id,
     ingredientReferenceId: row.ingredient_id,
     ingredientCanonicalName: row.ingredient_canonical_name,
     ingredientMeasurementDimension: row.ingredient_measurement_dimension,
@@ -208,7 +236,22 @@ function lineRecord(
       row.quantity_scale,
       row.quantity_unit_code,
       row.quantity_dimension
-    )!
+    )!,
+    preparationNote: row.preparation_note
+  });
+}
+
+function abandonmentAudit(row: AbandonmentAuditRow): RecipeAbandonmentAuditRecord {
+  return Object.freeze({
+    eventKey: row.event_key,
+    recipeFamilyId: row.recipe_family_id,
+    recipeId: row.recipe_id,
+    draftId: row.draft_id,
+    actor: row.actor,
+    occurredAt: row.occurred_at,
+    reason: row.reason,
+    previousAggregateVersion: row.previous_aggregate_version,
+    resultingAggregateVersion: row.resulting_aggregate_version
   });
 }
 
@@ -259,6 +302,7 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
         this.insertRecipe(records.recipe);
         this.writeDraft(records.draft, records.draftLines, false);
         this.appendVersion(records);
+        this.appendAbandonment(records.abandonmentAudit);
       });
     } catch (error) {
       this.mapFailure("save new Recipe", error);
@@ -314,8 +358,12 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
             draftExists
           );
           this.appendVersion(incoming);
+          this.appendAbandonment(incoming.abandonmentAudit);
         } else {
-          this.appendSupersessions(incoming.supersessionAudits);
+          this.appendSupersessions(
+            incoming.supersessionAudits,
+            incoming.recipe.recipeFamilyId
+          );
         }
 
         const result = historicalSupersession
@@ -434,6 +482,8 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
       >(
         `SELECT
            r.recipe_id,
+           r.recipe_family_id,
+           r.product_id,
            r.current_draft_id,
            r.current_recipe_version_id,
            r.aggregate_version,
@@ -479,6 +529,7 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
     return this.database.queryMany<LineRow>(
       `SELECT
          draft_id AS owner_id,
+         recipe_line_id,
          position,
          ingredient_id,
          ingredient_canonical_name,
@@ -488,7 +539,8 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
          quantity_coefficient,
          quantity_scale,
          quantity_unit_code,
-         quantity_dimension
+         quantity_dimension,
+         preparation_note
        FROM recipe_draft_lines
        WHERE draft_id = ?
        ORDER BY position`,
@@ -502,6 +554,7 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
     return this.database.queryMany<LineRow>(
       `SELECT
          recipe_version_id AS owner_id,
+         recipe_line_id,
          position,
          ingredient_id,
          ingredient_canonical_name,
@@ -511,7 +564,8 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
          quantity_coefficient,
          quantity_scale,
          quantity_unit_code,
-         quantity_dimension
+         quantity_dimension,
+         preparation_note
        FROM recipe_version_lines
        WHERE recipe_version_id = ?
        ORDER BY position`,
@@ -526,7 +580,7 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
         "Current Recipe Draft record is missing."
       );
     }
-    if (recipe.current_recipe_version_id === null) {
+    if (recipe.current_recipe_version_id === null || recipe.state === "Draft" || recipe.state === "Abandoned") {
       return this.recordsForDraft(recipe, draft);
     }
     const version = this.database.queryOne<VersionRow>(
@@ -548,17 +602,22 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
     return Object.freeze({
       recipe: Object.freeze({
         recipeId: recipe.recipe_id,
+        recipeFamilyId: recipe.recipe_family_id,
+        productId: recipe.product_id,
         currentDraftId: draft.draft_id,
-        currentRecipeVersionId: null,
+        currentRecipeVersionId: recipe.current_recipe_version_id,
         aggregateVersion: recipe.aggregate_version,
-        state: "Draft"
+        state: recipe.state
       }),
-      draft: draftRecord({ ...draft, state: "Draft" }),
+      draft: draftRecord({ ...draft, state: recipe.state }),
       draftLines: Object.freeze(this.rawDraftLines(draft.draft_id)),
       version: null,
       versionLines: Object.freeze([]),
       publishAudit: null,
-      supersessionAudits: Object.freeze([])
+      supersessionAudits: Object.freeze([]),
+      abandonmentAudit: recipe.state === "Abandoned"
+        ? this.loadAbandonmentAudit(draft.draft_id)
+        : null
     });
   }
 
@@ -586,6 +645,8 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
     return Object.freeze({
       recipe: Object.freeze({
         recipeId: recipe.recipe_id,
+        recipeFamilyId: recipe.recipe_family_id,
+        productId: recipe.product_id,
         currentDraftId: version.source_draft_id,
         currentRecipeVersionId: version.recipe_version_id,
         aggregateVersion: recipe.aggregate_version,
@@ -602,18 +663,30 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
         supersession === undefined
           ? []
           : [supersessionAudit(supersession)]
-      )
+      ),
+      abandonmentAudit: null
     });
+  }
+
+  private loadAbandonmentAudit(draftId: string): RecipeAbandonmentAuditRecord {
+    const row = this.database.queryOne<AbandonmentAuditRow>(
+      "SELECT * FROM recipe_abandonment_audits WHERE draft_id = ?",
+      [draftId]
+    );
+    if (!row) throw new InvalidRecipePersistenceState("Abandoned Draft is missing append-only audit evidence.");
+    return abandonmentAudit(row);
   }
 
   private insertRecipe(record: RecipeRecord): void {
     this.database.execute(
       `INSERT INTO recipe_recipes (
-        recipe_id, current_draft_id, current_recipe_version_id,
-        aggregate_version, state
-      ) VALUES (?, ?, ?, ?, ?)`,
+        recipe_id, recipe_family_id, product_id, current_draft_id,
+        current_recipe_version_id, aggregate_version, state
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         record.recipeId,
+        record.recipeFamilyId,
+        record.productId,
         record.currentDraftId,
         record.currentRecipeVersionId,
         record.aggregateVersion,
@@ -636,6 +709,7 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
                 state = ?,
                 product_id = ?,
                 product_version_id = ?,
+                instructions = ?,
                 standard_output_coefficient = ?,
                 standard_output_scale = ?,
                 standard_output_unit_code = ?,
@@ -651,6 +725,7 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
           record.state,
           record.productId,
           record.productVersionId,
+          record.instructions,
           output?.coefficient ?? null,
           output?.scale ?? null,
           output?.unitCode ?? null,
@@ -670,20 +745,22 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
     } else {
       this.database.execute(
         `INSERT INTO recipe_drafts (
-          draft_id, recipe_id, name, state, product_id, product_version_id,
+          draft_id, recipe_id, recipe_family_id, name, state, product_id, product_version_id, instructions,
           standard_output_coefficient, standard_output_scale,
           standard_output_unit_code, standard_output_dimension,
           standard_yield_coefficient, standard_yield_scale,
           standard_yield_unit_code, standard_yield_dimension,
           created_by, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           record.draftId,
           record.recipeId,
+          record.recipeFamilyId,
           record.name,
           record.state,
           record.productId,
           record.productVersionId,
+          record.instructions,
           output?.coefficient ?? null,
           output?.scale ?? null,
           output?.unitCode ?? null,
@@ -703,13 +780,14 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
   private insertDraftLine(line: RecipeLineRecord): void {
     this.database.execute(
       `INSERT INTO recipe_draft_lines (
-        draft_id, position, ingredient_id, ingredient_canonical_name,
+        draft_id, recipe_line_id, position, ingredient_id, ingredient_canonical_name,
         ingredient_measurement_dimension, ingredient_status,
         ingredient_created_at, quantity_coefficient, quantity_scale,
-        quantity_unit_code, quantity_dimension
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        quantity_unit_code, quantity_dimension, preparation_note
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         line.ownerId,
+        line.recipeLineId,
         line.position,
         line.ingredientReferenceId,
         line.ingredientCanonicalName,
@@ -719,14 +797,18 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
         line.quantity.coefficient,
         line.quantity.scale,
         line.quantity.unitCode,
-        line.quantity.measurementDimension
+        line.quantity.measurementDimension,
+        line.preparationNote
       ]
     );
   }
 
   private appendVersion(records: RecipePersistenceRecords): void {
     if (records.version === null || records.publishAudit === null) {
-      this.appendSupersessions(records.supersessionAudits);
+      this.appendSupersessions(
+        records.supersessionAudits,
+        records.recipe.recipeFamilyId
+      );
       return;
     }
     const existing = this.database.queryOne<VersionRow>(
@@ -736,7 +818,7 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
     if (existing === undefined) {
       this.insertVersion(records.version);
       for (const line of records.versionLines) this.insertVersionLine(line);
-      this.insertPublishAudit(records.publishAudit);
+      this.insertPublishAudit(records.publishAudit, records.recipe.recipeFamilyId);
     } else {
       const existingRecords = this.recordsForVersion(
         this.rawRecipe(records.recipe.recipeId)!,
@@ -758,27 +840,33 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
         );
       }
     }
-    this.appendSupersessions(records.supersessionAudits);
+    this.appendSupersessions(
+      records.supersessionAudits,
+      records.recipe.recipeFamilyId
+    );
   }
 
   private insertVersion(record: RecipeVersionRecord): void {
     this.database.execute(
       `INSERT INTO recipe_versions (
         recipe_version_id, recipe_id, source_draft_id, version_number, name,
-        product_id, product_version_id, standard_output_coefficient,
+        recipe_family_id, state, product_id, product_version_id, instructions, standard_output_coefficient,
         standard_output_scale, standard_output_unit_code,
         standard_output_dimension, standard_yield_coefficient,
         standard_yield_scale, standard_yield_unit_code,
         standard_yield_dimension, published_by, published_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         record.recipeVersionId,
         record.recipeId,
         record.sourceDraftId,
         record.versionNumber,
         record.name,
+        record.recipeFamilyId,
+        record.state,
         record.productId,
         record.productVersionId,
+        record.instructions,
         record.standardOutput.coefficient,
         record.standardOutput.scale,
         record.standardOutput.unitCode,
@@ -796,13 +884,14 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
   private insertVersionLine(line: RecipeLineRecord): void {
     this.database.execute(
       `INSERT INTO recipe_version_lines (
-        recipe_version_id, position, ingredient_id,
+        recipe_version_id, recipe_line_id, position, ingredient_id,
         ingredient_canonical_name, ingredient_measurement_dimension,
         ingredient_status, ingredient_created_at, quantity_coefficient,
-        quantity_scale, quantity_unit_code, quantity_dimension
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        quantity_scale, quantity_unit_code, quantity_dimension, preparation_note
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         line.ownerId,
+        line.recipeLineId,
         line.position,
         line.ingredientReferenceId,
         line.ingredientCanonicalName,
@@ -812,19 +901,24 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
         line.quantity.coefficient,
         line.quantity.scale,
         line.quantity.unitCode,
-        line.quantity.measurementDimension
+        line.quantity.measurementDimension,
+        line.preparationNote
       ]
     );
   }
 
-  private insertPublishAudit(record: RecipePublishAuditRecord): void {
+  private insertPublishAudit(
+    record: RecipePublishAuditRecord,
+    recipeFamilyId: string
+  ): void {
     this.database.execute(
       `INSERT INTO recipe_publish_audits (
-        event_key, recipe_id, draft_id, recipe_version_id,
+        event_key, recipe_family_id, recipe_id, draft_id, recipe_version_id,
         version_number, actor, occurred_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         record.eventKey,
+        recipeFamilyId,
         record.recipeId,
         record.draftId,
         record.recipeVersionId,
@@ -836,7 +930,8 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
   }
 
   private appendSupersessions(
-    records: readonly RecipeSupersessionAuditRecord[]
+    records: readonly RecipeSupersessionAuditRecord[],
+    recipeFamilyId: string
   ): void {
     for (const record of records) {
       const existing = this.database.queryOne<SupersessionAuditRow>(
@@ -866,11 +961,12 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
       }
       this.database.execute(
         `INSERT INTO recipe_supersession_audits (
-          event_key, recipe_id, superseded_recipe_version_id,
+          event_key, recipe_family_id, recipe_id, superseded_recipe_version_id,
           superseded_by_recipe_version_id, actor, occurred_at, reason
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           record.eventKey,
+          recipeFamilyId,
           record.recipeId,
           record.supersededRecipeVersionId,
           record.supersededByRecipeVersionId,
@@ -880,6 +976,42 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
         ]
       );
     }
+  }
+
+  private appendAbandonment(
+    record: RecipeAbandonmentAuditRecord | null
+  ): void {
+    if (record === null) return;
+    const existing = this.database.queryOne<AbandonmentAuditRow>(
+      "SELECT * FROM recipe_abandonment_audits WHERE draft_id = ?",
+      [record.draftId]
+    );
+    if (existing !== undefined) {
+      if (!isDeepStrictEqual(abandonmentAudit(existing), record)) {
+        throw new InvalidRecipePersistenceState(
+          `Abandonment evidence for ${record.draftId} cannot be overwritten.`
+        );
+      }
+      return;
+    }
+    this.database.execute(
+      `INSERT INTO recipe_abandonment_audits (
+        event_key, recipe_family_id, recipe_id, draft_id, actor,
+        occurred_at, reason, previous_aggregate_version,
+        resulting_aggregate_version
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        record.eventKey,
+        record.recipeFamilyId,
+        record.recipeId,
+        record.draftId,
+        record.actor,
+        record.occurredAt,
+        record.reason,
+        record.previousAggregateVersion,
+        record.resultingAggregateVersion
+      ]
+    );
   }
 
   private validateAppend(records: RecipePersistenceRecords): void {
@@ -927,8 +1059,9 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
     ) {
       throw error;
     }
+    const detail = error instanceof Error ? ` ${error.message}` : "";
     throw new InvalidRecipePersistenceState(
-      `Failed to ${operation}.`,
+      `Failed to ${operation}.${detail}`,
       error
     );
   }

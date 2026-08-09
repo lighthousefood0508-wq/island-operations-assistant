@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-08-09 - DECISIONS #070 Recipe Management Historical Closeout
+
+- Recorded DECISIONS #070 as a retrospective governance ratification. The
+  record does not invent or backdate a historical Decision number and does not
+  expand earlier implementation authority.
+- Added an independent Recipe Management Closeout Record covering Proposal,
+  001A, 001B, PR #3 through PR #7, the two blocking 001B remediation reviews,
+  the third approving review, and the final merge evidence.
+- Synchronized current-state documentation after PR #8 while preserving the
+  distinction between the Owner-Accepted Architecture Development Baseline
+  `6128f8e853b9ac96e2d6870b3a97ffde9d0bf5d7` and current remote integration
+  Head `b107c6c7a4a2caca25bd46b138bd8baebbd97c1b`.
+- Recorded Recipe 001A/001B as completed and merged, Recipe 001C-001E as
+  unauthorized, Cost Back Office as contained but not released/deployed, and
+  migrations 001-017 as the repository migration range.
+- Recorded remote `main` as nonexistent, local `main` as unpromoted, and
+  `origin/HEAD` only as an observed abnormal pointer. No ref was changed.
+- Recorded an unresolved current regression that the configured 64-test
+  `npm test` selection does not expose: direct all-file runs pass 466/470 and
+  fail four Cost SQLite integration cases through nested transaction paths.
+  No remediation was performed by this documentation task.
+- Documentation only: no source, test, migration, script, package, runtime,
+  database, Ingredient Proposal, main, release, deployment, branch, or
+  worktree change.
+
 ## 2026-08-01 - DECISIONS #068 Realtime Heartbeat Reliability Correction
 
 - Kept SSE heartbeat refresh and connection-health behavior while preventing the transport heartbeat from replacing the debug panel's last formal business event.

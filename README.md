@@ -2,9 +2,47 @@
 
 Desert Island Restaurant Operating System (ROS) is an isolated restaurant foundation. Read [CONSTITUTION.md](CONSTITUTION.md) before changing code. The Legacy food truck project is not imported or modified.
 
-Current stable release: [ROS v0.4](docs/releases/RELEASE_v0.4.md), tagged locally as `v0.4-order-core`.
+The latest recorded local product release remains
+[ROS v0.4](docs/releases/RELEASE_v0.4.md), tagged locally as
+`v0.4-order-core`. It is historical release evidence and must not be confused
+with the current development integration branch.
 
-## 2026-07-26 Shadow Run
+## Current development state - 2026-08-09
+
+- Owner-Accepted Architecture Development Baseline:
+  `6128f8e853b9ac96e2d6870b3a97ffde9d0bf5d7`.
+- Verified remote `integration/architecture-development` Head after PR #8:
+  `b107c6c7a4a2caca25bd46b138bd8baebbd97c1b`.
+- Recipe 001A and 001B are completed, independently reviewed, and merged.
+- Recipe 001C through 001E remain unauthorized.
+- Migration files 001 through 017 are present. Migration 017 is the
+  forward-only Recipe persistence correction; Migration 016 remained
+  unchanged during 001B.
+- Cost Back Office is contained in the development integration ancestry but is
+  not formally released or deployment-verified. The 2026-08-09 all-file test
+  diagnostic also exposes four unresolved Cost SQLite integration failures;
+  see the Test Plan before treating the vertical slice as currently green.
+- Remote `main` does not exist. Local `main` remains unpromoted.
+
+The accepted baseline identifies reviewed development capability. The later
+integration Head includes the PR #8 documentation Task Card merge. Neither SHA
+identifies a deployed runtime, remote `main`, main promotion, or a product
+release. See [Current Status](docs/CURRENT_STATUS.md),
+[Architecture Development Baseline](docs/RELEASE_BASELINE.md), and the
+[Recipe Management Closeout Record](docs/reviews/PR-RECIPE-MANAGEMENT-001_CLOSEOUT_RECORD.md).
+
+Recipe 001A provides stable Recipe Line identity, ordered repeated Ingredient
+Lines, Draft editing behavior, and terminal abandonment at the Domain layer.
+Recipe 001B adds forward-only persistence, durable receipts, persistence
+Unit-of-Work operations, restart/rehydration coverage, and fail-closed current
+Published Version pointer validation. The existing Cost Back Office
+single-request create-and-publish route is not the proposed Recipe management
+Application/API/UI workflow and does not constitute 001C through 001E.
+
+## Historical 2026-07-26 Shadow Run context
+
+This section records an earlier operating milestone. It is not the current Git,
+runtime, deployment, or release identity.
 
 The Shadow Run work is on `feature/20260726-shadow-run-mvp` under **DECISIONS #013** and is not merged into `main`. Legacy remains the primary operating system. ROS is a parallel validation system: POS, Kitchen, and closeout read and write only the central SQLite database through REST APIs. SSE announces changes; every screen reloads its data from the API after a notification. See [the on-site checklist](docs/acceptance/SHADOW_RUN_20260726.md).
 
@@ -85,12 +123,22 @@ Create a POS order with an Event ID and product/version IDs from `GET /api/event
 - `npm run typecheck`
 - `npm run lint`
 - `npm test`
+- `npm run architecture:guard`
+- `npm run migration:smoke`: fresh database through migrations 001-017
+- `npm run migration:upgrade:014`: populated migration-014 fixture upgraded
+  through migrations 015-017, including restart and rerun checks
 - `npm run verify`
 - `npm run migrate`
 - `npm run test:e2e`: isolated Chromium UI acceptance on port `3091`
 - `npm run test:e2e:headed`: same E2E test with a visible browser
 - `npm run test:e2e:ui`: Playwright UI mode
 - `npm run verify:full`: quick verification plus E2E acceptance
+
+The repository-configured `npm test` command is a named regression selection;
+it is not described as every test file in `src/tests`. Focused Recipe,
+Projection/Costing, migration/transaction, full-repository, Architecture Guard,
+smoke, and upgrade selections overlap. Keep their results grouped and never add
+them into a fictional total. See [Test Plan](docs/09_TEST_PLAN.md).
 
 E2E runs use only `data/e2e-test.sqlite`, start their own server on `127.0.0.1:3091`, and remove the test database when finished. The development database and the `3090` server are never reused. Open `playwright-report/index.html` after a run for the HTML report; failure artifacts are saved under `test-results/`. Both paths are ignored by Git.
 

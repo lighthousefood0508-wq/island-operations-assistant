@@ -2,6 +2,38 @@
 
 ## Approval Register
 
+- **DECISIONS #070 - Retrospective Governance Ratification and Recipe Management Historical Closeout**
+  - **Date**: 2026-08-09.
+  - **Status**: APPROVED by Architecture Owner as a retrospective governance record.
+  - **Record character**:
+    - This Decision records Owner authorization, implementation, independent review, remediation, and merge events that actually occurred for the Recipe Management Proposal, 001A, and 001B.
+    - It does not invent or backdate a historical Decision number. `#070` is the identifier assigned on 2026-08-09 to this retrospective closeout record.
+    - It does not expand any earlier authorization or convert proposal text into implementation authority.
+  - **Proposal and Task Card history**:
+    - Proposal PR #3 merged approved Head `8e081059b7569613587faa86854ce5fe94bfd06f` as merge commit `d9a1074a043d1232bcfd6f982a664c02e716fd54`.
+    - 001A Task Card PR #4 merged Head `22d1411a8b3dc5edf810c66948bec24d8c4fa957` as merge commit `c6a550b9e87f9a7cce27948e541808f2bb31ddaf`.
+    - 001B Task Card PR #6 merged Head `21f90c6e1273102d7dbdbe4d1791090b86c6d7d0` as merge commit `29e120096455e26f70dce291a5249e43026b3550`.
+    - The historical Proposal and Task Cards retain their original `Owner review draft` wording. Their later authorization and completion are recorded here and in the independent Closeout Record; their original bytes are not rewritten.
+  - **001A closeout**:
+    - Owner-authorized 001A implementation was completed and independently reviewed.
+    - PR #5 merged approved Head `773b129cc3b53fc6435c941b770f3953f7225c98` as merge commit `7c6d4704f365ec5a79719321c170b8ca6a6cfff3`.
+    - The approved Head is the second parent of the merge commit.
+  - **001B closeout and remediation**:
+    - Owner-authorized 001B implementation began at Head `8d5b211350bffee763dd58f783402b8386e99012`.
+    - Initial pointer remediation Head `795d2db896f77cfbd2d3b917561d64cade043ced` was independently reviewed and remained blocked because the real repository save path could still lose an existing Published Version pointer and the first regression setup bypassed that path; pointer provenance also remained insufficiently fail-closed.
+    - Pointer-provenance remediation Head `6cab5e23da853bdf7f8868bd5aefd4b07d9db442` preserved and validated non-null Published pointers but was independently reviewed and remained blocked because a null pointer was still accepted after Published history existed.
+    - Final remediation Head `ab662a48c0bdfcf835d5c2af2ac002abba8d55a0` closed the null-with-Published-history gap.
+    - The third independent read-only review result was `APPROVE FOR OWNER MERGE DECISION`.
+    - PR #7 merged the final approved Head as merge commit `6128f8e853b9ac96e2d6870b3a97ffde9d0bf5d7`; the approved Head is the second parent of that merge commit.
+  - **Baseline relationship**:
+    - `6128f8e853b9ac96e2d6870b3a97ffde9d0bf5d7` is the Owner-Accepted Architecture Development Baseline.
+    - It is an integration/development baseline only. It is not remote `main`, main promotion, production deployment, or a formal product release.
+    - PR #8 later recorded the documentation synchronization Task Card. Its Head `70b6dab1159a3e8f10c951aca4a2992691cdf971` was merged as `b107c6c7a4a2caca25bd46b138bd8baebbd97c1b`, which is the verified remote integration Head at this closeout.
+  - **Scope boundary**:
+    - Recipe 001A and 001B are completed, independently reviewed, and merged.
+    - Recipe 001C through 001E remain unauthorized.
+    - Ingredient lifecycle implementation, main promotion, deployment, product release, branch cleanup, and worktree cleanup are not authorized by this Decision.
+
 - **DECISIONS #069 - Canonical Ingredient Lifecycle Governance Alignment**
   - **Date**: 2026-08-02.
   - **Status**: APPROVED by Architecture Owner for governance alignment only.

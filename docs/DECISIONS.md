@@ -34,6 +34,31 @@
     - Recipe 001C through 001E remain unauthorized.
     - Ingredient lifecycle implementation, main promotion, deployment, product release, branch cleanup, and worktree cleanup are not authorized by this Decision.
 
+### Subsequent baseline and Cost closeout synchronization — DOCS-ROS-POST-PR11-001
+
+- **Date**: 2026-08-09.
+- This is a factual synchronization under the Owner Phase A Closeout and Phase B
+  Documentation Work Order. It is not a new Decision entry and creates,
+  reserves, or backdates no Decision number.
+- The Owner subsequently designated
+  `1c31a31030e7c0d29181ebcc5355a706db95dc50` as the
+  Owner-Accepted Architecture Development Baseline after
+  COST-REGRESSION-001 completed and its Post-Merge Verification Gate passed.
+- COST-REGRESSION-001 remains governed by DECISIONS #051, DECISIONS #065,
+  Owner Authorization COST-REGRESSION-001, and the PR #11 independent review,
+  remediation review, merge authorization, and post-merge verification. Its
+  retrospective Closeout Record adds no new architecture or implementation
+  authority.
+- PR #12 recorded only the Phase A governance documentation synchronization
+  Task Card. Its approved Head
+  `96ae03cb7b97e2c2bedeabb1323e780c80dbbb9e` merged as
+  `20bca12ac7c2620ea2fc3c808bab035c9b5311fa`, the current pre-Phase-B
+  integration Git Head. This documentation-only advancement does not
+  redesignate the accepted baseline and does not claim Phase B completion.
+- Neither identity constitutes remote `main`, main promotion, product release,
+  deployment, or runtime provenance verification. Recipe 001C through 001E and
+  Ingredient 003A through 003C remain unauthorized.
+
 - **DECISIONS #069 - Canonical Ingredient Lifecycle Governance Alignment**
   - **Date**: 2026-08-02.
   - **Status**: APPROVED by Architecture Owner for governance alignment only.

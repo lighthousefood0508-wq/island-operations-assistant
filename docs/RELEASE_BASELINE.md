@@ -12,36 +12,38 @@ release. It records development and integration identities only.
 
 ```text
 Branch lineage: integration/architecture-development
-Accepted baseline: 6128f8e853b9ac96e2d6870b3a97ffde9d0bf5d7
-First parent:      29e120096455e26f70dce291a5249e43026b3550
-Second parent:     ab662a48c0bdfcf835d5c2af2ac002abba8d55a0
+Accepted baseline: 1c31a31030e7c0d29181ebcc5355a706db95dc50
+First parent:      a2791a36c1f063cdf0218aa91ce78955227323a0
+Second parent:     132789ccbbe65168aa79aa1888b1b3ec4424855d
 ```
 
-The second parent is the final approved Recipe 001B Head. This accepted
+The second parent is the final approved COST-REGRESSION-001 Head. This accepted
 baseline contains:
 
 - the earlier Measurement, Ingredient/Profile, Recipe projection, Cost
   evidence/evaluation, and Cost Back Office development capabilities;
 - Recipe 001A Domain correction and Draft behavior; and
 - Recipe 001B Migration 017, persistence, Unit-of-Work, receipt, restart, and
-  fail-closed Published pointer remediation.
+  fail-closed Published pointer remediation; and
+- PR #11 nested SQLite savepoint semantics, ordered cleanup, and retained
+  primary/cleanup failure evidence after its authorized remediation.
 
 It is an architecture-development/integration baseline only. It is not remote
 `main`, main promotion, a deployed runtime, a production database identity, or
 a formal product release.
 
-## Current integration Head after PR #8
+## Current integration Head after PR #12
 
 ```text
 Remote branch: integration/architecture-development
-Verified Head: b107c6c7a4a2caca25bd46b138bd8baebbd97c1b
-First parent:  6128f8e853b9ac96e2d6870b3a97ffde9d0bf5d7
-Second parent: 70b6dab1159a3e8f10c951aca4a2992691cdf971
+Verified Head: 20bca12ac7c2620ea2fc3c808bab035c9b5311fa
+First parent:  1c31a31030e7c0d29181ebcc5355a706db95dc50
+Second parent: 96ae03cb7b97e2c2bedeabb1323e780c80dbbb9e
 ```
 
-PR #8 added only the Owner-approved documentation synchronization Task Card.
-Its merge advances the integration branch tip but does not redefine the
-accepted capability baseline or create release authority.
+PR #12 added only the Owner-approved post-PR11 governance synchronization Task
+Card. Its merge advances the integration branch tip but does not redefine the
+accepted capability baseline, complete Phase B, or create release authority.
 
 ## Main and remote-default state
 
@@ -64,7 +66,8 @@ default-branch change. This task does not modify it.
   in `docs/bootstrap/CURRENT_AI_HANDOVER.md` and does not identify a Git SHA or
   deployed database.
 - Cost Back Office is contained in development integration but is not formally
-  released or deployment-verified.
+  released or deployment-verified. COST-REGRESSION-001 is completed and its
+  post-merge verification passed; that does not make the product release-ready.
 - Recipe 001C through 001E remain unauthorized.
 
 ## Promotion gate

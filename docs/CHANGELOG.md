@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-08-09 - Post-PR11 governance synchronization
+
+- PR #10 recorded the COST-REGRESSION-001 Task Card as merge commit
+  `a2791a36c1f063cdf0218aa91ce78955227323a0`; it authorized no implementation.
+- PR #11 corrected nested SQLite transaction semantics in exactly the shared
+  adapter and transaction-failure integration test. The initial independent
+  review found that a failed `ROLLBACK TO` skipped final `RELEASE`; the
+  authorized remediation preserved both cleanup attempts and ordered failure
+  evidence. Approved Head `132789ccbbe65168aa79aa1888b1b3ec4424855d`
+  merged as `1c31a31030e7c0d29181ebcc5355a706db95dc50`.
+- PR #11 post-merge verification passed and COST-REGRESSION-001 is closed. The
+  earlier 466/470 diagnostic and four failures remain historical discovery
+  evidence, not current unresolved test state.
+- The Owner formally designated `1c31a31030e7c0d29181ebcc5355a706db95dc50`
+  as the Owner-Accepted Architecture Development Baseline. This is not remote
+  `main`, promotion, release, deployment, or runtime provenance.
+- PR #12 recorded only the post-PR11 governance synchronization Task Card. Its
+  approved Head `96ae03cb7b97e2c2bedeabb1323e780c80dbbb9e`
+  merged as `20bca12ac7c2620ea2fc3c808bab035c9b5311fa`.
+  That documentation-only Git advancement is the Phase B branch base and does
+  not redesignate the accepted baseline or complete Phase B.
+- No new Decision number was created for COST-REGRESSION-001. Its closeout
+  cites DECISIONS #051, #065 and the explicit Owner authorization and review
+  records.
+
 ## 2026-08-09 - DECISIONS #070 Recipe Management Historical Closeout
 
 - Recorded DECISIONS #070 as a retrospective governance ratification. The

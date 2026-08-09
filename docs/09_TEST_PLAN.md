@@ -11,9 +11,9 @@ Last verified: 2026-08-09 (Asia/Taipei)
 - A failed non-required diagnostic run is still recorded; it is not erased by a
   narrower required command passing.
 
-## Documentation Work Order verification
+## Historical post-PR7 documentation verification
 
-The following results were produced from
+The following retained results were produced from
 `docs/ros-post-pr7-baseline-sync-001` at base
 `b107c6c7a4a2caca25bd46b138bd8baebbd97c1b`. Documentation edits do not change
 the compiled product source.
@@ -37,11 +37,11 @@ These groups overlap. For example, the Architecture Guard file also appears in
 `npm test`, and the focused Recipe files also appear in the all-file diagnostic
 below. Their counts are never added together.
 
-## Open full-repository regression finding
+## COST-REGRESSION-001 closeout evidence
 
-The current `package.json` `npm test` script names 11 test files and does not
-include every file under `src/tests`. A direct all-file diagnostic found a
-reproducible baseline regression:
+The `package.json` `npm test` script names 11 test files and does not include
+every file under `src/tests`. Before COST-REGRESSION-001, a direct all-file
+diagnostic found this reproducible regression:
 
 ```text
 node --test dist/tests/*.test.js
@@ -70,11 +70,55 @@ Read-only diagnosis shows existing nested transaction paths:
   than the earlier `better-sqlite3` transaction wrapper that supported nested
   savepoints.
 
-This documentation Work Order does not authorize source, test, transaction, or
-architecture remediation. The finding therefore remains unresolved and must be
-handled by a separate Owner-authorized remediation and review Gate. Until then,
-the contained Cost Back Office source must not be described as a currently
-green full-repository or release-ready capability.
+That failure evidence remains part of the chronology; it is not current test
+state. COST-REGRESSION-001 was implemented by PR #11 and merged as
+`1c31a31030e7c0d29181ebcc5355a706db95dc50` after an initial independent-review
+blocker and an authorized remediation.
+
+### Independent PR #11 Head evidence
+
+The following results were verified at approved PR #11 Head
+`132789ccbbe65168aa79aa1888b1b3ec4424855d`. Each selection is reported
+separately because selections overlap:
+
+| Group | Result |
+| --- | --- |
+| BetterSqlite3 adapter integration | 16/16 PASS |
+| Four cleanup-failure combinations | PASS; each combination independently exercised |
+| Cost regression files, default execution | 9/9 PASS |
+| Cost regression files, serial execution | 9/9 PASS |
+| Cost persistence | 24/24 PASS |
+| Cost lifecycle | 26/26 PASS |
+| Recipe persistence Unit of Work | 11/11 PASS |
+| Recipe SQLite and migration | 25/25 PASS |
+| Architecture Guard | 16/16 PASS |
+| Repository-configured `npm test` | 64/64 PASS |
+| Direct 34-file execution, default | 483/483 PASS |
+| Direct 34-file execution, serial | 483/483 PASS |
+| Typecheck, lint, build, migration gates and `git diff --check` | PASS |
+
+The four required cleanup-failure combinations separately verify nested
+callback plus `ROLLBACK TO` failure, nested callback plus final `RELEASE`
+failure, nested success plus `RELEASE` failure, and outer rollback after nested
+cleanup failure. The additional simultaneous-cleanup-failure case proves that
+final `RELEASE` is still attempted after `ROLLBACK TO` fails and that primary
+and both cleanup failures are retained in order.
+
+### Post-merge evidence
+
+After PR #11 merged, verification at integration Head
+`1c31a31030e7c0d29181ebcc5355a706db95dc50` independently reran:
+
+| Group | Result |
+| --- | --- |
+| BetterSqlite3 adapter integration | 16/16 PASS |
+| Original Cost regression selection | 9/9 PASS |
+| Architecture Guard | 16/16 PASS |
+| Typecheck, build and `git diff --check` | PASS |
+
+These post-merge checks confirm the merged correction but are not substituted
+for, or added to, the broader PR-head evidence. Passing tests do not make Cost
+Back Office release-ready or establish deployment/runtime provenance.
 
 ## Migration evidence
 
@@ -106,8 +150,8 @@ SQLite file.
 
 ## Future and separate verification
 
-- Correct and independently review the nested-transaction regression before
-  claiming a green all-file repository suite.
+- The nested-transaction regression is completed and closed by PR #11. Any
+  further transaction or adapter change requires a new Owner-authorized Gate.
 - Browser E2E, runtime provenance, backup/restore, production health, release,
   and deployment verification remain separate Gates.
 - Security and architecture audit work remains separate from test remediation.

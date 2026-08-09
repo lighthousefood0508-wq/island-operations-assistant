@@ -10,26 +10,29 @@ with the current development integration branch.
 ## Current development state - 2026-08-09
 
 - Owner-Accepted Architecture Development Baseline:
-  `6128f8e853b9ac96e2d6870b3a97ffde9d0bf5d7`.
-- Verified remote `integration/architecture-development` Head after PR #8:
-  `b107c6c7a4a2caca25bd46b138bd8baebbd97c1b`.
+  `1c31a31030e7c0d29181ebcc5355a706db95dc50`.
+- Verified remote `integration/architecture-development` Head after the
+  documentation-only PR #12 Phase A merge:
+  `20bca12ac7c2620ea2fc3c808bab035c9b5311fa`.
 - Recipe 001A and 001B are completed, independently reviewed, and merged.
 - Recipe 001C through 001E remain unauthorized.
 - Migration files 001 through 017 are present. Migration 017 is the
   forward-only Recipe persistence correction; Migration 016 remained
   unchanged during 001B.
 - Cost Back Office is contained in the development integration ancestry but is
-  not formally released or deployment-verified. The 2026-08-09 all-file test
-  diagnostic also exposes four unresolved Cost SQLite integration failures;
-  see the Test Plan before treating the vertical slice as currently green.
+  not formally released or deployment-verified. The four Cost SQLite failures
+  recorded during the earlier 466/470 diagnostic were corrected and closed by
+  COST-REGRESSION-001 / PR #11; see the Test Plan for separate PR-head and
+  post-merge evidence.
 - Remote `main` does not exist. Local `main` remains unpromoted.
 
-The accepted baseline identifies reviewed development capability. The later
-integration Head includes the PR #8 documentation Task Card merge. Neither SHA
+The accepted baseline identifies reviewed development capability through the
+completed Cost regression remediation. The later integration Head adds only
+the PR #12 Phase A governance Task Card merge. Neither SHA
 identifies a deployed runtime, remote `main`, main promotion, or a product
 release. See [Current Status](docs/CURRENT_STATUS.md),
 [Architecture Development Baseline](docs/RELEASE_BASELINE.md), and the
-[Recipe Management Closeout Record](docs/reviews/PR-RECIPE-MANAGEMENT-001_CLOSEOUT_RECORD.md).
+[Cost Regression Closeout Record](docs/reviews/PR-COST-REGRESSION-001_CLOSEOUT_RECORD.md).
 
 Recipe 001A provides stable Recipe Line identity, ordered repeated Ingredient
 Lines, Draft editing behavior, and terminal abandonment at the Domain layer.

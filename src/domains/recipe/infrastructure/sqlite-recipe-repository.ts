@@ -1078,9 +1078,17 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
   private assertCurrentPublishedPointer(recipe: RecipeRow): void {
     const pointer = recipe.current_recipe_version_id;
     if (pointer === null) {
-      if (recipe.state === "Published" || recipe.state === "Superseded") {
+      const historicalVersion = this.database.queryOne<{ present: number }>(
+        "SELECT 1 AS present FROM recipe_versions WHERE recipe_id = ? LIMIT 1",
+        [recipe.recipe_id]
+      );
+      if (
+        recipe.state === "Published"
+        || recipe.state === "Superseded"
+        || historicalVersion !== undefined
+      ) {
         throw new InvalidRecipePersistenceState(
-          "Published or Superseded Recipe records require a current Recipe Version pointer."
+          "A null current Recipe Version pointer is valid only before the first Published Version."
         );
       }
       return;

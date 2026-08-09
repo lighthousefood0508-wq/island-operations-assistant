@@ -239,6 +239,36 @@ test("Draft reads fail closed when the retained pointer targets a same-Family no
   );
 });
 
+test("Draft reads fail closed when Published history exists but its pointer is missing", (t) => {
+  const { database, repository } = fixture(t);
+  repository.save(publish(draft()));
+  assert.equal(repository.saveWithExpectedVersion(draft(UUIDS.draft2), 1), 2);
+  database.execute(
+    "UPDATE recipe_recipes SET current_recipe_version_id = NULL WHERE recipe_id = ?",
+    [recipeId.value]
+  );
+  assert.equal(database.queryMany("PRAGMA foreign_key_check").length, 0);
+  assert.equal(
+    database.queryOne<{ integrity_check: string }>("PRAGMA integrity_check")?.integrity_check,
+    "ok"
+  );
+  assert.equal(
+    database.queryOne<{ count: number }>(
+      "SELECT count(*) AS count FROM recipe_versions WHERE recipe_id = ?",
+      [recipeId.value]
+    )?.count,
+    1
+  );
+  assert.throws(
+    () => repository.findWithVersion(recipeId),
+    InvalidRecipePersistenceState
+  );
+  assert.throws(
+    () => repository.listRecipes(),
+    InvalidRecipePersistenceState
+  );
+});
+
 test("duplicate identity and stale writer fail without overwrite", (t) => {
   const { repository } = fixture(t);
   repository.save(draft());

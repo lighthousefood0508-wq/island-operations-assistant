@@ -122,24 +122,13 @@ export class BetterSqlite3Adapter implements DatabaseAdapter {
     try {
       result = work();
     } catch (operationFailure) {
-      const rollbackFailure = this.tryExecute(`ROLLBACK TO ${savepoint}`);
-      if (rollbackFailure !== null) {
+      const cleanupFailure = this.tryCleanupSavepoint(savepoint);
+      if (cleanupFailure !== null) {
         this.unsafe = true;
         throw new DatabaseTransactionFailure(
           "operation",
           operationFailure,
-          rollbackFailure,
-          true
-        );
-      }
-
-      const releaseFailure = this.tryExecute(`RELEASE ${savepoint}`);
-      if (releaseFailure !== null) {
-        this.unsafe = true;
-        throw new DatabaseTransactionFailure(
-          "operation",
-          operationFailure,
-          releaseFailure,
+          cleanupFailure,
           true
         );
       }
@@ -150,7 +139,7 @@ export class BetterSqlite3Adapter implements DatabaseAdapter {
       this.database.exec(`RELEASE ${savepoint}`);
       return result;
     } catch (releaseFailure) {
-      const rollbackFailure = this.tryRollbackSavepoint(savepoint);
+      const rollbackFailure = this.tryCleanupSavepoint(savepoint);
       if (rollbackFailure !== null) this.unsafe = true;
       throw new DatabaseTransactionFailure(
         "commit",
@@ -166,10 +155,15 @@ export class BetterSqlite3Adapter implements DatabaseAdapter {
     return `${this.savepointPrefix}_${this.savepointSequence}`;
   }
 
-  private tryRollbackSavepoint(savepoint: string): unknown | null {
+  private tryCleanupSavepoint(savepoint: string): unknown | null {
     const rollbackFailure = this.tryExecute(`ROLLBACK TO ${savepoint}`);
-    if (rollbackFailure !== null) return rollbackFailure;
-    return this.tryExecute(`RELEASE ${savepoint}`);
+    const releaseFailure = this.tryExecute(`RELEASE ${savepoint}`);
+    if (rollbackFailure === null) return releaseFailure;
+    if (releaseFailure === null) return rollbackFailure;
+    return new AggregateError(
+      [rollbackFailure, releaseFailure],
+      "Savepoint rollback and release both failed."
+    );
   }
 
   private tryExecute(sql: string): unknown | null {

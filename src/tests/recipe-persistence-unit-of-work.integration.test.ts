@@ -4,11 +4,20 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
+  IngredientReference,
+  IngredientReferenceId,
+  Quantity,
   RECIPE_RECEIPT_FINGERPRINT_ALGORITHM,
   RECIPE_RECEIPT_INPUT_VERSION,
+  RecipeAggregate,
+  RecipeDraftId,
+  RecipeFamilyId,
   RecipeIdempotencyConflict,
   RecipeId,
+  RecipeVersionId,
   SqliteRecipePersistenceUnitOfWork,
+  Unit,
+  VersionNumber,
   expectedRecipeReceiptFingerprint,
   type FamilyCreationPersistenceInput,
   type RecipeLineRecord,
@@ -184,34 +193,71 @@ test("Abandoned later Draft rehydrates after restart without losing the current 
   try {
     runMigrations(database);
     database.execute("INSERT INTO recipe_canonical_ingredients (ingredient_id, name, category_code, status, aggregate_version, created_at, created_by) VALUES (?, 'Pork', 'meat', 'Active', 0, ?, 'owner')", [ingredientId, now]);
+    const repository = new SqliteRecipeRepository(database);
     const uow = new SqliteRecipePersistenceUnitOfWork(database);
     const family = familyInput("10");
-    uow.createFamilyWithInitialDraft(family);
-    const publication = publicationInput(family);
-    const published = uow.publishRecipeVersion(publication);
+    const recipeId = RecipeId.parse(family.recipeId);
+    const recipeFamilyId = RecipeFamilyId.parse(family.recipeFamilyId);
+    const initialDraft = RecipeAggregate.createDraft({
+      recipeFamilyId,
+      recipeId,
+      draftId: RecipeDraftId.parse(family.initialDraftId),
+      name: family.initialDraftName,
+      createdBy: "owner",
+      createdAt: now
+    });
+    initialDraft.bindProduct(family.productId, family.productVersionId);
+    initialDraft.addIngredient(
+      IngredientReference.create({
+        ingredientReferenceId: IngredientReferenceId.parse(ingredientId),
+        canonicalName: "Pork",
+        measurementDimension: "mass",
+        createdAt: now
+      }),
+      Quantity.create(100n, 0, Unit.create("g", "mass"))
+    );
+    initialDraft.defineStandardOutput(
+      Quantity.create(100n, 0, Unit.create("g", "mass")),
+      Quantity.create(1n, 0, Unit.create("each", "count"))
+    );
+    repository.save(initialDraft);
+    const publishedVersionId = RecipeVersionId.parse(
+      "recipe_version_50000000-0000-4000-8000-000000000001"
+    );
+    initialDraft.publish({
+      recipeVersionId: publishedVersionId,
+      versionNumber: VersionNumber.create(1),
+      publishedBy: "owner",
+      publishedAt: now
+    });
+    assert.equal(repository.saveWithExpectedVersion(initialDraft, 1), 2);
 
     const laterDraftId = "recipe_draft_20000000-0000-4000-8000-000000000099";
-    const laterLine = line(laterDraftId, "draft", "99");
-    database.transactionImmediate(() => {
-      database!.execute(
-        `INSERT INTO recipe_drafts (
-          draft_id, recipe_id, recipe_family_id, name, state, product_id,
-          product_version_id, instructions, standard_output_coefficient,
-          standard_output_scale, standard_output_unit_code, standard_output_dimension,
-          standard_yield_coefficient, standard_yield_scale, standard_yield_unit_code,
-          standard_yield_dimension, created_by, created_at
-        ) VALUES (?, ?, ?, 'Recipe 10 revision', 'Draft', ?, ?, 'Revised', '100', 0, 'g', 'mass', '1', 0, 'each', 'count', 'owner', ?)`,
-        [laterDraftId, family.recipeId, family.recipeFamilyId, family.productId, family.productVersionId, now]
-      );
-      database!.execute(
-        "INSERT INTO recipe_draft_lines (draft_id, recipe_line_id, position, ingredient_id, ingredient_canonical_name, ingredient_measurement_dimension, ingredient_status, ingredient_created_at, quantity_coefficient, quantity_scale, quantity_unit_code, quantity_dimension, preparation_note) VALUES (?, ?, 0, ?, 'Pork', 'mass', 'active', ?, '100', 0, 'g', 'mass', 'Trim')",
-        [laterDraftId, laterLine.recipeLineId, ingredientId, now]
-      );
-      database!.execute(
-        "UPDATE recipe_recipes SET current_draft_id = ?, aggregate_version = 3, state = 'Draft' WHERE recipe_id = ?",
-        [laterDraftId, family.recipeId]
-      );
+    const laterDraft = RecipeAggregate.createDraft({
+      recipeFamilyId,
+      recipeId,
+      draftId: RecipeDraftId.parse(laterDraftId),
+      name: "Recipe 10 revision",
+      createdBy: "owner",
+      createdAt: now
     });
+    laterDraft.bindProduct(family.productId, family.productVersionId);
+    laterDraft.addIngredient(
+      IngredientReference.create({
+        ingredientReferenceId: IngredientReferenceId.parse(ingredientId),
+        canonicalName: "Pork",
+        measurementDimension: "mass",
+        createdAt: now
+      }),
+      Quantity.create(100n, 0, Unit.create("g", "mass"))
+    );
+    laterDraft.defineStandardOutput(
+      Quantity.create(100n, 0, Unit.create("g", "mass")),
+      Quantity.create(1n, 0, Unit.create("each", "count"))
+    );
+    assert.equal(repository.saveWithExpectedVersion(laterDraft, 2), 3);
+    assert.equal(repository.findWithVersion(recipeId)?.aggregate.snapshot().state, "Draft");
+    assert.equal(repository.listRecipes()[0]?.currentRecipeVersionId, publishedVersionId.value);
 
     const provisionalAbandonment: DraftAbandonmentPersistenceInput = {
       receipt: receipt("DRAFT_ABANDON", "RECIPE_DRAFT", laterDraftId, "abandon-after-publish"),
@@ -237,7 +283,7 @@ test("Abandoned later Draft rehydrates after restart without losing the current 
       }
     };
     const abandoned = uow.abandonDraft(abandonment);
-    assert.equal(abandoned.currentRecipeVersionId, published.currentRecipeVersionId);
+    assert.equal(abandoned.currentRecipeVersionId, publishedVersionId.value);
 
     database.close();
     database = undefined;
@@ -258,12 +304,12 @@ test("Abandoned later Draft rehydrates after restart without losing the current 
       assert.equal(restoredSnapshot?.abandonment?.resultingAggregateVersion, 4);
       assert.equal(
         repository.listRecipes()[0]?.currentRecipeVersionId,
-        published.currentRecipeVersionId
+        publishedVersionId.value
       );
       assert.equal(
         reopened.queryOne<{ state: string }>(
           "SELECT state FROM recipe_versions WHERE recipe_version_id = ?",
-          [published.currentRecipeVersionId]
+          [publishedVersionId.value]
         )?.state,
         "Published"
       );

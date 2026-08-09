@@ -96,17 +96,7 @@ test("Draft aggregate round-trips through persistence records", () => {
   assert.equal(records.recipe.aggregateVersion, 3);
 });
 
-test("Draft records accept a retained Published pointer while Published records still require an exact pointer", () => {
-  const draftRecords = mapper.toRecords(draft(), 3);
-  const retainedPointer = Object.freeze({
-    ...draftRecords,
-    recipe: Object.freeze({
-      ...draftRecords.recipe,
-      currentRecipeVersionId: `recipe_version_${UUID.version1}`
-    })
-  });
-  assert.equal(mapper.fromRecords(retainedPointer).snapshot().state, "Draft");
-
+test("Published records still require an exact current Version pointer", () => {
   const publishedRecords = mapper.toRecords(published(), 1);
   const mismatchedPointer = Object.freeze({
     ...publishedRecords,

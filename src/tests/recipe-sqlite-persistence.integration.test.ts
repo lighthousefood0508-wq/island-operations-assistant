@@ -210,6 +210,35 @@ test("Recipe authority survives closing and reopening SQLite", (t) => {
   reopened.close();
 });
 
+test("Draft reads fail closed when the retained pointer targets a same-Family non-Published Version", (t) => {
+  const { database, repository } = fixture(t);
+  repository.save(publish(draft()));
+  assert.equal(repository.saveWithExpectedVersion(draft(UUIDS.draft2), 1), 2);
+  assert.equal(repository.findWithVersion(recipeId)?.aggregate.snapshot().state, "Draft");
+  assert.equal(
+    repository.listRecipes()[0]?.currentRecipeVersionId,
+    RecipeVersionId.fromUuid(UUIDS.version1).value
+  );
+
+  database.execute(
+    "UPDATE recipe_versions SET state = 'Superseded' WHERE recipe_version_id = ?",
+    [RecipeVersionId.fromUuid(UUIDS.version1).value]
+  );
+  assert.equal(database.queryMany("PRAGMA foreign_key_check").length, 0);
+  assert.equal(
+    database.queryOne<{ integrity_check: string }>("PRAGMA integrity_check")?.integrity_check,
+    "ok"
+  );
+  assert.throws(
+    () => repository.findWithVersion(recipeId),
+    InvalidRecipePersistenceState
+  );
+  assert.throws(
+    () => repository.listRecipes(),
+    InvalidRecipePersistenceState
+  );
+});
+
 test("duplicate identity and stale writer fail without overwrite", (t) => {
   const { repository } = fixture(t);
   repository.save(draft());
@@ -233,7 +262,7 @@ test("duplicate identity and stale writer fail without overwrite", (t) => {
 });
 
 test("Published Versions append and historical supersession remains readable", (t) => {
-  const { repository } = fixture(t);
+  const { database, repository } = fixture(t);
   repository.save(publish(draft()));
   const first = repository.findPublishedVersion(
     recipeId,
@@ -276,6 +305,24 @@ test("Published Versions append and historical supersession remains readable", (
     2
   );
   assert.equal(repository.listRecipes()[0]?.aggregateVersion, 4);
+
+  database.execute(
+    "UPDATE recipe_recipes SET current_recipe_version_id = ? WHERE recipe_id = ?",
+    [RecipeVersionId.fromUuid(UUIDS.version1).value, recipeId.value]
+  );
+  assert.equal(database.queryMany("PRAGMA foreign_key_check").length, 0);
+  assert.equal(
+    database.queryOne<{ integrity_check: string }>("PRAGMA integrity_check")?.integrity_check,
+    "ok"
+  );
+  assert.throws(
+    () => repository.findWithVersion(recipeId),
+    InvalidRecipePersistenceState
+  );
+  assert.throws(
+    () => repository.listRecipes(),
+    InvalidRecipePersistenceState
+  );
 });
 
 test("non-monotonic Version number and Version overwrite fail closed", (t) => {

@@ -325,7 +325,7 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
       );
     }
     const nextVersion = expectedAggregateVersion + 1;
-    const incoming = this.mapper.toRecords(recipe, nextVersion);
+    const mapped = this.mapper.toRecords(recipe, nextVersion);
     try {
       return this.database.transactionImmediate(() => {
         const existing = this.rawRecipe(recipeId);
@@ -343,6 +343,7 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
             existing.aggregate_version
           );
         }
+        const incoming = this.retainCurrentPublishedPointer(mapped, existing);
         this.validateAppend(incoming);
         const historicalSupersession =
           incoming.recipe.state === "Superseded"
@@ -497,6 +498,7 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
            ON v.recipe_version_id = r.current_recipe_version_id
          ORDER BY d.name, r.recipe_id`
       );
+      for (const row of rows) this.assertCurrentPublishedPointer(row);
       return Object.freeze(rows.map((row) => Object.freeze({
         recipeId: row.recipe_id,
         currentDraftId: row.current_draft_id,
@@ -574,6 +576,7 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
   }
 
   private recordsForCurrent(recipe: RecipeRow): RecipePersistenceRecords {
+    this.assertCurrentPublishedPointer(recipe);
     const draft = this.rawDraft(recipe.current_draft_id);
     if (draft === undefined) {
       throw new InvalidRecipePersistenceState(
@@ -599,6 +602,7 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
     recipe: RecipeRow,
     draft: DraftRow
   ): RecipePersistenceRecords {
+    this.assertCurrentPublishedPointer(recipe);
     return Object.freeze({
       recipe: Object.freeze({
         recipeId: recipe.recipe_id,
@@ -1041,6 +1045,70 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
         );
       }
     }
+  }
+
+  private retainCurrentPublishedPointer(
+    incoming: RecipePersistenceRecords,
+    existing: RecipeRow
+  ): RecipePersistenceRecords {
+    if (incoming.recipe.state !== "Draft" && incoming.recipe.state !== "Abandoned") {
+      return incoming;
+    }
+    this.assertCurrentPublishedPointer(existing);
+    if (
+      incoming.recipe.currentRecipeVersionId !== null
+      && incoming.recipe.currentRecipeVersionId !== existing.current_recipe_version_id
+    ) {
+      throw new InvalidRecipePersistenceState(
+        "Draft or Abandoned persistence cannot replace the current Published Recipe Version pointer."
+      );
+    }
+    if (incoming.recipe.currentRecipeVersionId === existing.current_recipe_version_id) {
+      return incoming;
+    }
+    return Object.freeze({
+      ...incoming,
+      recipe: Object.freeze({
+        ...incoming.recipe,
+        currentRecipeVersionId: existing.current_recipe_version_id
+      })
+    });
+  }
+
+  private assertCurrentPublishedPointer(recipe: RecipeRow): void {
+    const pointer = recipe.current_recipe_version_id;
+    if (pointer === null) {
+      if (recipe.state === "Published" || recipe.state === "Superseded") {
+        throw new InvalidRecipePersistenceState(
+          "Published or Superseded Recipe records require a current Recipe Version pointer."
+        );
+      }
+      return;
+    }
+    const version = this.database.queryOne<VersionRow>(
+      "SELECT * FROM recipe_versions WHERE recipe_version_id = ?",
+      [pointer]
+    );
+    if (
+      version === undefined
+      || version.recipe_id !== recipe.recipe_id
+      || version.recipe_family_id !== recipe.recipe_family_id
+      || version.state !== "Published"
+    ) {
+      throw new InvalidRecipePersistenceState(
+        "Current Recipe Version pointer must identify the same Recipe Family's existing Published Version."
+      );
+    }
+    const evidence = this.recordsForVersion(recipe, version);
+    if (
+      evidence.recipe.state !== "Published"
+      || evidence.recipe.currentRecipeVersionId !== pointer
+    ) {
+      throw new InvalidRecipePersistenceState(
+        "Current Recipe Version pointer must retain complete unsuperseded publication evidence."
+      );
+    }
+    this.mapper.fromRecords(evidence);
   }
 
   private rehydrate(

@@ -2,7 +2,9 @@ import { IngredientReference } from "../domain/ingredient-reference.js";
 import {
   IngredientReferenceId,
   RecipeDraftId,
+  RecipeFamilyId,
   RecipeId,
+  RecipeLineId,
   RecipeVersionId
 } from "../domain/identities.js";
 import { Quantity } from "../domain/quantity.js";
@@ -13,6 +15,7 @@ import { InvalidRecipePersistenceState } from "./errors.js";
 import type {
   ExactQuantityRecord,
   RecipeLineRecord,
+  RecipeAbandonmentAuditRecord,
   RecipePersistenceRecords,
   RecipePublishAuditRecord,
   RecipeSupersessionAuditRecord,
@@ -55,12 +58,14 @@ function lineToRecord(
     ownerType,
     ownerId,
     position,
+    recipeLineId: line.recipeLineId.value,
     ingredientReferenceId: line.ingredient.ingredientReferenceId.value,
     ingredientCanonicalName: line.ingredient.canonicalName,
     ingredientMeasurementDimension: line.ingredient.measurementDimension,
     ingredientStatus: line.ingredient.status,
     ingredientCreatedAt: line.ingredient.createdAt,
-    quantity: exactQuantityToRecord(line.quantity)
+    quantity: exactQuantityToRecord(line.quantity),
+    preparationNote: line.preparationNote
   });
 }
 
@@ -107,11 +112,14 @@ export class RecipePersistenceMapper {
       version = Object.freeze({
         recipeVersionId: snapshot.publication.recipeVersionId.value,
         recipeId: snapshot.recipeId.value,
+        recipeFamilyId: snapshot.recipeFamilyId.value,
         sourceDraftId: snapshot.draftId.value,
         versionNumber: snapshot.publication.versionNumber.value,
+        state: snapshot.state === "Superseded" ? "Superseded" : "Published",
         name: snapshot.name,
         productId: snapshot.product.productId,
         productVersionId: snapshot.product.productVersionId,
+        instructions: snapshot.instructions,
         standardOutput: exactQuantityToRecord(snapshot.standardOutput),
         standardYield: exactQuantityToRecord(snapshot.standardYield),
         publishedBy: snapshot.publication.publishedBy,
@@ -146,6 +154,8 @@ export class RecipePersistenceMapper {
     return Object.freeze({
       recipe: Object.freeze({
         recipeId: snapshot.recipeId.value,
+        recipeFamilyId: snapshot.recipeFamilyId.value,
+        productId: snapshot.product?.productId ?? null,
         currentDraftId: snapshot.draftId.value,
         currentRecipeVersionId,
         aggregateVersion,
@@ -154,10 +164,12 @@ export class RecipePersistenceMapper {
       draft: Object.freeze({
         draftId: snapshot.draftId.value,
         recipeId: snapshot.recipeId.value,
+        recipeFamilyId: snapshot.recipeFamilyId.value,
         name: snapshot.name,
         state: snapshot.state,
         productId: snapshot.product?.productId ?? null,
         productVersionId: snapshot.product?.productVersionId ?? null,
+        instructions: snapshot.instructions,
         standardOutput: snapshot.standardOutput ? exactQuantityToRecord(snapshot.standardOutput) : null,
         standardYield: snapshot.standardYield ? exactQuantityToRecord(snapshot.standardYield) : null,
         createdBy: snapshot.createdBy,
@@ -167,7 +179,18 @@ export class RecipePersistenceMapper {
       version,
       versionLines,
       publishAudit,
-      supersessionAudits
+      supersessionAudits,
+      abandonmentAudit: snapshot.abandonment === null ? null : Object.freeze({
+        eventKey: `abandon:${snapshot.draftId.value}:${snapshot.abandonment.resultingAggregateVersion}`,
+        recipeFamilyId: snapshot.recipeFamilyId.value,
+        recipeId: snapshot.recipeId.value,
+        draftId: snapshot.draftId.value,
+        actor: snapshot.abandonment.actor,
+        occurredAt: snapshot.abandonment.occurredAt,
+        reason: snapshot.abandonment.reason,
+        previousAggregateVersion: snapshot.abandonment.previousAggregateVersion,
+        resultingAggregateVersion: snapshot.abandonment.resultingAggregateVersion
+      } satisfies RecipeAbandonmentAuditRecord)
     });
   }
 
@@ -176,19 +199,23 @@ export class RecipePersistenceMapper {
       this.validateRecordGraph(records);
       const recipeId = RecipeId.parse(records.recipe.recipeId);
       const draftId = RecipeDraftId.parse(records.draft.draftId);
+      const version = records.version;
       const aggregate = RecipeAggregate.createDraft({
+        recipeFamilyId: RecipeFamilyId.parse(records.recipe.recipeFamilyId),
         recipeId,
         draftId,
-        name: records.draft.name,
+        name: version?.name ?? records.draft.name,
         createdBy: records.draft.createdBy,
         createdAt: records.draft.createdAt
       });
 
-      if (records.draft.productId && records.draft.productVersionId) {
-        aggregate.bindProduct(records.draft.productId, records.draft.productVersionId);
+      const productId = version?.productId ?? records.draft.productId;
+      const productVersionId = version?.productVersionId ?? records.draft.productVersionId;
+      if (productId && productVersionId) {
+        aggregate.bindProduct(productId, productVersionId);
       }
 
-      const lineRecords = records.recipe.state === "Draft"
+      const lineRecords = records.recipe.state === "Draft" || records.recipe.state === "Abandoned"
         ? orderedLines(records.draftLines, "draft", records.draft.draftId)
         : orderedLines(records.versionLines, "version", records.version!.recipeVersionId);
 
@@ -200,14 +227,33 @@ export class RecipePersistenceMapper {
           status: line.ingredientStatus,
           createdAt: line.ingredientCreatedAt
         });
-        aggregate.addIngredient(ingredient, exactQuantityFromRecord(line.quantity, `Recipe Line ${line.position}`));
+        aggregate.addLine({
+          recipeLineId: RecipeLineId.parse(line.recipeLineId),
+          ingredient,
+          quantity: exactQuantityFromRecord(line.quantity, `Recipe Line ${line.position}`),
+          preparationNote: line.preparationNote
+        });
       }
 
-      if (records.draft.standardOutput && records.draft.standardYield) {
+      const standardOutput = version?.standardOutput ?? records.draft.standardOutput;
+      const standardYield = version?.standardYield ?? records.draft.standardYield;
+      if (standardOutput && standardYield) {
         aggregate.defineStandardOutput(
-          exactQuantityFromRecord(records.draft.standardOutput, "Standard Output"),
-          exactQuantityFromRecord(records.draft.standardYield, "Standard Yield")
+          exactQuantityFromRecord(standardOutput, "Standard Output"),
+          exactQuantityFromRecord(standardYield, "Standard Yield")
         );
+      }
+
+      aggregate.setInstructions(version?.instructions ?? records.draft.instructions);
+
+      if (records.recipe.state === "Abandoned") {
+        const audit = records.abandonmentAudit!;
+        aggregate.abandon({
+          actor: audit.actor,
+          occurredAt: audit.occurredAt,
+          reason: audit.reason,
+          previousAggregateVersion: audit.previousAggregateVersion
+        });
       }
 
       if (records.recipe.state === "Published" || records.recipe.state === "Superseded") {
@@ -243,6 +289,7 @@ export class RecipePersistenceMapper {
     assertAggregateVersion(records.recipe.aggregateVersion);
     if (
       records.recipe.recipeId !== records.draft.recipeId ||
+      records.recipe.recipeFamilyId !== records.draft.recipeFamilyId ||
       records.recipe.currentDraftId !== records.draft.draftId ||
       records.recipe.state !== records.draft.state
     ) {
@@ -255,18 +302,30 @@ export class RecipePersistenceMapper {
       throw new InvalidRecipePersistenceState("Standard Output and Standard Yield must both be present or absent.");
     }
 
-    if (records.recipe.state === "Draft") {
+    if (records.recipe.state === "Draft" || records.recipe.state === "Abandoned") {
       if (
-        records.recipe.currentRecipeVersionId !== null ||
         records.version !== null ||
         records.versionLines.length !== 0 ||
         records.publishAudit !== null ||
         records.supersessionAudits.length !== 0
       ) {
-        throw new InvalidRecipePersistenceState("Draft records cannot contain Published or Superseded facts.");
+        throw new InvalidRecipePersistenceState("Draft or Abandoned records cannot project Published or Superseded facts.");
       }
+      if ((records.recipe.state === "Abandoned") !== (records.abandonmentAudit !== null)) {
+        throw new InvalidRecipePersistenceState("Abandoned records require exactly one matching abandonment audit.");
+      }
+      if (records.abandonmentAudit !== null && (
+        records.abandonmentAudit.recipeFamilyId !== records.recipe.recipeFamilyId
+        || records.abandonmentAudit.recipeId !== records.recipe.recipeId
+        || records.abandonmentAudit.draftId !== records.draft.draftId
+        || records.abandonmentAudit.resultingAggregateVersion !== records.recipe.aggregateVersion
+      )) throw new InvalidRecipePersistenceState("Abandonment audit facts do not agree with the Recipe record.");
       orderedLines(records.draftLines, "draft", records.draft.draftId);
       return;
+    }
+
+    if (records.abandonmentAudit !== null) {
+      throw new InvalidRecipePersistenceState("Published records cannot contain abandonment evidence.");
     }
 
     if (!records.version || !records.publishAudit || !records.recipe.currentRecipeVersionId) {
@@ -300,6 +359,7 @@ export class RecipePersistenceMapper {
   ): void {
     if (
       version.recipeId !== records.recipe.recipeId ||
+      version.recipeFamilyId !== records.recipe.recipeFamilyId ||
       version.sourceDraftId !== records.draft.draftId ||
       version.recipeVersionId !== records.recipe.currentRecipeVersionId ||
       audit.recipeId !== version.recipeId ||

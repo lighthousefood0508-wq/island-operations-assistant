@@ -69,9 +69,13 @@ export {
 } from "./application/recipe-publish-service.js";
 export { InMemoryRecipeRepository } from "./infrastructure/in-memory-recipe-repository.js";
 export {
+  InvalidRecipeReceiptEvidence,
   InvalidRecipePersistenceState,
+  RecipeIdempotencyConflict,
+  RecipeLineIdentityPersistenceCollision,
   RecipeConcurrencyConflict,
   RecipePersistenceError,
+  RecipePersistenceTransactionFailure,
   RecipeRecordNotFound
 } from "./persistence/errors.js";
 export { RecipePersistenceMapper } from "./persistence/recipe-persistence-mapper.js";
@@ -85,6 +89,26 @@ export type {
   RecipeSupersessionAuditRecord,
   RecipeVersionRecord
 } from "./persistence/records.js";
+export {
+  RECIPE_RECEIPT_FINGERPRINT_ALGORITHM,
+  RECIPE_RECEIPT_INPUT_VERSION,
+  expectedRecipeReceiptFingerprint,
+  familyCreationContentDigest,
+  publicationContentDigest,
+  type DraftAbandonmentEvidence,
+  type DraftAbandonmentPersistenceInput,
+  type DraftAbandonmentPersistenceResult,
+  type FamilyCreationPersistenceInput,
+  type FamilyCreationPersistenceResult,
+  type PublishedVersionPersistenceSnapshot,
+  type ReceiptRequestEvidence,
+  type RecipeCreationAuditRecord,
+  type RecipePersistenceUnitOfWork,
+  type RecipePublicationAuditRecord,
+  type RecipePublicationPersistenceInput,
+  type RecipePublicationPersistenceResult
+} from "./persistence/recipe-persistence-unit-of-work.js";
+export { SqliteRecipePersistenceUnitOfWork } from "./infrastructure/sqlite-recipe-persistence-unit-of-work.js";
 export {
   InvalidRecipeEvent,
   RecipeEventAlreadyConsumed

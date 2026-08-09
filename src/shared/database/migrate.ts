@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { loadConfig } from "../../config/runtime.js";
 import { createDatabase } from "./database-provider.js";
 import type { DatabaseAdapter } from "./database-adapter.js";
+import { backfillRecipeMigration017 } from "./migration-data/017-recipe-line-identity-backfill.js";
 
 const sourceDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../migrations");
 const compiledDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../migrations");
@@ -23,7 +24,16 @@ export function runMigrations(database: DatabaseAdapter): string[] {
     if (applied.has(filename)) continue;
     const sql = readFileSync(path.join(migrationDirectory(), filename), "utf8");
     database.transaction(() => {
-      database.execute(sql);
+      if (filename === "017_recipe_persistence_line_identity_and_publication_uow.sql") {
+        const boundary = "-- recipe-017-data-hook";
+        const parts = sql.split(boundary);
+        if (parts.length !== 2) throw new Error("Migration 017 must contain exactly one data-hook boundary.");
+        database.execute(parts[0]!);
+        backfillRecipeMigration017(database);
+        database.execute(parts[1]!);
+      } else {
+        database.execute(sql);
+      }
       database.execute("INSERT INTO schema_migrations (migration_id, applied_at) VALUES (?, ?)", [filename, new Date().toISOString()]);
     });
     appliedNow.push(filename);

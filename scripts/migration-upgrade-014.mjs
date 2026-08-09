@@ -13,7 +13,8 @@ const migrationFiles = readdirSync(migrationDirectory)
 const through014 = migrationFiles.filter((name) => name <= "014_recipe_canonical_ingredients.sql");
 const expectedUpgrade = [
   "015_recipe_ingredient_measurement_profiles.sql",
-  "016_recipe_recipes.sql"
+  "016_recipe_recipes.sql",
+  "017_recipe_persistence_line_identity_and_publication_uow.sql"
 ];
 
 function assert(condition, message) {
@@ -165,27 +166,27 @@ function assertIntegrity(database, label) {
 }
 
 function insertAndVerifyNewAuthorityTables(database) {
-  database.exec(`
+  database.transaction(() => database.exec(`
     INSERT INTO recipe_ingredient_measurement_profiles (profile_id, ingredient_id, aggregate_version, created_at, created_by)
     VALUES ('measurement_profile_fixture', 'ing_00000000-0000-4000-8000-000000000001', 1, '2026-07-31T08:20:00.000Z', 'owner');
     INSERT INTO recipe_ingredient_measurement_profile_versions (profile_version_id, profile_id, ingredient_id, version_position, state, dimension, canonical_unit_code, allowed_unit_codes_json, profile_aliases_json, source_type, source_reference_id, source_recorded_at, source_recorded_by, effective_from, effective_to, superseding_profile_version_id, lifecycle_json)
     VALUES ('measurement_profile_version_fixture', 'measurement_profile_fixture', 'ing_00000000-0000-4000-8000-000000000001', 1, 'Active', 'mass', 'g', '["g","kg"]', '[]', 'MANUAL', 'fixture-profile', '2026-07-31T08:20:00.000Z', 'owner', '2026-07-31T08:20:00.000Z', NULL, NULL, '{"state":"Active"}');
 
-    INSERT INTO recipe_recipes (recipe_id, current_draft_id, current_recipe_version_id, aggregate_version, state)
-    VALUES ('recipe_fixture', 'recipe_draft_fixture', NULL, 1, 'Draft');
-    INSERT INTO recipe_drafts (draft_id, recipe_id, name, state, product_id, product_version_id, standard_output_coefficient, standard_output_scale, standard_output_unit_code, standard_output_dimension, standard_yield_coefficient, standard_yield_scale, standard_yield_unit_code, standard_yield_dimension, created_by, created_at)
-    VALUES ('recipe_draft_fixture', 'recipe_fixture', 'Fixture Recipe', 'Draft', 'product_fixture', 'product_version_fixture', '100', 0, 'g', 'mass', '1', 0, 'each', 'count', 'owner', '2026-07-31T08:30:00.000Z');
-    INSERT INTO recipe_draft_lines (draft_id, position, ingredient_id, ingredient_canonical_name, ingredient_measurement_dimension, ingredient_status, ingredient_created_at, quantity_coefficient, quantity_scale, quantity_unit_code, quantity_dimension)
-    VALUES ('recipe_draft_fixture', 0, 'ing_00000000-0000-4000-8000-000000000001', 'Canonical Fixture Ingredient', 'mass', 'active', '2026-07-31T08:00:00.000Z', '100', 0, 'g', 'mass');
-    INSERT INTO recipe_versions (recipe_version_id, recipe_id, source_draft_id, version_number, name, product_id, product_version_id, standard_output_coefficient, standard_output_scale, standard_output_unit_code, standard_output_dimension, standard_yield_coefficient, standard_yield_scale, standard_yield_unit_code, standard_yield_dimension, published_by, published_at)
-    VALUES ('recipe_version_fixture', 'recipe_fixture', 'recipe_draft_fixture', 1, 'Fixture Recipe', 'product_fixture', 'product_version_fixture', '100', 0, 'g', 'mass', '1', 0, 'each', 'count', 'owner', '2026-07-31T08:40:00.000Z');
-    INSERT INTO recipe_version_lines (recipe_version_id, position, ingredient_id, ingredient_canonical_name, ingredient_measurement_dimension, ingredient_status, ingredient_created_at, quantity_coefficient, quantity_scale, quantity_unit_code, quantity_dimension)
-    VALUES ('recipe_version_fixture', 0, 'ing_00000000-0000-4000-8000-000000000001', 'Canonical Fixture Ingredient', 'mass', 'active', '2026-07-31T08:00:00.000Z', '100', 0, 'g', 'mass');
-    INSERT INTO recipe_publish_audits (event_key, recipe_id, draft_id, recipe_version_id, version_number, actor, occurred_at)
-    VALUES ('recipe.publish.fixture', 'recipe_fixture', 'recipe_draft_fixture', 'recipe_version_fixture', 1, 'owner', '2026-07-31T08:40:00.000Z');
+    INSERT INTO recipe_recipes (recipe_id, recipe_family_id, product_id, current_draft_id, current_recipe_version_id, aggregate_version, state)
+    VALUES ('recipe_00000000-0000-4000-8000-000000000010', 'recipe_family_00000000-0000-4000-8000-000000000010', 'product_fixture', 'recipe_draft_fixture', NULL, 1, 'Draft');
+    INSERT INTO recipe_drafts (draft_id, recipe_id, recipe_family_id, name, state, product_id, product_version_id, instructions, standard_output_coefficient, standard_output_scale, standard_output_unit_code, standard_output_dimension, standard_yield_coefficient, standard_yield_scale, standard_yield_unit_code, standard_yield_dimension, created_by, created_at)
+    VALUES ('recipe_draft_fixture', 'recipe_00000000-0000-4000-8000-000000000010', 'recipe_family_00000000-0000-4000-8000-000000000010', 'Fixture Recipe', 'Draft', 'product_fixture', 'product_version_fixture', 'Prepare carefully', '100', 0, 'g', 'mass', '1', 0, 'each', 'count', 'owner', '2026-07-31T08:30:00.000Z');
+    INSERT INTO recipe_draft_lines (draft_id, recipe_line_id, position, ingredient_id, ingredient_canonical_name, ingredient_measurement_dimension, ingredient_status, ingredient_created_at, quantity_coefficient, quantity_scale, quantity_unit_code, quantity_dimension, preparation_note)
+    VALUES ('recipe_draft_fixture', 'recipe_line_00000000-0000-4000-8000-000000000011', 0, 'ing_00000000-0000-4000-8000-000000000001', 'Canonical Fixture Ingredient', 'mass', 'active', '2026-07-31T08:00:00.000Z', '100', 0, 'g', 'mass', 'Trim');
+    INSERT INTO recipe_versions (recipe_version_id, recipe_id, recipe_family_id, source_draft_id, version_number, state, name, product_id, product_version_id, instructions, standard_output_coefficient, standard_output_scale, standard_output_unit_code, standard_output_dimension, standard_yield_coefficient, standard_yield_scale, standard_yield_unit_code, standard_yield_dimension, published_by, published_at)
+    VALUES ('recipe_version_fixture', 'recipe_00000000-0000-4000-8000-000000000010', 'recipe_family_00000000-0000-4000-8000-000000000010', 'recipe_draft_fixture', 1, 'Published', 'Fixture Recipe', 'product_fixture', 'product_version_fixture', 'Prepare carefully', '100', 0, 'g', 'mass', '1', 0, 'each', 'count', 'owner', '2026-07-31T08:40:00.000Z');
+    INSERT INTO recipe_version_lines (recipe_version_id, recipe_line_id, position, ingredient_id, ingredient_canonical_name, ingredient_measurement_dimension, ingredient_status, ingredient_created_at, quantity_coefficient, quantity_scale, quantity_unit_code, quantity_dimension, preparation_note)
+    VALUES ('recipe_version_fixture', 'recipe_line_00000000-0000-4000-8000-000000000011', 0, 'ing_00000000-0000-4000-8000-000000000001', 'Canonical Fixture Ingredient', 'mass', 'active', '2026-07-31T08:00:00.000Z', '100', 0, 'g', 'mass', 'Trim');
+    INSERT INTO recipe_publish_audits (event_key, recipe_family_id, recipe_id, draft_id, recipe_version_id, version_number, actor, occurred_at, reason)
+    VALUES ('recipe.publish.fixture', 'recipe_family_00000000-0000-4000-8000-000000000010', 'recipe_00000000-0000-4000-8000-000000000010', 'recipe_draft_fixture', 'recipe_version_fixture', 1, 'owner', '2026-07-31T08:40:00.000Z', 'Initial publication');
     UPDATE recipe_drafts SET state = 'Published' WHERE draft_id = 'recipe_draft_fixture';
-    UPDATE recipe_recipes SET current_recipe_version_id = 'recipe_version_fixture', aggregate_version = 2, state = 'Published' WHERE recipe_id = 'recipe_fixture';
-  `);
+    UPDATE recipe_recipes SET current_recipe_version_id = 'recipe_version_fixture', aggregate_version = 2, state = 'Published' WHERE recipe_id = 'recipe_00000000-0000-4000-8000-000000000010';
+  `))();
   assert(database.prepare("SELECT COUNT(*) AS count FROM recipe_ingredient_measurement_profile_versions WHERE state = 'Active'").get().count === 1, "active Measurement Profile Version was not persisted");
   assert(database.prepare("SELECT COUNT(*) AS count FROM recipe_versions").get().count === 1, "published Recipe Version was not persisted");
 }
@@ -194,9 +195,10 @@ const temporaryDirectory = mkdtempSync(path.join(tmpdir(), "ros-upgrade-014-"));
 const databasePath = path.join(temporaryDirectory, "existing-014.sqlite");
 let historicalDatabase;
 let adapter;
+let upgradedDatabase;
 
 try {
-  assert(migrationFiles.length === 16, `expected 16 migrations, found ${migrationFiles.length}`);
+  assert(migrationFiles.length === 17, `expected 17 migrations, found ${migrationFiles.length}`);
   assert(through014.length === 14, `expected 14 historical migrations, found ${through014.length}`);
 
   historicalDatabase = openDatabase(databasePath);
@@ -224,7 +226,7 @@ try {
   adapter.close();
   adapter = undefined;
 
-  let upgradedDatabase = openDatabase(databasePath);
+  upgradedDatabase = openDatabase(databasePath);
   const afterSnapshot = tableSnapshot(upgradedDatabase);
   for (const table of Object.keys(beforeSnapshot)) {
     assert(JSON.stringify(afterSnapshot[table]) === JSON.stringify(beforeSnapshot[table]), `pre-existing table changed during upgrade: ${table}`);
@@ -233,7 +235,7 @@ try {
   assert(afterDigest === beforeDigest, "pre-existing SQL-value snapshot digest changed during upgrade");
 
   const afterMigrations = upgradedDatabase.prepare("SELECT migration_id FROM schema_migrations ORDER BY migration_id").pluck().all();
-  assert(JSON.stringify(afterMigrations) === JSON.stringify(migrationFiles), "database did not reach migration 016");
+  assert(JSON.stringify(afterMigrations) === JSON.stringify(migrationFiles), "database did not reach migration 017");
   const requiredNewTables = [
     "recipe_ingredient_measurement_profiles",
     "recipe_ingredient_measurement_profile_versions",
@@ -243,7 +245,10 @@ try {
     "recipe_versions",
     "recipe_version_lines",
     "recipe_publish_audits",
-    "recipe_supersession_audits"
+    "recipe_supersession_audits",
+    "recipe_creation_audits",
+    "recipe_abandonment_audits",
+    "recipe_command_receipts"
   ];
   const actualNewTables = new Set(upgradedDatabase.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").pluck().all());
   for (const table of requiredNewTables) assert(actualNewTables.has(table), `missing upgraded table: ${table}`);
@@ -252,6 +257,7 @@ try {
     "recipe_measurement_profiles_effective_lookup",
     "recipe_versions_latest",
     "recipe_drafts_by_recipe"
+    ,"recipe_recipes_one_bound_product"
   ];
   const actualNewIndexes = new Set(upgradedDatabase.prepare("SELECT name FROM sqlite_master WHERE type = 'index'").pluck().all());
   for (const index of requiredNewIndexes) assert(actualNewIndexes.has(index), `missing upgraded index: ${index}`);
@@ -259,14 +265,16 @@ try {
   assertForeignKeys(upgradedDatabase, "after upgrade writes");
   assertIntegrity(upgradedDatabase, "after upgrade writes");
   upgradedDatabase.close();
+  upgradedDatabase = undefined;
 
   upgradedDatabase = openDatabase(databasePath);
   assert(upgradedDatabase.prepare("SELECT state FROM recipe_ingredient_measurement_profile_versions WHERE profile_version_id = ?").pluck().get("measurement_profile_version_fixture") === "Active", "Measurement Profile did not survive restart");
-  assert(upgradedDatabase.prepare("SELECT state FROM recipe_recipes WHERE recipe_id = ?").pluck().get("recipe_fixture") === "Published", "Recipe did not survive restart");
+  assert(upgradedDatabase.prepare("SELECT state FROM recipe_recipes WHERE recipe_id = ?").pluck().get("recipe_00000000-0000-4000-8000-000000000010") === "Published", "Recipe did not survive restart");
   assert(upgradedDatabase.prepare("SELECT quote_id FROM cost_ingredient_cost_quotes WHERE quote_id = ?").pluck().get("quote_fixture") === "quote_fixture", "pre-existing Quote did not survive restart");
   assertForeignKeys(upgradedDatabase, "after restart");
   assertIntegrity(upgradedDatabase, "after restart");
   upgradedDatabase.close();
+  upgradedDatabase = undefined;
 
   adapter = new BetterSqlite3Adapter(databasePath);
   assert(runMigrations(adapter).length === 0, "migration rerun was not idempotent");
@@ -292,5 +300,6 @@ try {
 } finally {
   try { historicalDatabase?.close(); } catch {}
   try { adapter?.close(); } catch {}
+  try { upgradedDatabase?.close(); } catch {}
   rmSync(temporaryDirectory, { recursive: true, force: true });
 }

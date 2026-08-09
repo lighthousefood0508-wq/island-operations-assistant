@@ -1,23 +1,65 @@
 # Roadmap
 
-1. Phase 0.5: Constitution v2 alignment, contracts, and guard tests - complete.
-2. Phase 1A: Catalog Admin, Product Contract publication, read-only POS proof, and repeatable E2E acceptance - complete after verification.
-3. Phase 1B: Event and Sellable Inventory foundation, Product Contract v2, Event Admin, and event-scoped POS proof - complete after verification.
-4. Phase 1B.1: Governance approval record and OPEN Event Product Snapshot Policy - complete after verification.
-5. Phase 1C: POS Order Core - complete after verification. POS-only create/read Orders, snapshots, atomic Event sellable quantity deduction, idempotency, Event numbering, and audit logging are implemented; payment and production remain out of scope.
-6. Phase 1C.1: POS Minimal UI - complete under DECISIONS #006; shopping cart and Order API submission only.
-7. Phase 1C-2: Order Lifecycle - superseded by Phase 1C.2-R after GI-001 review.
-8. Phase 1C.2-R: ADR-014 recovery - complete under DECISIONS #010, awaiting Architecture Owner acceptance.
-9. 2026-07-26 Shadow Run MVP: central POS/Kitchen/closeout pilot on one local network - complete on an unmerged DECISIONS #013 branch, awaiting Architecture Owner acceptance.
-10. 2026-07-26 External Shadow Run: protected, temporary external access to the existing Shadow Run branch - prepared on an unmerged DECISIONS #014 branch; blocked until a separate protected tunnel can be allocated without changing Legacy.
-11. Realtime Synchronization Hardening: POS, Kitchen, and Statistics reconnection, polling fallback, debug visibility, and cross-device acceptance - complete on `feature/realtime-hardening` under DECISIONS #016, awaiting Architecture Owner acceptance.
-12. Cloudflare Tunnel Deployment Preparation: local tooling, readiness report, non-secret templates, Owner-only authorization steps, and a credential-free Shadow Run package - complete on `feature/cloudflare-tunnel-preparation` under DECISIONS #017, awaiting Owner authorization.
-13. Quick Tunnel External Verification: temporary no-Zone `trycloudflare.com` access for ROS on port 3092 - active under DECISIONS #018 for Shadow Run testing only.
-14. Device Connectivity Dashboard: read-only active SSE device telemetry at `/debug/devices` - complete under DECISIONS #034 on `feature/device-connectivity-dashboard`.
-15. Front Office / Back Office / Kitchen information architecture: `/pos` for staff ordering, `/kitchen` for production, and `/admin` for Catalog, Event setup, Statistics, Health, and sharing links - complete under DECISIONS #035 on `feature/front-back-office-information-architecture`.
-16. Phase B-1 POS Basic Operating Loop: phone tail, POS-recorded payment method, active Orders, served Orders, and production-status Kitchen visibility - in progress under DECISIONS #037 on `feature/phase-b1-pos-operating-loop`.
-17. Phase 2: Customer preorder only after Architecture Owner approval.
-18. Phase 3: POS and Kitchen pilot from the same REST/SSE source.
-19. Phase 4: Cost ledger and daily Sales Contract import, then Google Sheets reporting export.
+Last synchronized: 2026-08-09
 
-Each phase requires its own acceptance test and rollback plan before advancing.
+Roadmap entries describe planning and verified completion state. They do not
+grant implementation, Git, release, deployment, or cleanup authority.
+
+## Completed and contained milestones
+
+1. Phase 0 through Phase 1C foundations: modular-monolith governance, Catalog,
+   Event/Sellable Inventory, Product Contract v2, POS Order Core, lifecycle
+   correction, and related verified operating-loop increments.
+2. Realtime and Back Office increments: Shadow Run support, connectivity
+   diagnostics, Front Office/Back Office/Kitchen separation, runtime
+   preparation, and heartbeat correction as recorded by their Decisions.
+3. Measurement and Ingredient foundations: Measurement Foundation, Canonical
+   Ingredient Domain/persistence, and Ingredient Measurement Profile
+   persistence.
+4. Recipe-to-Cost foundations: Recipe canonical projection, Quote normalization
+   evidence, Recipe Costing Contract v2, and Cost Evaluation.
+5. Cost Back Office vertical slice: contained in development integration and
+   independently reviewed. It is not a formal product release or verified
+   deployment.
+6. Recipe Management Proposal and 001A:
+   - Proposal and 001A Task Card recorded by PR #3 and PR #4.
+   - 001A Domain implementation completed, independently reviewed, and merged
+     by PR #5.
+7. Recipe Management 001B:
+   - Task Card recorded by PR #6.
+   - Persistence/Unit-of-Work implementation completed after two blocking
+     remediation reviews and a third approving review.
+   - PR #7 merged the final approved Head into integration.
+8. Post-PR #7 governance:
+   - PR #8 recorded the documentation synchronization Task Card.
+   - DECISIONS #070 and the independent Recipe Management Closeout Record are
+     the authorized historical closeout outputs of `DOCS-ROS-POST-PR7-001`.
+
+## Current baseline identities
+
+- Owner-Accepted Architecture Development Baseline:
+  `6128f8e853b9ac96e2d6870b3a97ffde9d0bf5d7`.
+- Verified remote integration Head after PR #8:
+  `b107c6c7a4a2caca25bd46b138bd8baebbd97c1b`.
+
+The first identifies accepted development capability. The second is the later
+integration branch tip containing the documentation Task Card. Neither is
+remote `main`, a deployment, or a product release.
+
+## Unauthorized or separately gated
+
+- Recipe 001C: formal Recipe management Application contracts/orchestration.
+- Recipe 001D: Recipe management API and Runtime composition.
+- Recipe 001E: Back Office Recipe management UI.
+- Ingredient lifecycle application/API/UI implementation.
+- Cost Snapshot persistence and reporting history.
+- Customer/Kiosk/Preorder, Inventory, package conversion, Supplier/Purchase,
+  external integration, and AI work beyond existing accepted capability.
+- Remote `main` creation, main promotion, deployment, and product release.
+- Branch or worktree cleanup.
+- Repository-wide architecture/duplication/security audit and any resulting
+  remediation.
+
+Every future item requires its own Owner proposal, authorization, verification,
+Git, and merge gates. Completion of 001A/001B does not make 001C the automatic
+next task.

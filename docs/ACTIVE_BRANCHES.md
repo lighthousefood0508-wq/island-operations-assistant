@@ -1,68 +1,85 @@
-# ROS Active Branches
+# ROS Branch and Worktree Observations
 
-Governance basis: DECISIONS #055, #058, #059, #064, #065, and #066.
+Reality check: 2026-08-09 (Asia/Taipei)
 
-Last reviewed: 2026-07-31
+This document records only refs and worktrees actually observed. It assigns no
+new governance, retention, evidence, cleanup, or deletion status. No branch or
+worktree was modified by this inventory.
 
-## Branches requiring current attention
+## Controlling integration identities
 
-| Branch | Purpose | Owner | Status | Depends on | Next action |
-|---|---|---|---|---|---|
-| `integration/architecture-development` | Permanent Architecture Development Integration Baseline. Accepted implementation tree: `bec41bb89185c0261c1375b62b1be91e4e2b00df`. Governance acceptance commit and current HEAD before this correction: `ccc415832b3a21bfdbf1accdb4bd088f69c8b479`. | Architecture Owner: Miles / Lin Zi-Mao | **ACTIVE — SOLE FORMAL ARCHITECTURE DEVELOPMENT BASELINE; IDENTITY CORRECTION IN PROGRESS** | DECISIONS #053 through #066 as applicable | Complete the targeted identity correction and Independent Governance Re-audit. Main Release Gate remains separate, not started, and not authorized. |
-| `feature/pr-measure-001` | Completed Measurement and Ingredient foundation feature line | Architecture Owner: Miles / Lin Zi-Mao | **COMPLETED — INTEGRATED / CONTAINED; RETAINED FOR TRACEABILITY** | DECISIONS #053, #056, #057, #058, and #059 | Preserve without new development. It is not the formal baseline and is not deleted by this update. |
-| `feature/pr-cost-004r` | Completed Recipe Cost Evaluation feature line | Architecture Owner: Miles / Lin Zi-Mao | **COMPLETED — INTEGRATED / CONTAINED; RETAINED FOR TRACEABILITY** | DECISIONS #060 through #064 | Preserve without new development. It is not the formal baseline and is not deleted by this update. |
-| `feature/cost-back-office` | Completed Cost Back Office vertical slice and targeted correction | Architecture Owner: Miles / Lin Zi-Mao | **COMPLETED — INTEGRATED / CONTAINED; RETAINED FOR TRACEABILITY** | DECISIONS #064 and #065 | Preserve without new development. It is not the formal baseline and is not deleted by this update. |
-| `feature/catalog-category-auto-code` | Branch currently attached to the original mixed recovery worktree | Ownership of individual uncommitted changes is mixed or unconfirmed | **FROZEN — UNINTEGRATED RECOVERY ONLY; RETAINED** | Parent baseline `2e27f8f` | Do not develop, integrate, clean, or bulk-commit. It is not an active baseline; any recovery action requires separate Owner authorization. |
-| `main` | Local release branch | Architecture Owner / Release Gate | **FROZEN — NOT PROMOTED** | Full repository recovery and Release Gate | Keep unchanged until explicit promotion authorization. |
-| `audit/phase-a-pos-ui-restoration` | Historical POS restoration audit and legacy parity documents | Historical audit workstream; current owner not proven | **HISTORICAL — UNIQUE DOCUMENTS** | Earlier POS/legacy analysis | Preserve until its six unique documents are integrated, archived, or explicitly retired. |
-| `design/legacy-feature-parity-matrix` | Historical legacy-to-ROS parity plan | Historical design workstream; current owner not proven | **HISTORICAL — UNIQUE COMMIT** | None beyond earlier repository history | It is contained by `audit/phase-a-pos-ui-restoration`; review before deleting the duplicate branch reference. |
+- Owner-Accepted Architecture Development Baseline:
+  `6128f8e853b9ac96e2d6870b3a97ffde9d0bf5d7`.
+- Remote `integration/architecture-development` Head after PR #8:
+  `b107c6c7a4a2caca25bd46b138bd8baebbd97c1b`.
+- Documentation execution branch:
+  `docs/ros-post-pr7-baseline-sync-001`, created locally from exact Head
+  `b107c6c...`.
+- Local `integration/architecture-development` ref observed at
+  `29e120096455e26f70dce291a5249e43026b3550`, behind the remote tip. It was not
+  moved under this task.
+- Remote `main`: not present.
+- Local `main`: `2616fc86f5b1e81ba33ea05c71b561a8f0210e36`, unpromoted.
+- `origin/HEAD`: observed pointing to `origin/feature/pr-measure-001` at
+  `8b80e9723d55c1e6dc0e30a6c83cb9e52effe20e`. The pointer was not changed.
 
-`origin/HEAD` remains `origin/feature/pr-measure-001`. That remote pointer is unchanged repository state and does not make the feature branch an Architecture Development Baseline authority.
+## Observed remote branches and containment
 
-## Other completed branches already contained in the baseline
+Containment below means only that the branch-tip commit was proven reachable
+from `b107c6c7a4a2caca25bd46b138bd8baebbd97c1b` using
+`git merge-base --is-ancestor`. It does not authorize deletion or cleanup.
 
-The following branches had no commit unique relative to the repository baseline recorded by DECISION #055 and remain frozen historical references, not active development baselines:
+| Remote branch | Observed tip | Contained in current integration Head |
+| --- | --- | --- |
+| `origin/chore/main-gate-migration-upgrade-fixture` | `c3742bce3f3baf471c28bf479eba418172efc61c` | Yes |
+| `origin/feature/cost-back-office` | `bec41bb89185c0261c1375b62b1be91e4e2b00df` | Yes |
+| `origin/feature/pr-cost-004r` | `7809e8555c58c9ae5d11498361ac88360890f4e4` | Yes |
+| `origin/feature/pr-measure-001` | `8b80e9723d55c1e6dc0e30a6c83cb9e52effe20e` | Yes |
+| `origin/feature/pr-recipe-canonical-projection` | `3db30c115861443fb257451f93ff0d8bfa1264f1` | Yes |
+| `origin/feature/pr-recipe-management-001a` | `773b129cc3b53fc6435c941b770f3953f7225c98` | Yes |
+| `origin/feature/pr-recipe-management-001b` | `ab662a48c0bdfcf835d5c2af2ac002abba8d55a0` | Yes |
+| `origin/feature/quote-normalization-evidence` | `e1859aa81c3eec07fb439fd74ca2508cd3159f66` | Yes |
+| `origin/feature/recipe-costing-contract-v2` | `febfa4abea3e61748d7a3d0dc0c0f03bf811ace4` | Yes |
+| `origin/governance/canonical-ingredient-alignment` | `e3662d71e4ecccd039b817287e2c99355d3ef04a` | Yes |
+| `origin/governance/recipe-management-001-proposal` | `8e081059b7569613587faa86854ce5fe94bfd06f` | Yes |
+| `origin/governance/recipe-management-001a-task-card` | `22d1411a8b3dc5edf810c66948bec24d8c4fa957` | Yes |
+| `origin/governance/recipe-management-001b-task-card` | `21f90c6e1273102d7dbdbe4d1791090b86c6d7d0` | Yes |
+| `origin/governance/ros-post-pr7-documentation-task-card` | `70b6dab1159a3e8f10c951aca4a2992691cdf971` | Yes |
+| `origin/integration/architecture-development` | `b107c6c7a4a2caca25bd46b138bd8baebbd97c1b` | Yes |
 
-- `audit/phase-1c2-governance-review`
-- `chore/constitution-v2-alignment`
-- `design/phase-1c-order-domain`
-- `design/phase-1c-order-policy-freeze`
-- `feature/20260726-external-shadow-run`
-- `feature/20260726-shadow-run-mvp`
-- `feature/cloudflare-tunnel-preparation`
-- `feature/device-connectivity-dashboard`
-- `feature/front-back-office-information-architecture`
-- `feature/phase-1a-catalog-admin`
-- `feature/phase-1b-events`
-- `feature/phase-1b-governance`
-- `feature/phase-1c-order-core`
-- `feature/phase-1c1-pos-ui`
-- `feature/phase-1c2-order-lifecycle`
-- `feature/phase-a-pos-ui-restoration`
-- `feature/phase-b1-pos-operating-loop`
-- `feature/phase-b1-pos-operating-loop-completion`
-- `feature/phase-b1-ui-recovery`
-- `feature/realtime-hardening`
-- `feature/ros-independent-external-endpoint`
-- `remediation/phase-1c2-adr014-recovery`
-- `test/phase-1a-e2e-acceptance`
+The local documentation execution branch had no remote branch at the start of
+this Work Order. Push and Pull Request creation remain separately gated.
 
-Status for every branch in this list:
+## Worktrees actually observed
 
-- purpose: historical completed workstream;
-- owner: original feature/audit owner, where known from its approval record;
-- status: **HISTORICAL / SUPERSEDED BY BASELINE**;
-- depends on: repository history already contained in the approved development baseline;
-- next action: retain until a cleanup review proves no worktree or recovery need remains, then request Owner authorization before deleting the branch reference.
+The following entries are the exact worktrees returned by
+`git worktree list --porcelain` during the reality check. Detached entries are
+reported as detached; no purpose or future disposition is inferred here.
 
-`feature/20260726-external-shadow-run` and `feature/ros-independent-external-endpoint` point to the same commit. One reference is a likely future deletion candidate, but DECISION #055 authorizes no deletion.
+| Observed folder | Branch/state | Observed HEAD |
+| --- | --- | --- |
+| `C:/Users/user/Documents/荒島餐車 AI 營運資料庫/desert-island-ros` | `feature/catalog-category-auto-code` | `2e27f8f2db6596f35eb2137b7305887c4ac6b0a6` |
+| `C:/Users/user/AppData/Local/Temp/ros-commit10-1a5089ead66c49a9aa36df7ce00b802a` | detached | `c2993815f6d510bf4af5a262f0fd8eee8c5f87c8` |
+| `C:/Users/user/AppData/Local/Temp/ros-commit6-9ec439aa00c94b47b1013adb427eebeb` | detached | `cf3e0d44553078884afafbb798e9125d725f6a51` |
+| `C:/Users/user/AppData/Local/Temp/ros-commit6-retry-40ef5b25e2854ab59d867f58776f6112` | detached | `4c7a78b5b244ff0f288858053964d5a85a33924a` |
+| `C:/Users/user/AppData/Local/Temp/ros-commit7-aa724ba044fd44a59a223c1999365480` | detached | `7938366f79050476391ee42888e49fb9107b1f73` |
+| `C:/Users/user/AppData/Local/Temp/ros-commit8-61c27c0e46ac43dcaae7a94075cb030d` | detached | `ea2b2c163b8477b95d47f16099207f75768dd4e6` |
+| `C:/Users/user/AppData/Local/Temp/ros-commit9-dbd23d2f31f447908013befaa9113371` | detached | `444efe1b53409452180e172ef063dc6cb12bad7f` |
+| `C:/Users/user/AppData/Local/Temp/ros-staged-e2e-current` | detached | `386787f9bf9ad3f5964a100e76be38c018465923` |
+| `C:/Users/user/AppData/Local/Temp/ros-staged-e2e-current-2` | detached | `7696fcb13ca67db140c6cfc775fcaef2d6e45369` |
+| `C:/Users/user/Documents/荒島餐車 AI 營運資料庫/desert-island-ros-cost-back-office` | `feature/cost-back-office` | `bec41bb89185c0261c1375b62b1be91e4e2b00df` |
+| `C:/Users/user/Documents/荒島餐車 AI 營運資料庫/desert-island-ros-governance-ingredient` | `governance/canonical-ingredient-alignment` | `e3662d71e4ecccd039b817287e2c99355d3ef04a` |
+| `C:/Users/user/Documents/荒島餐車 AI 營運資料庫/desert-island-ros-integration` | `docs/ros-post-pr7-baseline-sync-001` | `b107c6c7a4a2caca25bd46b138bd8baebbd97c1b` before documentation edits |
+| `C:/Users/user/Documents/荒島餐車 AI 營運資料庫/desert-island-ros-main-gate-upgrade` | `chore/main-gate-migration-upgrade-fixture` | `c3742bce3f3baf471c28bf479eba418172efc61c` |
+| `C:/Users/user/Documents/荒島餐車 AI 營運資料庫/desert-island-ros-pr-cost-004r` | `feature/pr-cost-004r` | `7809e8555c58c9ae5d11498361ac88360890f4e4` |
+| `C:/Users/user/Documents/荒島餐車 AI 營運資料庫/desert-island-ros-pr-measure-001` | `feature/pr-measure-001` | `8b80e9723d55c1e6dc0e30a6c83cb9e52effe20e` |
+| `C:/Users/user/Documents/荒島餐車 AI 營運資料庫/desert-island-ros-pr-recipe-canonical-projection` | `feature/pr-recipe-canonical-projection` | `3db30c115861443fb257451f93ff0d8bfa1264f1` |
+| `C:/Users/user/Documents/荒島餐車 AI 營運資料庫/desert-island-ros-quote-normalization-evidence` | `feature/quote-normalization-evidence` | `e1859aa81c3eec07fb439fd74ca2508cd3159f66` |
+| `C:/Users/user/Documents/荒島餐車 AI 營運資料庫/desert-island-ros-realtime-fix` | `fix/realtime-heartbeat-last-event` | `dfd5f294aa65bb9ac89bd630c0e1f72cc918de58` |
+| `C:/Users/user/Documents/荒島餐車 AI 營運資料庫/desert-island-ros-recipe-costing-contract-v2` | `feature/recipe-costing-contract-v2` | `febfa4abea3e61748d7a3d0dc0c0f03bf811ace4` |
 
-## Branch lifecycle labels
+## Task boundary
 
-- **ACTIVE:** approved work is currently being reviewed or developed.
-- **FORMAL BASELINE:** the sole Owner-approved Architecture Development Integration starting point.
-- **COMPLETED / CONTAINED:** the feature work is reachable from the formal baseline and retained for traceability.
-- **FROZEN:** preserve exactly as-is; no new work may be added.
-- **HISTORICAL:** retained for audit or recovery.
-- **SUPERSEDED:** all committed content is already reachable from the approved baseline.
-- **DELETE CANDIDATE:** may be proposed for deletion only after reachability, worktree use, recovery, and Owner approval are verified.
+Record only worktrees actually observed during the verified reality check. Do
+not delete, clean or otherwise modify any branch or worktree under this Task.
+This Task assigns no new governance or evidence status to any listed entry.

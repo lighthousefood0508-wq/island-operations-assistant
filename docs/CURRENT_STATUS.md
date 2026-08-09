@@ -5,14 +5,14 @@ Last verified: 2026-08-09 (Asia/Taipei)
 ## Governance and Git state
 
 - Owner-Accepted Architecture Development Baseline:
-  `6128f8e853b9ac96e2d6870b3a97ffde9d0bf5d7`.
-- Verified remote `integration/architecture-development` Head after PR #8:
-  `b107c6c7a4a2caca25bd46b138bd8baebbd97c1b`.
+  `1c31a31030e7c0d29181ebcc5355a706db95dc50`.
+- Verified remote `integration/architecture-development` Head after PR #12:
+  `20bca12ac7c2620ea2fc3c808bab035c9b5311fa`.
 - These SHAs have different meanings. The former is the accepted development
-  capability baseline; the latter is the current integration tip containing
-  the documentation Task Card merge.
-- Documentation synchronization is executing on
-  `docs/ros-post-pr7-baseline-sync-001`, created from exact Head `b107c6c...`.
+  capability baseline through COST-REGRESSION-001; the latter is the current
+  integration tip containing the Phase A Task Card merge only.
+- Phase B documentation synchronization is executing on
+  `docs/docs-ros-post-pr11-001-phase-b`, created from exact Head `20bca12...`.
 - Remote `main` does not exist. Local `main` remains unpromoted at
   `2616fc86f5b1e81ba33ea05c71b561a8f0210e36`.
 - `origin/HEAD` was observed pointing abnormally to
@@ -35,6 +35,20 @@ Last verified: 2026-08-09 (Asia/Taipei)
 - Recipe 001C through 001E are unauthorized and have not started.
 - The historical Recipe Proposal and 001A/001B Task Cards remain unchanged.
 
+## COST-REGRESSION-001 closeout
+
+- PR #10 recorded the dedicated Task Card as merge commit
+  `a2791a36c1f063cdf0218aa91ce78955227323a0`.
+- PR #11 implemented and remediated the approved two-file scope. Approved Head
+  `132789ccbbe65168aa79aa1888b1b3ec4424855d` merged as
+  `1c31a31030e7c0d29181ebcc5355a706db95dc50` and passed post-merge verification.
+- The independent [Cost Regression Closeout Record](reviews/PR-COST-REGRESSION-001_CLOSEOUT_RECORD.md)
+  preserves the diagnosis, initial blocker, remediation, review, merge and test
+  chronology under DECISIONS #051, #065 and Owner Authorization
+  COST-REGRESSION-001. No new Decision number was created.
+- PR #12 later recorded only the Phase A post-PR11 documentation Task Card as
+  merge commit `20bca12ac7c2620ea2fc3c808bab035c9b5311fa`.
+
 ## Contained capability versus delivery state
 
 | Area | Source capability in integration | Delivery status |
@@ -44,7 +58,7 @@ Last verified: 2026-08-09 (Asia/Taipei)
 | Recipe 001A | Stable Line identity, repeated Ingredient Lines, Draft edit behavior, and terminal abandonment are contained | Completed and merged |
 | Recipe 001B | Migration 017, Recipe persistence, durable receipts, persistence Unit of Work, restart/rehydration, and Published pointer invariants are contained | Completed after remediation and merged |
 | Recipe 001C-001E | No authorized formal management Application/API/UI implementation | Unauthorized |
-| Cost Back Office | Development integration contains the vertical-slice source and Cost Evaluation capability | Not formally released or deployment-verified; current all-file diagnostics expose four Cost integration failures |
+| Cost Back Office | Development integration contains the vertical-slice source and Cost Evaluation capability; COST-REGRESSION-001 is completed | Tests are green at the recorded PR-head and post-merge selections; not formally released or deployment-verified |
 
 The existing Cost Back Office create-and-publish endpoint is not the proposed
 Recipe management workflow and must not be used to claim 001C through 001E.
@@ -59,20 +73,22 @@ Recipe management workflow and must not be used to claim 001C through 001E.
 - Source capability and test evidence do not establish runtime provenance,
   main promotion, deployment, or release.
 
-## Open verification finding
+## Closed Cost regression and verification provenance
 
-The required `npm test` selection passes 64/64, but it names only 11 test files.
-A direct all-file run, both with default concurrency and with
-`--test-concurrency=1`, reproducibly passes 466/470 and fails four Cost SQLite
-integration cases. One Cost Back Office Recipe request returns 422 instead of
-201; three Cost Quote replacement cases fail through a nested transaction path.
+The earlier post-PR9 diagnostic passed 466/470 and reproducibly failed four Cost
+SQLite integration cases. That history is retained in the Test Plan and Cost
+Closeout Record. It led to COST-REGRESSION-001; it is not current unresolved
+state.
 
-Read-only source inspection links the failures to nested
-`transactionImmediate()` calls after the shared SQLite adapter changed from the
-`better-sqlite3` transaction wrapper to manual `BEGIN IMMEDIATE`. This is a
-current baseline regression finding, not a documentation-edit failure. Source,
-test, transaction, and architecture remediation are outside this Work Order and
-have not begun.
+PR #11 preserved method-specific outer transaction locks and introduced nested
+savepoint semantics with ordered cleanup and failure evidence. Independent
+PR-head verification passed the direct 34-file selection 483/483 under both
+default and serial execution, plus the focused adapter, Cost, Recipe,
+architecture, build, lint, typecheck and migration selections. Post-merge
+verification at `1c31a310...` separately passed adapter 16/16, the original Cost
+regression selection 9/9, Architecture Guard 16/16, typecheck, build and diff
+checks. These overlapping selections are not summed, and they establish no
+release or runtime provenance.
 
 ## Runtime observation
 

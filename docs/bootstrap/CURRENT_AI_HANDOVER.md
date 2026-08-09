@@ -22,9 +22,9 @@ These identities have different meanings and must not be conflated:
 
 | Identity | SHA | Meaning |
 | --- | --- | --- |
-| Owner-Accepted Architecture Development Baseline | `6128f8e853b9ac96e2d6870b3a97ffde9d0bf5d7` | Reviewed integration/development capability through Recipe 001B and PR #7 |
-| Verified remote integration Head after PR #8 | `b107c6c7a4a2caca25bd46b138bd8baebbd97c1b` | Current remote branch tip at this reality check; includes the documentation Task Card merge |
-| Documentation execution branch base | `b107c6c7a4a2caca25bd46b138bd8baebbd97c1b` | Exact starting point for `DOCS-ROS-POST-PR7-001` |
+| Owner-Accepted Architecture Development Baseline | `1c31a31030e7c0d29181ebcc5355a706db95dc50` | Reviewed integration/development capability through completed COST-REGRESSION-001 and PR #11 |
+| Verified remote integration Head after PR #12 | `20bca12ac7c2620ea2fc3c808bab035c9b5311fa` | Current remote branch tip at this reality check; includes only the Phase A Task Card merge after the accepted baseline |
+| Phase B documentation branch base | `20bca12ac7c2620ea2fc3c808bab035c9b5311fa` | Exact starting point for `DOCS-ROS-POST-PR11-001` Phase B |
 
 Neither SHA means remote `main`, main promotion, deployment provenance, or a
 formal product release.
@@ -32,18 +32,15 @@ formal product release.
 ## 3. Current Git reality
 
 - Remote `integration/architecture-development`:
-  `b107c6c7a4a2caca25bd46b138bd8baebbd97c1b`.
-- Documentation execution branch:
-  `docs/ros-post-pr7-baseline-sync-001`, created from that exact SHA.
+  `20bca12ac7c2620ea2fc3c808bab035c9b5311fa`.
+- Phase B documentation branch:
+  `docs/docs-ros-post-pr11-001-phase-b`, created from that exact SHA.
 - Remote `main`: does not exist.
 - Local `main`: unpromoted at
   `2616fc86f5b1e81ba33ea05c71b561a8f0210e36`.
 - `origin/HEAD`: observed pointing to `origin/feature/pr-measure-001` at
   `8b80e9723d55c1e6dc0e30a6c83cb9e52effe20e`. This is an abnormal remote
   pointer observation, not baseline authority, and was not modified.
-- The local `integration/architecture-development` ref in this shared
-  repository remained behind the remote tip during the reality check. Exact
-  SHA and remote-ref evidence, not that stale local name, control this work.
 - No branch or worktree was deleted, cleaned, rebased, or assigned a new
   governance/evidence status by the documentation task.
 
@@ -61,6 +58,13 @@ See [Repository Status](../REPOSITORY_STATUS.md) and
 - Recipe 001B is completed after two blocking remediation reviews and a third
   approving independent read-only review, then merged by PR #7.
 - PR #8 recorded the documentation synchronization Task Card and is merged.
+- PR #9 completed the post-PR7 documentation synchronization.
+- PR #10 recorded the COST-REGRESSION-001 Task Card.
+- PR #11 completed the nested SQLite transaction correction after an initial
+  blocking review and authorized remediation; its Post-Merge Verification Gate
+  is passed and closed.
+- PR #12 recorded only the Phase A post-PR11 documentation Task Card. Phase B
+  was not completed by that merge.
 - Recipe 001C through 001E remain unauthorized.
 - The historical Recipe Proposal and 001A/001B Task Cards remain unchanged.
 
@@ -113,16 +117,13 @@ repository-configured regression, full repository, migration smoke, and
 populated upgrade selections overlap and must not be added into one total.
 
 The current verification commands and their scope are documented in
-[Test Plan](../09_TEST_PLAN.md). The `DOCS-ROS-POST-PR7-001` pre-commit report is
-the authoritative record of the commands executed for this synchronization.
-
-Important current finding: the required repository-configured `npm test`
-selection passes 64/64, but a direct all-file run fails four Cost SQLite
-integration cases (466/470 pass), including the Cost Back Office Recipe path
-and nested Quote replacement transactions. Serial execution reproduces the
-same failures. Read-only diagnosis points to nested `transactionImmediate()`
-paths after the shared adapter changed to manual `BEGIN IMMEDIATE`. No fix is
-authorized or started under this documentation Work Order.
+[Test Plan](../09_TEST_PLAN.md). The earlier 466/470 result and four failures
+are retained as discovery evidence. PR #11 corrected them: independent PR-head
+verification passed the direct 34-file selection 483/483 under default and
+serial execution, and post-merge verification separately passed the adapter
+16/16, original Cost regression 9/9, Architecture Guard 16/16, typecheck,
+build and diff checks. These overlapping selections are not summed. See the
+[Cost Regression Closeout Record](../reviews/PR-COST-REGRESSION-001_CLOSEOUT_RECORD.md).
 
 ## 8. Runtime observation and limitation
 
@@ -162,7 +163,7 @@ Not authorized or started:
 - branch or worktree cleanup; and
 - architecture, duplication, or security remediation.
 
-The next Git action for this documentation branch requires a separate Owner
-authorization after the pre-commit report. A future repository-wide
+Phase B is authorized only through preparation and the pre-commit report. Stage,
+commit, push, PR creation and merge each remain separately gated. A future repository-wide
 architecture/duplication/security audit remains a separate read-only Gate and
 must not be presented as completed by this synchronization.

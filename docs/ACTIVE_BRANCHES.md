@@ -9,15 +9,12 @@ worktree was modified by this inventory.
 ## Controlling integration identities
 
 - Owner-Accepted Architecture Development Baseline:
-  `6128f8e853b9ac96e2d6870b3a97ffde9d0bf5d7`.
-- Remote `integration/architecture-development` Head after PR #8:
-  `b107c6c7a4a2caca25bd46b138bd8baebbd97c1b`.
-- Documentation execution branch:
-  `docs/ros-post-pr7-baseline-sync-001`, created locally from exact Head
-  `b107c6c...`.
-- Local `integration/architecture-development` ref observed at
-  `29e120096455e26f70dce291a5249e43026b3550`, behind the remote tip. It was not
-  moved under this task.
+  `1c31a31030e7c0d29181ebcc5355a706db95dc50`.
+- Remote `integration/architecture-development` Head after PR #12:
+  `20bca12ac7c2620ea2fc3c808bab035c9b5311fa`.
+- Phase B documentation branch:
+  `docs/docs-ros-post-pr11-001-phase-b`, created locally from exact Head
+  `20bca12ac7c2620ea2fc3c808bab035c9b5311fa`.
 - Remote `main`: not present.
 - Local `main`: `2616fc86f5b1e81ba33ea05c71b561a8f0210e36`, unpromoted.
 - `origin/HEAD`: observed pointing to `origin/feature/pr-measure-001` at
@@ -26,12 +23,15 @@ worktree was modified by this inventory.
 ## Observed remote branches and containment
 
 Containment below means only that the branch-tip commit was proven reachable
-from `b107c6c7a4a2caca25bd46b138bd8baebbd97c1b` using
+from `20bca12ac7c2620ea2fc3c808bab035c9b5311fa` using
 `git merge-base --is-ancestor`. It does not authorize deletion or cleanup.
 
 | Remote branch | Observed tip | Contained in current integration Head |
 | --- | --- | --- |
 | `origin/chore/main-gate-migration-upgrade-fixture` | `c3742bce3f3baf471c28bf479eba418172efc61c` | Yes |
+| `origin/docs/cost-regression-001-task-card` | `c70d4bbfce77e6b0e0f11bd0e3c648552f5c419c` | Yes |
+| `origin/docs/docs-ros-post-pr11-001` | `96ae03cb7b97e2c2bedeabb1323e780c80dbbb9e` | Yes |
+| `origin/docs/ros-post-pr7-baseline-sync-001` | `bb44edbc78520dabd178ac5060dd6da913c60c93` | Yes |
 | `origin/feature/cost-back-office` | `bec41bb89185c0261c1375b62b1be91e4e2b00df` | Yes |
 | `origin/feature/pr-cost-004r` | `7809e8555c58c9ae5d11498361ac88360890f4e4` | Yes |
 | `origin/feature/pr-measure-001` | `8b80e9723d55c1e6dc0e30a6c83cb9e52effe20e` | Yes |
@@ -40,15 +40,16 @@ from `b107c6c7a4a2caca25bd46b138bd8baebbd97c1b` using
 | `origin/feature/pr-recipe-management-001b` | `ab662a48c0bdfcf835d5c2af2ac002abba8d55a0` | Yes |
 | `origin/feature/quote-normalization-evidence` | `e1859aa81c3eec07fb439fd74ca2508cd3159f66` | Yes |
 | `origin/feature/recipe-costing-contract-v2` | `febfa4abea3e61748d7a3d0dc0c0f03bf811ace4` | Yes |
+| `origin/fix/cost-regression-001-nested-sqlite-transactions` | `132789ccbbe65168aa79aa1888b1b3ec4424855d` | Yes |
 | `origin/governance/canonical-ingredient-alignment` | `e3662d71e4ecccd039b817287e2c99355d3ef04a` | Yes |
 | `origin/governance/recipe-management-001-proposal` | `8e081059b7569613587faa86854ce5fe94bfd06f` | Yes |
 | `origin/governance/recipe-management-001a-task-card` | `22d1411a8b3dc5edf810c66948bec24d8c4fa957` | Yes |
 | `origin/governance/recipe-management-001b-task-card` | `21f90c6e1273102d7dbdbe4d1791090b86c6d7d0` | Yes |
 | `origin/governance/ros-post-pr7-documentation-task-card` | `70b6dab1159a3e8f10c951aca4a2992691cdf971` | Yes |
-| `origin/integration/architecture-development` | `b107c6c7a4a2caca25bd46b138bd8baebbd97c1b` | Yes |
+| `origin/integration/architecture-development` | `20bca12ac7c2620ea2fc3c808bab035c9b5311fa` | Yes |
 
-The local documentation execution branch had no remote branch at the start of
-this Work Order. Push and Pull Request creation remain separately gated.
+The local Phase B branch has no remote branch. Push and Pull Request creation
+remain separately gated.
 
 ## Worktrees actually observed
 
@@ -69,7 +70,7 @@ reported as detached; no purpose or future disposition is inferred here.
 | `C:/Users/user/AppData/Local/Temp/ros-staged-e2e-current-2` | detached | `7696fcb13ca67db140c6cfc775fcaef2d6e45369` |
 | `C:/Users/user/Documents/荒島餐車 AI 營運資料庫/desert-island-ros-cost-back-office` | `feature/cost-back-office` | `bec41bb89185c0261c1375b62b1be91e4e2b00df` |
 | `C:/Users/user/Documents/荒島餐車 AI 營運資料庫/desert-island-ros-governance-ingredient` | `governance/canonical-ingredient-alignment` | `e3662d71e4ecccd039b817287e2c99355d3ef04a` |
-| `C:/Users/user/Documents/荒島餐車 AI 營運資料庫/desert-island-ros-integration` | `docs/ros-post-pr7-baseline-sync-001` | `b107c6c7a4a2caca25bd46b138bd8baebbd97c1b` before documentation edits |
+| `C:/Users/user/Documents/荒島餐車 AI 營運資料庫/desert-island-ros-integration` | `docs/docs-ros-post-pr11-001-phase-b` | `20bca12ac7c2620ea2fc3c808bab035c9b5311fa` before Phase B documentation edits |
 | `C:/Users/user/Documents/荒島餐車 AI 營運資料庫/desert-island-ros-main-gate-upgrade` | `chore/main-gate-migration-upgrade-fixture` | `c3742bce3f3baf471c28bf479eba418172efc61c` |
 | `C:/Users/user/Documents/荒島餐車 AI 營運資料庫/desert-island-ros-pr-cost-004r` | `feature/pr-cost-004r` | `7809e8555c58c9ae5d11498361ac88360890f4e4` |
 | `C:/Users/user/Documents/荒島餐車 AI 營運資料庫/desert-island-ros-pr-measure-001` | `feature/pr-measure-001` | `8b80e9723d55c1e6dc0e30a6c83cb9e52effe20e` |

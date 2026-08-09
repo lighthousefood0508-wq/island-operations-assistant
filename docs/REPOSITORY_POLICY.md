@@ -155,56 +155,34 @@ These documents are updated during repository cleanup review or when the approve
 ## 10. Current Development Order
 
 ```text
-Measurement Foundation
+Recipe Management 001A and 001B
 (COMPLETED)
         |
         v
-Ingredient Measurement Profile
+Post-PR7 Governance Synchronization
 (COMPLETED)
         |
         v
-Canonical Ingredient Domain and Persistence
-(COMPLETED)
+COST-REGRESSION-001 Task Card and Implementation
+(COMPLETED; PR #10 AND PR #11)
         |
         v
-Recipe Canonical Projection
-(COMPLETED)
+Post-PR11 Phase A Task Card Recording
+(COMPLETED; PR #12)
         |
         v
-Quote Normalization Evidence
-(COMPLETED)
+Post-PR11 Phase B Documentation Synchronization
+(IN PROGRESS; PRE-COMMIT GATE)
         |
         v
-Recipe Costing Contract v2
-(COMPLETED)
-        |
-        v
-PR-COST-004R
-(COMPLETED)
-        |
-        v
-Cost Back Office
-(COMPLETED)
-        |
-        v
-Governance Status Update
-(COMPLETED)
-        |
-        v
-Independent Governance Audit
-(COMPLETED / BLOCKED BY P1 IDENTITY FINDING)
-        |
-        v
-Targeted Governance Identity Correction
-(IN PROGRESS)
-        |
-        v
-Independent Governance Re-audit
-(PENDING)
-        |
-        v
-Main Release Gate
-(NOT STARTED / NOT AUTHORIZED)
+Owner Product-Planning Decision
+(PENDING / NOT AUTOMATICALLY AUTHORIZED)
 ```
 
-This status sequence does not authorize a new implementation, release, deployment, or `main` promotion. Architecture Owner review remains required at every applicable Proposal, Authorization, Implementation, Audit, Safe Commit, Integration, and Release Gate. Main Release Gate planning must also apply the historical prerequisites restored in `docs/RELEASE_BASELINE.md`; this correction does not mark any prerequisite complete.
+The Owner-Accepted Architecture Development Baseline is
+`1c31a31030e7c0d29181ebcc5355a706db95dc50`; the current pre-Phase-B integration
+Git Head is the documentation-only PR #12 merge
+`20bca12ac7c2620ea2fc3c808bab035c9b5311fa`. This status sequence does not
+authorize a new implementation, Recipe 001C through 001E, Ingredient work,
+release, deployment, cleanup, or `main` promotion. Architecture Owner review
+remains required at every applicable Gate.

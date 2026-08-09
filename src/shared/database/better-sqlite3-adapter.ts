@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
@@ -11,6 +12,8 @@ import {
 
 export class BetterSqlite3Adapter implements DatabaseAdapter {
   private readonly database: Database.Database;
+  private readonly savepointPrefix = `ros_nested_${randomUUID().replaceAll("-", "")}`;
+  private savepointSequence = 0n;
   private unsafe = false;
 
   get transactionSafety(): "safe" | "unsafe" {
@@ -75,6 +78,8 @@ export class BetterSqlite3Adapter implements DatabaseAdapter {
 
   private runTransaction<T>(begin: "BEGIN" | "BEGIN IMMEDIATE", work: () => T): T {
     this.assertSafe();
+    if (this.database.inTransaction) return this.runNestedTransaction(work);
+
     this.database.exec(begin);
     let result: T;
     try {
@@ -94,6 +99,7 @@ export class BetterSqlite3Adapter implements DatabaseAdapter {
     }
 
     try {
+      this.assertSafe();
       this.database.exec("COMMIT");
       return result;
     } catch (commitFailure) {
@@ -108,12 +114,68 @@ export class BetterSqlite3Adapter implements DatabaseAdapter {
     }
   }
 
-  private tryRollback(): unknown | null {
+  private runNestedTransaction<T>(work: () => T): T {
+    const savepoint = this.nextSavepoint();
+    this.database.exec(`SAVEPOINT ${savepoint}`);
+
+    let result: T;
     try {
-      this.database.exec("ROLLBACK");
-      return null;
-    } catch (rollbackFailure) {
-      return rollbackFailure;
+      result = work();
+    } catch (operationFailure) {
+      const cleanupFailure = this.tryCleanupSavepoint(savepoint);
+      if (cleanupFailure !== null) {
+        this.unsafe = true;
+        throw new DatabaseTransactionFailure(
+          "operation",
+          operationFailure,
+          cleanupFailure,
+          true
+        );
+      }
+      throw operationFailure;
     }
+
+    try {
+      this.database.exec(`RELEASE ${savepoint}`);
+      return result;
+    } catch (releaseFailure) {
+      const rollbackFailure = this.tryCleanupSavepoint(savepoint);
+      if (rollbackFailure !== null) this.unsafe = true;
+      throw new DatabaseTransactionFailure(
+        "commit",
+        releaseFailure,
+        rollbackFailure,
+        this.unsafe
+      );
+    }
+  }
+
+  private nextSavepoint(): string {
+    this.savepointSequence += 1n;
+    return `${this.savepointPrefix}_${this.savepointSequence}`;
+  }
+
+  private tryCleanupSavepoint(savepoint: string): unknown | null {
+    const rollbackFailure = this.tryExecute(`ROLLBACK TO ${savepoint}`);
+    const releaseFailure = this.tryExecute(`RELEASE ${savepoint}`);
+    if (rollbackFailure === null) return releaseFailure;
+    if (releaseFailure === null) return rollbackFailure;
+    return new AggregateError(
+      [rollbackFailure, releaseFailure],
+      "Savepoint rollback and release both failed."
+    );
+  }
+
+  private tryExecute(sql: string): unknown | null {
+    try {
+      this.database.exec(sql);
+      return null;
+    } catch (failure) {
+      return failure;
+    }
+  }
+
+  private tryRollback(): unknown | null {
+    return this.tryExecute("ROLLBACK");
   }
 }

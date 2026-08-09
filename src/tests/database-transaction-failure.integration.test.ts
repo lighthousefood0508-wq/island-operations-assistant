@@ -20,6 +20,22 @@ function fixture(run: (adapter: BetterSqlite3Adapter, native: NativeDatabase) =>
   }
 }
 
+function evidenceValues(adapter: BetterSqlite3Adapter): string[] {
+  return adapter
+    .queryMany<{ value: string }>("SELECT value FROM evidence ORDER BY rowid")
+    .map(({ value }) => value);
+}
+
+function captureCommands(native: NativeDatabase): string[] {
+  const commands: string[] = [];
+  const originalExec = native.exec.bind(native);
+  native.exec = (sql: string) => {
+    commands.push(sql);
+    return originalExec(sql);
+  };
+  return commands;
+}
+
 test("operation failure remains primary when rollback succeeds", () => fixture((adapter) => {
   const operationFailure = new Error("operation failed");
   assert.throws(
@@ -73,4 +89,311 @@ test("commit failure never returns success and records commit as the primary pha
       && !error.adapterUnsafe
   );
   assert.equal(adapter.queryOne<{ count: number }>("SELECT count(*) AS count FROM evidence")?.count, 0);
+}));
+
+test("outer transaction methods preserve their method-specific lock commands", () => fixture((adapter, native) => {
+  const commands = captureCommands(native);
+  adapter.transaction(() => adapter.execute("INSERT INTO evidence VALUES ('deferred')"));
+  adapter.transactionImmediate(() => adapter.execute("INSERT INTO evidence VALUES ('immediate')"));
+
+  assert.deepEqual(commands.filter((sql) => /^(?:BEGIN|BEGIN IMMEDIATE|COMMIT)$/.test(sql)), [
+    "BEGIN",
+    "COMMIT",
+    "BEGIN IMMEDIATE",
+    "COMMIT"
+  ]);
+  assert.deepEqual(evidenceValues(adapter), ["deferred", "immediate"]);
+}));
+
+test("nested immediate success uses a savepoint and commits with its deferred outer transaction", () => fixture((adapter, native) => {
+  const commands = captureCommands(native);
+  adapter.transaction(() => {
+    adapter.execute("INSERT INTO evidence VALUES ('outer')");
+    adapter.transactionImmediate(() => adapter.execute("INSERT INTO evidence VALUES ('inner')"));
+  });
+
+  const savepoint = commands.find((sql) => sql.startsWith("SAVEPOINT "));
+  assert.ok(savepoint);
+  const identity = savepoint.slice("SAVEPOINT ".length);
+  assert.deepEqual(commands.filter((sql) => sql.startsWith("BEGIN")), ["BEGIN"]);
+  assert.ok(commands.includes(`RELEASE ${identity}`));
+  assert.deepEqual(evidenceValues(adapter), ["outer", "inner"]);
+}));
+
+test("caught nested callback failure rolls back only its savepoint and lets the outer transaction continue", () => fixture((adapter, native) => {
+  const commands = captureCommands(native);
+  const operationFailure = new Error("nested operation failed");
+
+  adapter.transaction(() => {
+    adapter.execute("INSERT INTO evidence VALUES ('before')");
+    assert.throws(
+      () => adapter.transactionImmediate(() => {
+        adapter.execute("INSERT INTO evidence VALUES ('nested partial')");
+        throw operationFailure;
+      }),
+      (error: unknown) => error === operationFailure
+    );
+    adapter.execute("INSERT INTO evidence VALUES ('after')");
+  });
+
+  const savepoint = commands.find((sql) => sql.startsWith("SAVEPOINT "));
+  assert.ok(savepoint);
+  const identity = savepoint.slice("SAVEPOINT ".length);
+  assert.ok(commands.includes(`ROLLBACK TO ${identity}`));
+  assert.ok(commands.includes(`RELEASE ${identity}`));
+  assert.deepEqual(evidenceValues(adapter), ["before", "after"]);
+  assert.equal(adapter.transactionSafety, "safe");
+}));
+
+test("uncaught nested callback failure rolls back the outer transaction", () => fixture((adapter) => {
+  const operationFailure = new Error("uncaught nested failure");
+  assert.throws(
+    () => adapter.transactionImmediate(() => {
+      adapter.execute("INSERT INTO evidence VALUES ('outer partial')");
+      adapter.transaction(() => {
+        adapter.execute("INSERT INTO evidence VALUES ('inner partial')");
+        throw operationFailure;
+      });
+    }),
+    (error: unknown) => error === operationFailure
+  );
+  assert.deepEqual(evidenceValues(adapter), []);
+  assert.equal(adapter.transactionSafety, "safe");
+}));
+
+test("outer rollback reverses writes released from a successful nested savepoint", () => fixture((adapter) => {
+  const outerFailure = new Error("outer failed");
+  assert.throws(
+    () => adapter.transactionImmediate(() => {
+      adapter.transaction(() => adapter.execute("INSERT INTO evidence VALUES ('released inner')"));
+      throw outerFailure;
+    }),
+    (error: unknown) => error === outerFailure
+  );
+  assert.deepEqual(evidenceValues(adapter), []);
+}));
+
+test("sequential nested transactions use distinct savepoint identities", () => fixture((adapter, native) => {
+  const commands = captureCommands(native);
+  adapter.transaction(() => {
+    adapter.transaction(() => adapter.execute("INSERT INTO evidence VALUES ('first')"));
+    adapter.transaction(() => adapter.execute("INSERT INTO evidence VALUES ('second')"));
+  });
+
+  const identities = commands
+    .filter((sql) => sql.startsWith("SAVEPOINT "))
+    .map((sql) => sql.slice("SAVEPOINT ".length));
+  assert.equal(identities.length, 2);
+  assert.notEqual(identities[0], identities[1]);
+  assert.deepEqual(evidenceValues(adapter), ["first", "second"]);
+}));
+
+test("multiple active nesting levels use distinct savepoint identities without nested BEGIN", () => fixture((adapter, native) => {
+  const commands = captureCommands(native);
+  adapter.transactionImmediate(() => {
+    adapter.transaction(() => {
+      adapter.transactionImmediate(() => adapter.execute("INSERT INTO evidence VALUES ('deep')"));
+    });
+  });
+
+  const identities = commands
+    .filter((sql) => sql.startsWith("SAVEPOINT "))
+    .map((sql) => sql.slice("SAVEPOINT ".length));
+  assert.equal(new Set(identities).size, 2);
+  assert.deepEqual(commands.filter((sql) => sql.startsWith("BEGIN")), ["BEGIN IMMEDIATE"]);
+  assert.deepEqual(evidenceValues(adapter), ["deep"]);
+}));
+
+test("ROLLBACK TO failure still attempts one final RELEASE and preserves both failures", () => fixture((adapter, native) => {
+  const originalExec = native.exec.bind(native);
+  const operationFailure = new Error("nested callback failed");
+  const rollbackToFailure = new Error("rollback to failed");
+  const commands: string[] = [];
+  let savepoint: string | null = null;
+  native.exec = (sql: string) => {
+    commands.push(sql);
+    if (sql.startsWith("SAVEPOINT ")) savepoint = sql.slice("SAVEPOINT ".length);
+    if (savepoint !== null && sql === `ROLLBACK TO ${savepoint}`) throw rollbackToFailure;
+    return originalExec(sql);
+  };
+
+  assert.throws(
+    () => adapter.transaction(() => {
+      adapter.transactionImmediate(() => { throw operationFailure; });
+    }),
+    (error: unknown) => error instanceof DatabaseTransactionFailure
+      && error.phase === "operation"
+      && error.primaryCause === operationFailure
+      && error.rollbackFailure === rollbackToFailure
+      && error.adapterUnsafe
+  );
+  assert.ok(savepoint);
+  const rollbackCommand = `ROLLBACK TO ${savepoint}`;
+  const releaseCommand = `RELEASE ${savepoint}`;
+  assert.ok(commands.indexOf(rollbackCommand) < commands.indexOf(releaseCommand));
+  assert.equal(commands.filter((sql) => sql === releaseCommand).length, 1);
+  assert.deepEqual(commands.filter((sql) => sql.startsWith("BEGIN")), ["BEGIN"]);
+  assert.equal(adapter.transactionSafety, "unsafe");
+}));
+
+test("nested callback plus final RELEASE failure preserves callback as primary evidence", () => fixture((adapter, native) => {
+  const originalExec = native.exec.bind(native);
+  const operationFailure = new Error("nested callback failed");
+  const releaseFailure = new Error("final release failed");
+  let savepoint: string | null = null;
+  native.exec = (sql: string) => {
+    if (sql.startsWith("SAVEPOINT ")) savepoint = sql.slice("SAVEPOINT ".length);
+    if (savepoint !== null && sql === `RELEASE ${savepoint}`) throw releaseFailure;
+    return originalExec(sql);
+  };
+
+  assert.throws(
+    () => adapter.transactionImmediate(() => {
+      adapter.transaction(() => { throw operationFailure; });
+    }),
+    (error: unknown) => error instanceof DatabaseTransactionFailure
+      && error.phase === "operation"
+      && error.primaryCause === operationFailure
+      && error.rollbackFailure === releaseFailure
+      && error.adapterUnsafe
+  );
+  assert.equal(adapter.transactionSafety, "unsafe");
+}));
+
+test("both nested cleanup failures are attempted in order and retained without message reduction", () => fixture((adapter, native) => {
+  const originalExec = native.exec.bind(native);
+  const operationFailure = new Error("nested callback failed");
+  const rollbackToFailure = new Error("rollback to failed");
+  const releaseFailure = new Error("final release failed");
+  const commands: string[] = [];
+  let savepoint: string | null = null;
+  native.exec = (sql: string) => {
+    commands.push(sql);
+    if (sql.startsWith("SAVEPOINT ")) savepoint = sql.slice("SAVEPOINT ".length);
+    if (savepoint !== null && sql === `ROLLBACK TO ${savepoint}`) throw rollbackToFailure;
+    if (savepoint !== null && sql === `RELEASE ${savepoint}`) throw releaseFailure;
+    return originalExec(sql);
+  };
+
+  assert.throws(
+    () => adapter.transaction(() => {
+      adapter.transactionImmediate(() => { throw operationFailure; });
+    }),
+    (error: unknown) => error instanceof DatabaseTransactionFailure
+      && error.phase === "operation"
+      && error.primaryCause === operationFailure
+      && error.rollbackFailure instanceof AggregateError
+      && error.rollbackFailure.errors[0] === rollbackToFailure
+      && error.rollbackFailure.errors[1] === releaseFailure
+      && error.adapterUnsafe
+  );
+  assert.ok(savepoint);
+  const rollbackCommand = `ROLLBACK TO ${savepoint}`;
+  const releaseCommand = `RELEASE ${savepoint}`;
+  assert.ok(commands.indexOf(rollbackCommand) < commands.indexOf(releaseCommand));
+  assert.equal(commands.filter((sql) => sql === releaseCommand).length, 1);
+  assert.deepEqual(commands.filter((sql) => sql.startsWith("BEGIN")), ["BEGIN"]);
+  assert.equal(adapter.transactionSafety, "unsafe");
+}));
+
+test("nested success plus RELEASE failure is a commit failure and clean cleanup keeps the adapter safe", () => fixture((adapter, native) => {
+  const originalExec = native.exec.bind(native);
+  const releaseFailure = new Error("nested release failed");
+  let failed = false;
+  let savepoint: string | null = null;
+  native.exec = (sql: string) => {
+    if (sql.startsWith("SAVEPOINT ")) savepoint = sql.slice("SAVEPOINT ".length);
+    if (savepoint !== null && sql === `RELEASE ${savepoint}` && !failed) {
+      failed = true;
+      throw releaseFailure;
+    }
+    return originalExec(sql);
+  };
+
+  assert.throws(
+    () => adapter.transaction(() => {
+      adapter.transactionImmediate(() => adapter.execute("INSERT INTO evidence VALUES ('nested')"));
+    }),
+    (error: unknown) => error instanceof DatabaseTransactionFailure
+      && error.phase === "commit"
+      && error.primaryCause === releaseFailure
+      && error.rollbackFailure === null
+      && !error.adapterUnsafe
+  );
+  assert.equal(adapter.transactionSafety, "safe");
+  assert.deepEqual(evidenceValues(adapter), []);
+}));
+
+test("outer rollback failure retains both nested cleanup failures and the callback failure", () => fixture((adapter, native) => {
+  const originalExec = native.exec.bind(native);
+  const operationFailure = new Error("nested callback failed");
+  const rollbackToFailure = new Error("nested rollback to failed");
+  const releaseFailure = new Error("nested release failed");
+  const outerRollbackFailure = new Error("outer rollback failed");
+  const commands: string[] = [];
+  let savepoint: string | null = null;
+  native.exec = (sql: string) => {
+    commands.push(sql);
+    if (sql.startsWith("SAVEPOINT ")) savepoint = sql.slice("SAVEPOINT ".length);
+    if (savepoint !== null && sql === `ROLLBACK TO ${savepoint}`) throw rollbackToFailure;
+    if (savepoint !== null && sql === `RELEASE ${savepoint}`) throw releaseFailure;
+    if (sql === "ROLLBACK") throw outerRollbackFailure;
+    return originalExec(sql);
+  };
+
+  assert.throws(
+    () => adapter.transactionImmediate(() => {
+      adapter.transaction(() => { throw operationFailure; });
+    }),
+    (error: unknown) => error instanceof DatabaseTransactionFailure
+      && error.phase === "operation"
+      && error.rollbackFailure === outerRollbackFailure
+      && error.adapterUnsafe
+      && error.primaryCause instanceof DatabaseTransactionFailure
+      && error.primaryCause.phase === "operation"
+      && error.primaryCause.primaryCause === operationFailure
+      && error.primaryCause.rollbackFailure instanceof AggregateError
+      && error.primaryCause.rollbackFailure.errors[0] === rollbackToFailure
+      && error.primaryCause.rollbackFailure.errors[1] === releaseFailure
+      && error.primaryCause.adapterUnsafe
+  );
+  assert.ok(savepoint);
+  const rollbackCommand = `ROLLBACK TO ${savepoint}`;
+  const releaseCommand = `RELEASE ${savepoint}`;
+  assert.ok(commands.indexOf(rollbackCommand) < commands.indexOf(releaseCommand));
+  assert.equal(commands.filter((sql) => sql === releaseCommand).length, 1);
+  assert.ok(commands.indexOf(releaseCommand) < commands.indexOf("ROLLBACK"));
+  assert.equal(adapter.transactionSafety, "unsafe");
+}));
+
+test("catching an unclean nested failure cannot let the outer transaction report success", () => fixture((adapter, native) => {
+  const originalExec = native.exec.bind(native);
+  const operationFailure = new Error("nested callback failed");
+  const cleanupFailure = new Error("nested cleanup failed");
+  native.exec = (sql: string) => {
+    if (sql.startsWith("ROLLBACK TO ")) throw cleanupFailure;
+    return originalExec(sql);
+  };
+
+  assert.throws(
+    () => adapter.transaction(() => {
+      try {
+        adapter.transactionImmediate(() => {
+          adapter.execute("INSERT INTO evidence VALUES ('unclean')");
+          throw operationFailure;
+        });
+      } catch (error) {
+        assert.ok(error instanceof DatabaseTransactionFailure);
+        assert.equal(error.primaryCause, operationFailure);
+        assert.equal(error.rollbackFailure, cleanupFailure);
+      }
+      return "must not commit";
+    }),
+    (error: unknown) => error instanceof DatabaseTransactionFailure
+      && error.phase === "commit"
+      && error.primaryCause instanceof DatabaseAdapterUnsafe
+      && error.rollbackFailure === null
+      && error.adapterUnsafe
+  );
+  assert.equal(adapter.transactionSafety, "unsafe");
 }));

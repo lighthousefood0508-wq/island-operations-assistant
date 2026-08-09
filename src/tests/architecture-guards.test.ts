@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -808,6 +809,11 @@ test("Canonical Ingredient internals remain behind the published contract", () =
     "contracts",
     "canonical-ingredient-contract.ts"
   );
+  const ingredientManagementContract = path.join(
+    recipeRoot,
+    "contracts",
+    "canonical-ingredient-management-contract.ts"
+  );
   const databaseAdapter = path.join(
     sourceRoot,
     "shared",
@@ -827,6 +833,7 @@ test("Canonical Ingredient internals remain behind the published contract", () =
           && (
             target.startsWith(`${ingredientRoot}${path.sep}`)
             || target === ingredientContract
+            || target === ingredientManagementContract
             || (isInfrastructure && target === databaseAdapter)
           ),
         `${filename} imports outside Canonical Ingredient or its published contract: ${specifier}`
@@ -886,9 +893,77 @@ test("Canonical Ingredient internals remain behind the published contract", () =
     }
   }
 
-  const publicIndexSource = readFileSync(recipePublicIndex, "utf8");
-  assert.match(publicIndexSource, /canonical-ingredient-contract/);
-  assert.doesNotMatch(publicIndexSource, /ingredient-catalog\//);
+  const publicIndexSource = readFileSync(recipePublicIndex, "utf8")
+    .replaceAll("\r\n", "\n");
+  const accepted003AMarker = "export type {\n  ArchiveCanonicalIngredientCommandV1,";
+  const accepted003AOffset = publicIndexSource.indexOf(accepted003AMarker);
+  assert.notEqual(accepted003AOffset, -1, "Recipe index publishes the 003A surface.");
+  const pre003APublicIndex = publicIndexSource.slice(0, accepted003AOffset);
+  const accepted003ASurface = publicIndexSource.slice(accepted003AOffset);
+  assert.equal(
+    createHash("sha256").update(pre003APublicIndex).digest("hex"),
+    "4f55d49ff0c054ff66ba802489f4e5bd832d4405dfe7c4c09470076a0ff8e616",
+    "003A must preserve every pre-existing Recipe public export byte-for-byte."
+  );
+  assert.equal(
+    accepted003ASurface,
+    `export type {
+  ArchiveCanonicalIngredientCommandV1,
+  ArchiveCanonicalIngredientResultV1,
+  CanonicalIngredientDuplicateCandidateV1,
+  CanonicalIngredientDuplicateWarningV1,
+  CanonicalIngredientManagementRecordV1,
+  RenameCanonicalIngredientCommandV1,
+  RenameCanonicalIngredientResultV1
+} from "./contracts/canonical-ingredient-management-contract.js";
+export {
+  CanonicalIngredientAlreadyArchived,
+  CanonicalIngredientArchivedRenameRejected,
+  CanonicalIngredientLifecycleNotFound,
+  CanonicalIngredientLifecyclePersistenceFailure,
+  CanonicalIngredientLifecycleValidationFailure,
+  CanonicalIngredientLifecycleVersionConflict,
+  InvalidCanonicalIngredientLifecycleTransition
+} from "./ingredient-catalog/application/errors.js";
+export {
+  CanonicalIngredientLifecycleService
+} from "./ingredient-catalog/application/canonical-ingredient-lifecycle-service.js";
+`
+  );
+  assert.match(pre003APublicIndex, /canonical-ingredient-contract/);
+  assert.doesNotMatch(pre003APublicIndex, /ingredient-catalog\//);
+
+  const lifecycleService = path.join(
+    ingredientRoot,
+    "application",
+    "canonical-ingredient-lifecycle-service.ts"
+  );
+  const lifecycleErrors = path.join(
+    ingredientRoot,
+    "application",
+    "errors.ts"
+  );
+  const lifecycleSource = readFileSync(lifecycleService, "utf8");
+  const lifecycleErrorSource = readFileSync(lifecycleErrors, "utf8");
+  const managementContractSource = readFileSync(
+    ingredientManagementContract,
+    "utf8"
+  );
+  assert.match(
+    lifecycleSource,
+    /Pick<[\s\S]*"findById" \| "findDuplicateCandidates" \| "saveWithExpectedVersion"/
+  );
+  assert.doesNotMatch(
+    lifecycleSource,
+    /"saveNew"|"searchByName"|listActive|infrastructure|shared\/database/
+  );
+  assert.match(managementContractSource, /Readonly</);
+  assert.match(
+    managementContractSource,
+    /readonly CanonicalIngredientDuplicateCandidateV1\[\]/
+  );
+  assert.doesNotMatch(managementContractSource, /Object\.freeze/);
+  assert.doesNotMatch(lifecycleErrorSource, /\bcause\b|rawError|sqlite/i);
   assertNoTerms(
     readFileSync(ingredientContract, "utf8"),
     [

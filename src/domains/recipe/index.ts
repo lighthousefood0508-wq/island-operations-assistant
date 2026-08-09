@@ -215,3 +215,24 @@ export {
   UnsupportedMeasurementScale,
   UnsupportedMeasurementContractVersion
 } from "./measurement/errors.js";
+export type {
+  ArchiveCanonicalIngredientCommandV1,
+  ArchiveCanonicalIngredientResultV1,
+  CanonicalIngredientDuplicateCandidateV1,
+  CanonicalIngredientDuplicateWarningV1,
+  CanonicalIngredientManagementRecordV1,
+  RenameCanonicalIngredientCommandV1,
+  RenameCanonicalIngredientResultV1
+} from "./contracts/canonical-ingredient-management-contract.js";
+export {
+  CanonicalIngredientAlreadyArchived,
+  CanonicalIngredientArchivedRenameRejected,
+  CanonicalIngredientLifecycleNotFound,
+  CanonicalIngredientLifecyclePersistenceFailure,
+  CanonicalIngredientLifecycleValidationFailure,
+  CanonicalIngredientLifecycleVersionConflict,
+  InvalidCanonicalIngredientLifecycleTransition
+} from "./ingredient-catalog/application/errors.js";
+export {
+  CanonicalIngredientLifecycleService
+} from "./ingredient-catalog/application/canonical-ingredient-lifecycle-service.js";

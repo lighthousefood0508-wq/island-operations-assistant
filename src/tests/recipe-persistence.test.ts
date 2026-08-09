@@ -96,6 +96,31 @@ test("Draft aggregate round-trips through persistence records", () => {
   assert.equal(records.recipe.aggregateVersion, 3);
 });
 
+test("Draft records accept a retained Published pointer while Published records still require an exact pointer", () => {
+  const draftRecords = mapper.toRecords(draft(), 3);
+  const retainedPointer = Object.freeze({
+    ...draftRecords,
+    recipe: Object.freeze({
+      ...draftRecords.recipe,
+      currentRecipeVersionId: `recipe_version_${UUID.version1}`
+    })
+  });
+  assert.equal(mapper.fromRecords(retainedPointer).snapshot().state, "Draft");
+
+  const publishedRecords = mapper.toRecords(published(), 1);
+  const mismatchedPointer = Object.freeze({
+    ...publishedRecords,
+    recipe: Object.freeze({
+      ...publishedRecords.recipe,
+      currentRecipeVersionId: `recipe_version_${UUID.version2}`
+    })
+  });
+  assert.throws(
+    () => mapper.fromRecords(mismatchedPointer),
+    InvalidRecipePersistenceState
+  );
+});
+
 test("Published aggregate round-trips with Version and Publish Audit facts", () => {
   const original = published();
   const records = mapper.toRecords(original, 1);

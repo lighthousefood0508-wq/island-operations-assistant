@@ -304,13 +304,12 @@ export class RecipePersistenceMapper {
 
     if (records.recipe.state === "Draft" || records.recipe.state === "Abandoned") {
       if (
-        records.recipe.currentRecipeVersionId !== null ||
         records.version !== null ||
         records.versionLines.length !== 0 ||
         records.publishAudit !== null ||
         records.supersessionAudits.length !== 0
       ) {
-        throw new InvalidRecipePersistenceState("Unpublished records cannot contain Published or Superseded facts.");
+        throw new InvalidRecipePersistenceState("Draft or Abandoned records cannot project Published or Superseded facts.");
       }
       if ((records.recipe.state === "Abandoned") !== (records.abandonmentAudit !== null)) {
         throw new InvalidRecipePersistenceState("Abandoned records require exactly one matching abandonment audit.");

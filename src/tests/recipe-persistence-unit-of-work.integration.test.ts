@@ -177,6 +177,105 @@ test("Draft abandonment commits terminal state, audit and receipt atomically and
   assert.equal(restored?.aggregate.snapshot().abandonment?.reason, input.abandonment.reason);
 }));
 
+test("Abandoned later Draft rehydrates after restart without losing the current Published Version pointer", () => {
+  const directory = mkdtempSync(path.join(tmpdir(), "recipe-uow-pointer-"));
+  const databasePath = path.join(directory, "test.sqlite");
+  let database: BetterSqlite3Adapter | undefined = new BetterSqlite3Adapter(databasePath);
+  try {
+    runMigrations(database);
+    database.execute("INSERT INTO recipe_canonical_ingredients (ingredient_id, name, category_code, status, aggregate_version, created_at, created_by) VALUES (?, 'Pork', 'meat', 'Active', 0, ?, 'owner')", [ingredientId, now]);
+    const uow = new SqliteRecipePersistenceUnitOfWork(database);
+    const family = familyInput("10");
+    uow.createFamilyWithInitialDraft(family);
+    const publication = publicationInput(family);
+    const published = uow.publishRecipeVersion(publication);
+
+    const laterDraftId = "recipe_draft_20000000-0000-4000-8000-000000000099";
+    const laterLine = line(laterDraftId, "draft", "99");
+    database.transactionImmediate(() => {
+      database!.execute(
+        `INSERT INTO recipe_drafts (
+          draft_id, recipe_id, recipe_family_id, name, state, product_id,
+          product_version_id, instructions, standard_output_coefficient,
+          standard_output_scale, standard_output_unit_code, standard_output_dimension,
+          standard_yield_coefficient, standard_yield_scale, standard_yield_unit_code,
+          standard_yield_dimension, created_by, created_at
+        ) VALUES (?, ?, ?, 'Recipe 10 revision', 'Draft', ?, ?, 'Revised', '100', 0, 'g', 'mass', '1', 0, 'each', 'count', 'owner', ?)`,
+        [laterDraftId, family.recipeId, family.recipeFamilyId, family.productId, family.productVersionId, now]
+      );
+      database!.execute(
+        "INSERT INTO recipe_draft_lines (draft_id, recipe_line_id, position, ingredient_id, ingredient_canonical_name, ingredient_measurement_dimension, ingredient_status, ingredient_created_at, quantity_coefficient, quantity_scale, quantity_unit_code, quantity_dimension, preparation_note) VALUES (?, ?, 0, ?, 'Pork', 'mass', 'active', ?, '100', 0, 'g', 'mass', 'Trim')",
+        [laterDraftId, laterLine.recipeLineId, ingredientId, now]
+      );
+      database!.execute(
+        "UPDATE recipe_recipes SET current_draft_id = ?, aggregate_version = 3, state = 'Draft' WHERE recipe_id = ?",
+        [laterDraftId, family.recipeId]
+      );
+    });
+
+    const provisionalAbandonment: DraftAbandonmentPersistenceInput = {
+      receipt: receipt("DRAFT_ABANDON", "RECIPE_DRAFT", laterDraftId, "abandon-after-publish"),
+      recipeFamilyId: family.recipeFamilyId,
+      recipeId: family.recipeId,
+      draftId: laterDraftId,
+      expectedCurrentDraftId: laterDraftId,
+      expectedAggregateVersion: 3,
+      abandonment: {
+        eventId: "abandon_event_after_publish",
+        actor: "owner",
+        occurredAt: now,
+        reason: "Revision no longer applies",
+        previousAggregateVersion: 3,
+        resultingAggregateVersion: 4
+      }
+    };
+    const abandonment = {
+      ...provisionalAbandonment,
+      receipt: {
+        ...provisionalAbandonment.receipt,
+        requestFingerprint: expectedRecipeReceiptFingerprint(provisionalAbandonment)
+      }
+    };
+    const abandoned = uow.abandonDraft(abandonment);
+    assert.equal(abandoned.currentRecipeVersionId, published.currentRecipeVersionId);
+
+    database.close();
+    database = undefined;
+    const reopened = new BetterSqlite3Adapter(databasePath);
+    try {
+      const repository = new SqliteRecipeRepository(reopened);
+      const restored = repository.findWithVersion(RecipeId.parse(family.recipeId));
+      const restoredSnapshot = restored?.aggregate.snapshot();
+      assert.equal(restoredSnapshot?.state, "Abandoned");
+      assert.equal(restoredSnapshot?.abandonment?.recipeFamilyId.value, family.recipeFamilyId);
+      assert.equal(restoredSnapshot?.abandonment?.recipeId.value, family.recipeId);
+      assert.equal(restoredSnapshot?.abandonment?.draftId.value, laterDraftId);
+      assert.equal(restoredSnapshot?.abandonment?.resultingState, "Abandoned");
+      assert.equal(restoredSnapshot?.abandonment?.actor, "owner");
+      assert.equal(restoredSnapshot?.abandonment?.occurredAt, now);
+      assert.equal(restoredSnapshot?.abandonment?.reason, "Revision no longer applies");
+      assert.equal(restoredSnapshot?.abandonment?.previousAggregateVersion, 3);
+      assert.equal(restoredSnapshot?.abandonment?.resultingAggregateVersion, 4);
+      assert.equal(
+        repository.listRecipes()[0]?.currentRecipeVersionId,
+        published.currentRecipeVersionId
+      );
+      assert.equal(
+        reopened.queryOne<{ state: string }>(
+          "SELECT state FROM recipe_versions WHERE recipe_version_id = ?",
+          [published.currentRecipeVersionId]
+        )?.state,
+        "Published"
+      );
+    } finally {
+      reopened.close();
+    }
+  } finally {
+    database?.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("replacement publication supersedes the prior Version and moves the pointer exactly once", () => fixture((database, uow) => {
   const family = familyInput("01");
   uow.createFamilyWithInitialDraft(family);

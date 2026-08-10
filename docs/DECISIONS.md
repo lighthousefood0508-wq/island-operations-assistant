@@ -59,6 +59,36 @@
   deployment, or runtime provenance verification. Recipe 001C through 001E and
   Ingredient 003A through 003C remain unauthorized.
 
+### Canonical Ingredient 003A/003B factual closeout synchronization — DOCS-ROS-POST-PR18-INGREDIENT-003B-001
+
+- **Date**: 2026-08-10.
+- This is an unnumbered factual synchronization under DECISIONS #069, the
+  Owner-accepted PR-INGREDIENT-003 Proposal, the Owner-approved 003A and 003B
+  Task Cards, and their separate implementation, review, merge, and post-merge
+  authorization records.
+- It creates, reserves, and backdates no DECISIONS number and does not change
+  the substance of DECISIONS #069.
+- PR #14 recorded the accepted Proposal as merge commit
+  `b3f2e5e28ff55f988859c8e438f8128875d80fe7`.
+- PR #15 recorded the 003A Task Card as merge commit
+  `f8dc8af112deaf478621bb653cd782d09e0425db`; PR #16 then completed the
+  Canonical Ingredient Rename/Archive command boundary as merge commit
+  `b5641482bbfe34d110ccdf40d1ab5347850a9155`.
+- PR #17 recorded the 003B Task Card as merge commit
+  `5c2a69282567c6456a5d2e7e2628270a03847e57`; PR #18 then completed the
+  Canonical Ingredient management read, SQLite persistence, server
+  composition, and API boundary as merge commit
+  `97d6c7b52f09643b2cafaa50711f76ccc1ae7a96`.
+- The Owner accepted `97d6c7b52f09643b2cafaa50711f76ccc1ae7a96`
+  as the Architecture Development Baseline. This is not remote `main`, main
+  promotion, release, deployment, or runtime provenance.
+- PR #19 later recorded only the governance closeout Task Card as merge commit
+  `58cce2327f3f7121442e8a0cd4cd29693b9fde3c`; that documentation-only Git
+  advancement does not redesignate the accepted baseline.
+- Ingredient 003C, UI/navigation, the Reference Impact Coordinator,
+  reactivation, permanent deletion, Ingredient merge, automatic identity
+  resolution, main promotion, release, and deployment remain unauthorized.
+
 - **DECISIONS #069 - Canonical Ingredient Lifecycle Governance Alignment**
   - **Date**: 2026-08-02.
   - **Status**: APPROVED by Architecture Owner for governance alignment only.

@@ -1,6 +1,6 @@
 # ROS Architecture Development Baseline
 
-Last verified: 2026-08-09 (Asia/Taipei)
+Last verified: 2026-08-10 (Asia/Taipei)
 
 Governance basis: DECISIONS #055, #058, #059, #064, #065, #066,
 #069, and #070.
@@ -12,12 +12,12 @@ release. It records development and integration identities only.
 
 ```text
 Branch lineage: integration/architecture-development
-Accepted baseline: 1c31a31030e7c0d29181ebcc5355a706db95dc50
-First parent:      a2791a36c1f063cdf0218aa91ce78955227323a0
-Second parent:     132789ccbbe65168aa79aa1888b1b3ec4424855d
+Accepted baseline: 97d6c7b52f09643b2cafaa50711f76ccc1ae7a96
+First parent:      5c2a69282567c6456a5d2e7e2628270a03847e57
+Second parent:     784bb00912fd957dab6a84448dd8f640f0e166fc
 ```
 
-The second parent is the final approved COST-REGRESSION-001 Head. This accepted
+The second parent is the final approved PR-INGREDIENT-003B Head. This accepted
 baseline contains:
 
 - the earlier Measurement, Ingredient/Profile, Recipe projection, Cost
@@ -26,24 +26,30 @@ baseline contains:
 - Recipe 001B Migration 017, persistence, Unit-of-Work, receipt, restart, and
   fail-closed Published pointer remediation; and
 - PR #11 nested SQLite savepoint semantics, ordered cleanup, and retained
-  primary/cleanup failure evidence after its authorized remediation.
+  primary/cleanup failure evidence after its authorized remediation;
+- PR-INGREDIENT-003A synchronous Rename and Archive Application commands,
+  version-first precedence, stable errors, and non-blocking duplicate warnings;
+  and
+- PR-INGREDIENT-003B deterministic Active/Archived management reads, SQLite
+  persistence, server composition, and management APIs.
 
 It is an architecture-development/integration baseline only. It is not remote
 `main`, main promotion, a deployed runtime, a production database identity, or
 a formal product release.
 
-## Current integration Head after PR #12
+## Current integration Head after PR #19
 
 ```text
 Remote branch: integration/architecture-development
-Verified Head: 20bca12ac7c2620ea2fc3c808bab035c9b5311fa
-First parent:  1c31a31030e7c0d29181ebcc5355a706db95dc50
-Second parent: 96ae03cb7b97e2c2bedeabb1323e780c80dbbb9e
+Verified Head: 58cce2327f3f7121442e8a0cd4cd29693b9fde3c
+First parent:  97d6c7b52f09643b2cafaa50711f76ccc1ae7a96
+Second parent: 7c80fbd13bb196d9c78e938baeb9625a6658e1d3
 ```
 
-PR #12 added only the Owner-approved post-PR11 governance synchronization Task
-Card. Its merge advances the integration branch tip but does not redefine the
-accepted capability baseline, complete Phase B, or create release authority.
+PR #19 added only the Owner-approved post-PR18 Ingredient 003B governance
+closeout Task Card. Its merge advances the integration branch tip but does not
+redefine the accepted capability baseline, complete the 14-file documentation
+synchronization, or create release authority.
 
 ## Main and remote-default state
 
@@ -68,6 +74,8 @@ default-branch change. This task does not modify it.
 - Cost Back Office is contained in development integration but is not formally
   released or deployment-verified. COST-REGRESSION-001 is completed and its
   post-merge verification passed; that does not make the product release-ready.
+- Ingredient 003A and 003B are completed and merged. Ingredient 003C,
+  UI/navigation, and the Reference Impact Coordinator remain unauthorized.
 - Recipe 001C through 001E remain unauthorized.
 
 ## Promotion gate

@@ -15,7 +15,7 @@ Current source-code hosting does not determine ownership. Canonical Ingredient a
 
 Canonical Ingredient names are not unique identity. Equal or normalized names produce duplicate-candidate warnings only; they do not block create or rename and never authorize automatic merge. Draft references are not removed by cascade and must be explicitly changed or removed in their owning workflow.
 
-Reference impact is assembled by an application-level coordinator over Domain-owned read ports. Canonical Ingredient Identity Authority does not query Recipe, Cost, Purchase, or Snapshot repositories. Cost Quotes are formal immutable Cost Evidence and require Archived Ingredient history to remain readable. Until Cost Snapshot persistence exists, Snapshot impact is `Unavailable`, not zero; deletion eligibility is `Indeterminate` and blocked. The coordinator and lifecycle UI/API remain deferred capabilities, not completed runtime.
+Reference impact is assembled by an application-level coordinator over Domain-owned read ports. Canonical Ingredient Identity Authority does not query Recipe, Cost, Purchase, or Snapshot repositories. Cost Quotes are formal immutable Cost Evidence and require Archived Ingredient history to remain readable. Until Cost Snapshot persistence exists, Snapshot impact is `Unavailable`, not zero; deletion eligibility is `Indeterminate` and blocked. Canonical Ingredient Rename/Archive commands and management APIs are completed. The Reference Impact Coordinator and lifecycle UI/navigation remain deferred and unauthorized.
 
 Each formally usable Canonical Ingredient has exactly one Active Measurement Profile at any effective instant. The existing Recipe `measurementDimension` is compatibility-only until Recipe Canonical Projection replaces it.
 

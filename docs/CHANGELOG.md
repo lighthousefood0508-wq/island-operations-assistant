@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-08-10 - Canonical Ingredient lifecycle command and management API closeout
+
+- PR #14 recorded the Owner-accepted PR-INGREDIENT-003 Proposal as merge
+  commit `b3f2e5e28ff55f988859c8e438f8128875d80fe7`.
+- PR #15 recorded the Owner-approved PR-INGREDIENT-003A Task Card as merge
+  commit `f8dc8af112deaf478621bb653cd782d09e0425db`.
+- PR #16 implemented the six-file Canonical Ingredient Rename/Archive command
+  boundary and merged approved Head
+  `2b93889fd4a06351d650d73e12ab8567f5fff0f9` as
+  `b5641482bbfe34d110ccdf40d1ab5347850a9155`.
+- PR #17 recorded the Owner-approved PR-INGREDIENT-003B Task Card as merge
+  commit `5c2a69282567c6456a5d2e7e2628270a03847e57`.
+- PR #18 implemented the approved 12-file management-read, SQLite persistence,
+  server composition, and API boundary at `+1523/-9`. Approved Head
+  `784bb00912fd957dab6a84448dd8f640f0e166fc` merged as
+  `97d6c7b52f09643b2cafaa50711f76ccc1ae7a96` after the documented review and
+  remediation sequence.
+- The Owner accepted `97d6c7b52f09643b2cafaa50711f76ccc1ae7a96`
+  as the Architecture Development Baseline. It is not remote `main`, release,
+  deployment, or runtime provenance.
+- PR #19 recorded only the post-PR18 Ingredient 003B governance closeout Task
+  Card. Approved Head `7c80fbd13bb196d9c78e938baeb9625a6658e1d3`
+  merged as `58cce2327f3f7121442e8a0cd4cd29693b9fde3c`.
+- Ingredient 003C, UI/navigation, Reference Impact, reactivation, deletion,
+  merge, main promotion, release, and deployment remain unauthorized.
+- This closeout creates no new DECISIONS number and does not rewrite
+  DECISIONS #069, the Proposal, or either historical Task Card.
+
 ## 2026-08-09 - Post-PR11 governance synchronization
 
 - PR #10 recorded the COST-REGRESSION-001 Task Card as merge commit

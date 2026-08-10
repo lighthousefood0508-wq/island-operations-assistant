@@ -172,6 +172,26 @@ Post-PR11 Phase A Task Card Recording
         |
         v
 Post-PR11 Phase B Documentation Synchronization
+(COMPLETED; PR #13)
+        |
+        v
+Ingredient Proposal Recording
+(COMPLETED; PR #14)
+        |
+        v
+PR-INGREDIENT-003A Task Card and Implementation
+(COMPLETED; PR #15 AND PR #16)
+        |
+        v
+PR-INGREDIENT-003B Task Card and Implementation
+(COMPLETED; PR #17 AND PR #18)
+        |
+        v
+Post-PR18 Ingredient 003B Closeout Task Card
+(COMPLETED; PR #19)
+        |
+        v
+Post-PR18 Ingredient 003B Documentation Closeout
 (IN PROGRESS; PRE-COMMIT GATE)
         |
         v
@@ -180,9 +200,9 @@ Owner Product-Planning Decision
 ```
 
 The Owner-Accepted Architecture Development Baseline is
-`1c31a31030e7c0d29181ebcc5355a706db95dc50`; the current pre-Phase-B integration
-Git Head is the documentation-only PR #12 merge
-`20bca12ac7c2620ea2fc3c808bab035c9b5311fa`. This status sequence does not
-authorize a new implementation, Recipe 001C through 001E, Ingredient work,
-release, deployment, cleanup, or `main` promotion. Architecture Owner review
-remains required at every applicable Gate.
+`97d6c7b52f09643b2cafaa50711f76ccc1ae7a96`; the current integration Git Head
+is the documentation-only PR #19 merge
+`58cce2327f3f7121442e8a0cd4cd29693b9fde3c`. Ingredient 003A and 003B are
+completed. This status sequence does not authorize Ingredient 003C, Recipe
+001C through 001E, release, deployment, cleanup, or `main` promotion.
+Architecture Owner review remains required at every applicable Gate.

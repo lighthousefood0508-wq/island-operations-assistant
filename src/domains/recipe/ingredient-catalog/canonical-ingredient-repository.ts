@@ -17,6 +17,9 @@ export interface CanonicalIngredientRepository {
     ingredientId: CanonicalIngredientId
   ): CanonicalIngredient | undefined;
 
+  listActiveForManagement(): readonly CanonicalIngredient[];
+  listArchivedForManagement(): readonly CanonicalIngredient[];
+
   /**
    * Candidate-only queries. Implementations must not select, merge, or rewrite
    * an Ingredient identity and must not treat normalized name as uniqueness.

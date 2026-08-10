@@ -202,6 +202,40 @@ implements CanonicalIngredientRepository {
     }
   }
 
+  listActiveForManagement(): readonly CanonicalIngredient[] {
+    try {
+      const rows = this.database.queryMany<CanonicalIngredientRow>(
+        `SELECT ${INGREDIENT_COLUMNS}
+           FROM recipe_canonical_ingredients
+          WHERE status = 'Active'
+          ORDER BY name ASC, ingredient_id ASC`
+      );
+      return Object.freeze(rows.map((row) => this.hydrate(row)));
+    } catch (error) {
+      return mapTechnicalFailure(
+        "list Active Canonical Ingredients for management",
+        error
+      );
+    }
+  }
+
+  listArchivedForManagement(): readonly CanonicalIngredient[] {
+    try {
+      const rows = this.database.queryMany<CanonicalIngredientRow>(
+        `SELECT ${INGREDIENT_COLUMNS}
+           FROM recipe_canonical_ingredients
+          WHERE status = 'Archived'
+          ORDER BY name ASC, ingredient_id ASC`
+      );
+      return Object.freeze(rows.map((row) => this.hydrate(row)));
+    } catch (error) {
+      return mapTechnicalFailure(
+        "list Archived Canonical Ingredients for management",
+        error
+      );
+    }
+  }
+
   searchByName(query: string): readonly CanonicalIngredient[] {
     const candidate = query.trim();
     if (candidate.length === 0) return Object.freeze([]);

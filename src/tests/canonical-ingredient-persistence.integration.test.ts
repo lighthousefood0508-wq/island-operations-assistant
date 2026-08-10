@@ -14,6 +14,7 @@ import {
   CanonicalIngredientPersistenceMapper
 } from "../domains/recipe/ingredient-catalog/persistence/canonical-ingredient-persistence-mapper.js";
 import {
+  CanonicalIngredientPersistenceFailure,
   DuplicateCanonicalIngredient,
   InvalidCanonicalIngredientPersistenceState
 } from "../domains/recipe/ingredient-catalog/persistence/errors.js";
@@ -28,7 +29,10 @@ import { runMigrations } from "../shared/database/migrate.js";
 const IDS = {
   first: "ing_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   second: "ing_bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-  third: "ing_cccccccc-cccc-4ccc-8ccc-cccccccccccc"
+  third: "ing_cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+  fourth: "ing_dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+  fifth: "ing_eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+  sixth: "ing_ffffffff-ffff-4fff-8fff-ffffffffffff"
 } as const;
 const CREATED_AT = "2026-07-31T01:00:00.000Z";
 const RENAMED_AT = "2026-07-31T02:00:00.000Z";
@@ -273,6 +277,12 @@ class FailingUpdateAdapter implements DatabaseAdapter {
   }
 }
 
+class FailingManagementReadAdapter extends FailingUpdateAdapter {
+  override queryMany<T>(_sql: string, _parameters?: SqlParameters): T[] {
+    throw new Error("injected management read failure");
+  }
+}
+
 test("failed current-state update rolls back the appended Rename fact", (t) => {
   const { database, repository } = fixture(t);
   const original = ingredient();
@@ -292,6 +302,128 @@ test("failed current-state update rolls back the appended Rename fact", (t) => {
   assert.deepEqual(
     repository.findById(original.ingredientId)?.toContract(),
     original.toContract()
+  );
+});
+
+test("management reads isolate lifecycle and order by name then identity", (t) => {
+  const { repository } = fixture(t);
+  const activeIngredients = [
+    ingredient(IDS.third, "Zulu Sauce"),
+    ingredient(IDS.second, "Alpha Sauce"),
+    ingredient(IDS.first, "Alpha Sauce")
+  ];
+  const archivedIngredients = [
+    archived(ingredient(IDS.sixth, "Zulu Sauce")),
+    archived(ingredient(IDS.fifth, "Beta Sauce")),
+    archived(ingredient(IDS.fourth, "Beta Sauce"))
+  ];
+
+  for (const active of activeIngredients) repository.saveNew(active);
+  for (const inactive of archivedIngredients) {
+    repository.saveNew(ingredient(inactive.ingredientId.value, inactive.name));
+    repository.saveWithExpectedVersion(inactive, 0);
+  }
+
+  const activeIds = repository.listActiveForManagement().map(
+    (item) => item.ingredientId.value
+  );
+  const archivedIds = repository.listArchivedForManagement().map(
+    (item) => item.ingredientId.value
+  );
+
+  assert.deepEqual(activeIds, [IDS.first, IDS.second, IDS.third]);
+  assert.deepEqual(archivedIds, [IDS.fourth, IDS.fifth, IDS.sixth]);
+  assert.deepEqual(
+    repository.listActive().map((item) => item.ingredientId.value),
+    activeIds
+  );
+  assert.equal(Object.isFrozen(repository.listActiveForManagement()), true);
+  assert.equal(Object.isFrozen(repository.listArchivedForManagement()), true);
+});
+
+test("management reads preserve lifecycle evidence after close and reopen", () => {
+  const databasePath = path.resolve(
+    "data",
+    `canonical-ingredient-management-reopen-${randomUUID()}.sqlite`
+  );
+  let firstDatabase: DatabaseAdapter | undefined = createDatabase({
+    host: "127.0.0.1",
+    port: 0,
+    databasePath
+  });
+  let reopenedDatabase: DatabaseAdapter | undefined;
+
+  try {
+    runMigrations(firstDatabase);
+    const firstRepository = new SqliteCanonicalIngredientRepository(firstDatabase);
+    const activeOriginal = ingredient(IDS.first, "Active Original");
+    const activeRenamed = renamed(activeOriginal, "Active Renamed");
+    firstRepository.saveNew(activeOriginal);
+    firstRepository.saveWithExpectedVersion(activeRenamed, 0);
+
+    const archivedOriginal = ingredient(IDS.second, "Archived Original");
+    const archivedRenamed = renamed(archivedOriginal, "Archived Renamed");
+    const archivedFinal = archived(archivedRenamed);
+    firstRepository.saveNew(archivedOriginal);
+    firstRepository.saveWithExpectedVersion(archivedRenamed, 0);
+    firstRepository.saveWithExpectedVersion(archivedFinal, 1);
+
+    assert.deepEqual(
+      firstRepository.listActiveForManagement().map((item) => item.toContract()),
+      [activeRenamed.toContract()]
+    );
+    assert.deepEqual(
+      firstRepository.listArchivedForManagement().map((item) => item.toContract()),
+      [archivedFinal.toContract()]
+    );
+
+    firstDatabase.close();
+    firstDatabase = undefined;
+    reopenedDatabase = createDatabase({
+      host: "127.0.0.1",
+      port: 0,
+      databasePath
+    });
+    const reopenedRepository = new SqliteCanonicalIngredientRepository(
+      reopenedDatabase
+    );
+
+    const reopenedActive = reopenedRepository.listActiveForManagement();
+    const reopenedArchived = reopenedRepository.listArchivedForManagement();
+    assert.deepEqual(
+      reopenedActive.map((item) => item.toContract()),
+      [activeRenamed.toContract()]
+    );
+    assert.deepEqual(
+      reopenedArchived.map((item) => item.toContract()),
+      [archivedFinal.toContract()]
+    );
+    assert.equal(reopenedActive[0]?.renameHistory.length, 1);
+    assert.equal(reopenedArchived[0]?.renameHistory.length, 1);
+    assert.deepEqual(reopenedArchived[0]?.archiveFact, archivedFinal.archiveFact);
+    assert.deepEqual(
+      reopenedRepository.findById(archivedOriginal.ingredientId)?.toContract(),
+      archivedFinal.toContract()
+    );
+  } finally {
+    reopenedDatabase?.close();
+    firstDatabase?.close();
+    removeDatabaseFiles(databasePath);
+  }
+});
+
+test("management read failures remain typed persistence failures", (t) => {
+  const { database } = fixture(t);
+  const repository = new SqliteCanonicalIngredientRepository(
+    new FailingManagementReadAdapter(database)
+  );
+  assert.throws(
+    () => repository.listActiveForManagement(),
+    CanonicalIngredientPersistenceFailure
+  );
+  assert.throws(
+    () => repository.listArchivedForManagement(),
+    CanonicalIngredientPersistenceFailure
   );
 });
 

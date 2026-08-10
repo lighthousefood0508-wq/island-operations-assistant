@@ -6,6 +6,16 @@ import { createDatabase } from "../shared/database/database-provider.js";
 import { runMigrations } from "../shared/database/migrate.js";
 import { CatalogRepository, CatalogService } from "../domains/catalog/index.js";
 import { LifecycleRepository, LifecycleService, OperationsRepository, OperationsService, OrderRepository, OrderService, PaymentRepository, PaymentService } from "../domains/operations/index.js";
+import {
+  CanonicalIngredientLifecycleService,
+  CanonicalIngredientManagementReadService
+} from "../domains/recipe/index.js";
+import {
+  SqliteCanonicalIngredientRepository
+} from "../domains/recipe/ingredient-catalog/infrastructure/sqlite-canonical-ingredient-repository.js";
+import {
+  CanonicalIngredientManagementService
+} from "./app/canonical-ingredient-management-service.js";
 import { createRoute } from "./app/routes.js";
 import { CostBackOfficeService } from "./app/cost-back-office-service.js";
 import { SseHub } from "./events/sse.js";
@@ -19,6 +29,14 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
   const orders = new OrderService(new OrderRepository(database), paymentRepository);
   const payments = new PaymentService(paymentRepository);
   const lifecycle = new LifecycleService(new LifecycleRepository(database));
+  const canonicalIngredientRepository =
+    new SqliteCanonicalIngredientRepository(database);
+  const canonicalIngredients = new CanonicalIngredientManagementService(
+    new CanonicalIngredientManagementReadService(
+      canonicalIngredientRepository
+    ),
+    new CanonicalIngredientLifecycleService(canonicalIngredientRepository)
+  );
   const costBackOffice = new CostBackOfficeService(database);
   const events = new SseHub();
   const server = createServer(createRoute({
@@ -27,6 +45,7 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
     orders,
     payments,
     lifecycle,
+    canonicalIngredients,
     costBackOffice
   }, events));
   server.on("close", () => database.close());

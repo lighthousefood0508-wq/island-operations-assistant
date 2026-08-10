@@ -16,6 +16,9 @@ import { renderLifecycle } from "../../web/lifecycle/page.js";
 import { renderStatistics } from "../../web/statistics/page.js";
 import { renderDevicesDebug } from "../../web/devices/page.js";
 import { renderCostBackOffice } from "../../web/cost/page.js";
+import type {
+  CanonicalIngredientManagementService
+} from "./canonical-ingredient-management-service.js";
 import type { CostBackOfficeService } from "./cost-back-office-service.js";
 
 type Services = Readonly<{
@@ -24,6 +27,7 @@ type Services = Readonly<{
   orders: OrderService;
   payments: PaymentService;
   lifecycle: LifecycleService;
+  canonicalIngredients: CanonicalIngredientManagementService;
   costBackOffice: CostBackOfficeService;
 }>;
 
@@ -54,7 +58,7 @@ function failure(response: ServerResponse, error: unknown): void {
   sendJson(response, 500, { ok: false, error: { code: "internal_error", message: "An unexpected server error occurred." } });
 }
 
-async function readJson(request: IncomingMessage): Promise<Record<string, unknown>> {
+async function readJsonValue(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of request) {
@@ -64,12 +68,18 @@ async function readJson(request: IncomingMessage): Promise<Record<string, unknow
     chunks.push(buffer);
   }
   try {
-    const value: unknown = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("not object");
-    return value as Record<string, unknown>;
+    return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
   } catch {
     throw new HttpError(400, "invalid_json", "Request body must be a JSON object.");
   }
+}
+
+async function readJson(request: IncomingMessage): Promise<Record<string, unknown>> {
+  const value = await readJsonValue(request);
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new HttpError(400, "invalid_json", "Request body must be a JSON object.");
+  }
+  return value as Record<string, unknown>;
 }
 
 function telemetryPart(value: string | null, fallback: string): string {
@@ -107,6 +117,57 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "GET" && (pathname === "/mockup/item-workbench" || pathname === "/mockups/back-office-item-workbench.html")) return sendMockup(response, "back-office-item-workbench.html");
 
     if (request.method === "GET" && pathname === "/api/debug/devices") return success(response, 200, events.listDevices());
+
+    if (
+      request.method === "GET"
+      && pathname === "/api/admin/canonical-ingredients"
+    ) {
+      return success(
+        response,
+        200,
+        services.canonicalIngredients.list(
+          url.searchParams.get("lifecycle") ?? undefined
+        )
+      );
+    }
+    const canonicalIngredientDetailMatch = pathname.match(
+      /^\/api\/admin\/canonical-ingredients\/([^/]+)$/
+    );
+    if (request.method === "GET" && canonicalIngredientDetailMatch?.[1]) {
+      return success(
+        response,
+        200,
+        services.canonicalIngredients.getById(
+          canonicalIngredientDetailMatch[1]
+        )
+      );
+    }
+    const canonicalIngredientRenameMatch = pathname.match(
+      /^\/api\/admin\/canonical-ingredients\/([^/]+)\/rename$/
+    );
+    if (request.method === "POST" && canonicalIngredientRenameMatch?.[1]) {
+      return success(
+        response,
+        200,
+        services.canonicalIngredients.rename(
+          canonicalIngredientRenameMatch[1],
+          await readJsonValue(request)
+        )
+      );
+    }
+    const canonicalIngredientArchiveMatch = pathname.match(
+      /^\/api\/admin\/canonical-ingredients\/([^/]+)\/archive$/
+    );
+    if (request.method === "POST" && canonicalIngredientArchiveMatch?.[1]) {
+      return success(
+        response,
+        200,
+        services.canonicalIngredients.archive(
+          canonicalIngredientArchiveMatch[1],
+          await readJsonValue(request)
+        )
+      );
+    }
 
     if (request.method === "GET" && pathname === "/api/admin/cost/setup") {
       return success(response, 200, services.costBackOffice.getSetup());

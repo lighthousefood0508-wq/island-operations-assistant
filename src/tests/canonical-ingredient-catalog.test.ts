@@ -329,6 +329,12 @@ test("Repository Port separates new writes from expected-version updates", () =>
     findById(_ingredientId: CanonicalIngredientId): CanonicalIngredient | undefined {
       return undefined;
     }
+    listActiveForManagement(): readonly CanonicalIngredient[] {
+      return [];
+    }
+    listArchivedForManagement(): readonly CanonicalIngredient[] {
+      return [];
+    }
     searchByName(_query: string): readonly CanonicalIngredient[] {
       return [];
     }
@@ -361,6 +367,8 @@ test("Repository Port exposes candidate collections and no generic save authorit
   );
   assert.match(source, /saveNew\s*\(/);
   assert.match(source, /saveWithExpectedVersion\s*\(/);
+  assert.match(source, /listActiveForManagement\s*\(/);
+  assert.match(source, /listArchivedForManagement\s*\(/);
   assert.match(source, /searchByName\s*\(/);
   assert.match(source, /findDuplicateCandidates\s*\(/);
   assert.doesNotMatch(source, /^\s*save\s*\(/m);

@@ -236,3 +236,6 @@ export {
 export {
   CanonicalIngredientLifecycleService
 } from "./ingredient-catalog/application/canonical-ingredient-lifecycle-service.js";
+export {
+  CanonicalIngredientManagementReadService
+} from "./ingredient-catalog/application/canonical-ingredient-management-read-service.js";

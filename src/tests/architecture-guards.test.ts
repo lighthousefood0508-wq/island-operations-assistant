@@ -821,6 +821,27 @@ test("Canonical Ingredient internals remain behind the published contract", () =
     "database-adapter.ts"
   );
   const recipePublicIndex = path.join(recipeRoot, "index.ts");
+  const ingredientRepository = path.join(
+    ingredientRoot,
+    "canonical-ingredient-repository.ts"
+  );
+  const sqliteIngredientRepository = path.join(
+    ingredientInfrastructureRoot,
+    "sqlite-canonical-ingredient-repository.ts"
+  );
+  const managementReadService = path.join(
+    ingredientRoot,
+    "application",
+    "canonical-ingredient-management-read-service.ts"
+  );
+  const serverComposition = path.join(sourceRoot, "server", "index.ts");
+  const managementServerAdapter = path.join(
+    sourceRoot,
+    "server",
+    "app",
+    "canonical-ingredient-management-service.ts"
+  );
+  const routes = path.join(sourceRoot, "server", "app", "routes.ts");
 
   for (const filename of filesUnder(ingredientRoot, [".ts"])) {
     for (const specifier of importedSpecifiers(filename)) {
@@ -885,10 +906,14 @@ test("Canonical Ingredient internals remain behind the published contract", () =
   for (const filename of productionFiles) {
     for (const specifier of importedSpecifiers(filename)) {
       const target = resolveSourceImport(filename, specifier);
+      const isApproved003BCompositionImport =
+        filename === serverComposition
+        && target === sqliteIngredientRepository;
       assert.equal(
-        target?.startsWith(`${ingredientRoot}${path.sep}`) ?? false,
+        (target?.startsWith(`${ingredientRoot}${path.sep}`) ?? false)
+          && !isApproved003BCompositionImport,
         false,
-        `${filename} imports Canonical Ingredient internals.`
+        `${filename} imports Canonical Ingredient internals outside the exact server/index.ts composition exception.`
       );
     }
   }
@@ -898,8 +923,15 @@ test("Canonical Ingredient internals remain behind the published contract", () =
   const accepted003AMarker = "export type {\n  ArchiveCanonicalIngredientCommandV1,";
   const accepted003AOffset = publicIndexSource.indexOf(accepted003AMarker);
   assert.notEqual(accepted003AOffset, -1, "Recipe index publishes the 003A surface.");
+  const accepted003BMarker = "export {\n  CanonicalIngredientManagementReadService";
+  const accepted003BOffset = publicIndexSource.indexOf(accepted003BMarker);
+  assert.notEqual(accepted003BOffset, -1, "Recipe index publishes the 003B read Service.");
   const pre003APublicIndex = publicIndexSource.slice(0, accepted003AOffset);
-  const accepted003ASurface = publicIndexSource.slice(accepted003AOffset);
+  const accepted003ASurface = publicIndexSource.slice(
+    accepted003AOffset,
+    accepted003BOffset
+  );
+  const accepted003BSurface = publicIndexSource.slice(accepted003BOffset);
   assert.equal(
     createHash("sha256").update(pre003APublicIndex).digest("hex"),
     "4f55d49ff0c054ff66ba802489f4e5bd832d4405dfe7c4c09470076a0ff8e616",
@@ -930,6 +962,13 @@ export {
 } from "./ingredient-catalog/application/canonical-ingredient-lifecycle-service.js";
 `
   );
+  assert.equal(
+    accepted003BSurface,
+    `export {
+  CanonicalIngredientManagementReadService
+} from "./ingredient-catalog/application/canonical-ingredient-management-read-service.js";
+`
+  );
   assert.match(pre003APublicIndex, /canonical-ingredient-contract/);
   assert.doesNotMatch(pre003APublicIndex, /ingredient-catalog\//);
 
@@ -945,10 +984,42 @@ export {
   );
   const lifecycleSource = readFileSync(lifecycleService, "utf8");
   const lifecycleErrorSource = readFileSync(lifecycleErrors, "utf8");
+  const managementReadSource = readFileSync(managementReadService, "utf8");
   const managementContractSource = readFileSync(
     ingredientManagementContract,
     "utf8"
   );
+  const repositorySource = readFileSync(ingredientRepository, "utf8");
+  const repositoryMethods = Array.from(
+    repositorySource.matchAll(/^\s{2}(\w+)\s*\(/gm),
+    (match) => match[1]
+  );
+  assert.deepEqual(
+    repositoryMethods,
+    [
+      "saveNew",
+      "saveWithExpectedVersion",
+      "findById",
+      "listActiveForManagement",
+      "listArchivedForManagement",
+      "searchByName",
+      "findDuplicateCandidates"
+    ],
+    "003B adds only the two accepted management-read methods to the Port."
+  );
+  const repositoryImplementers = filesUnder(sourceRoot, [".ts"])
+    .filter((filename) => filename !== path.join(sourceRoot, "tests", "architecture-guards.test.ts"))
+    .filter((filename) =>
+      /implements\s+CanonicalIngredientRepository/.test(
+        readFileSync(filename, "utf8")
+      )
+    )
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .sort();
+  assert.deepEqual(repositoryImplementers, [
+    "src/domains/recipe/ingredient-catalog/infrastructure/sqlite-canonical-ingredient-repository.ts",
+    "src/tests/canonical-ingredient-catalog.test.ts"
+  ]);
   assert.match(
     lifecycleSource,
     /Pick<[\s\S]*"findById" \| "findDuplicateCandidates" \| "saveWithExpectedVersion"/
@@ -957,6 +1028,18 @@ export {
     lifecycleSource,
     /"saveNew"|"searchByName"|listActive|infrastructure|shared\/database/
   );
+  assert.match(
+    managementReadSource,
+    /Pick<[\s\S]*"findById"[\s\S]*"listActiveForManagement"[\s\S]*"listArchivedForManagement"/
+  );
+  assert.doesNotMatch(
+    managementReadSource,
+    /saveNew|saveWithExpectedVersion|findDuplicateCandidates|searchByName|infrastructure|shared\/database/
+  );
+  assert.doesNotMatch(
+    managementReadSource,
+    /export\s+(?:type|interface)\s+CanonicalIngredientManagementReadRepository/
+  );
   assert.match(managementContractSource, /Readonly</);
   assert.match(
     managementContractSource,
@@ -964,6 +1047,223 @@ export {
   );
   assert.doesNotMatch(managementContractSource, /Object\.freeze/);
   assert.doesNotMatch(lifecycleErrorSource, /\bcause\b|rawError|sqlite/i);
+
+  const approved003BPaths = new Set([
+    "src/domains/recipe/ingredient-catalog/canonical-ingredient-repository.ts",
+    "src/domains/recipe/ingredient-catalog/infrastructure/sqlite-canonical-ingredient-repository.ts",
+    "src/domains/recipe/ingredient-catalog/application/canonical-ingredient-management-read-service.ts",
+    "src/domains/recipe/index.ts",
+    "src/server/app/canonical-ingredient-management-service.ts",
+    "src/server/app/routes.ts",
+    "src/server/index.ts",
+    "src/tests/canonical-ingredient-catalog.test.ts",
+    "src/tests/canonical-ingredient-persistence.integration.test.ts",
+    "src/tests/canonical-ingredient-lifecycle-application.test.ts",
+    "src/tests/canonical-ingredient-lifecycle-api.integration.test.ts",
+    "src/tests/architecture-guards.test.ts"
+  ]);
+  const approved003BResponsibilities = new Map<string, readonly RegExp[]>([
+    [
+      "src/domains/recipe/ingredient-catalog/canonical-ingredient-repository.ts",
+      [/listActiveForManagement\s*\(/, /listArchivedForManagement\s*\(/]
+    ],
+    [
+      "src/domains/recipe/ingredient-catalog/infrastructure/sqlite-canonical-ingredient-repository.ts",
+      [
+        /listActiveForManagement\s*\(/,
+        /listArchivedForManagement\s*\(/,
+        /ORDER BY name ASC, ingredient_id ASC/
+      ]
+    ],
+    [
+      "src/domains/recipe/ingredient-catalog/application/canonical-ingredient-management-read-service.ts",
+      [/class CanonicalIngredientManagementReadService/, /listActiveForManagement/, /listArchivedForManagement/]
+    ],
+    ["src/domains/recipe/index.ts", [/CanonicalIngredientManagementReadService/]],
+    [
+      "src/server/app/canonical-ingredient-management-service.ts",
+      [/class CanonicalIngredientManagementService/, /CanonicalIngredientLifecycleService/, /CanonicalIngredientManagementReadService/]
+    ],
+    [
+      "src/server/app/routes.ts",
+      [/canonicalIngredientDetailMatch/, /canonicalIngredientRenameMatch/, /canonicalIngredientArchiveMatch/]
+    ],
+    [
+      "src/server/index.ts",
+      [/new SqliteCanonicalIngredientRepository/, /new CanonicalIngredientManagementReadService/, /new CanonicalIngredientLifecycleService/]
+    ],
+    [
+      "src/tests/canonical-ingredient-catalog.test.ts",
+      [/ContractFixture implements CanonicalIngredientRepository/, /listActiveForManagement\s*\(/, /listArchivedForManagement\s*\(/]
+    ],
+    [
+      "src/tests/canonical-ingredient-persistence.integration.test.ts",
+      [/management reads isolate lifecycle and order by name then identity/, /management reads preserve lifecycle evidence after close and reopen/]
+    ],
+    [
+      "src/tests/canonical-ingredient-lifecycle-application.test.ts",
+      [/management read defaults to Active section then Archived section/, /management detail distinguishes missing identity/]
+    ],
+    [
+      "src/tests/canonical-ingredient-lifecycle-api.integration.test.ts",
+      [/four registrations provide six management API behaviors and survive restart/, /management API contains persistence failures/]
+    ],
+    [
+      "src/tests/architecture-guards.test.ts",
+      [/approved003BResponsibilities/, /approved003BPaths/]
+    ]
+  ]);
+  assert.deepEqual(
+    [...approved003BResponsibilities.keys()].sort(),
+    [...approved003BPaths].sort(),
+    "Every path in the exact 003B allowlist must own an explicit guarded responsibility."
+  );
+  for (const [relative, patterns] of approved003BResponsibilities) {
+    const filename = path.join(projectRoot, ...relative.split("/"));
+    assert.equal(existsSync(filename), true, `${relative} is required by the 003B boundary.`);
+    const source = readFileSync(filename, "utf8");
+    for (const pattern of patterns) {
+      assert.match(source, pattern, `${relative} lost an accepted 003B responsibility.`);
+    }
+  }
+  const implementationMarkers = [
+    "listActiveForManagement",
+    "listArchivedForManagement",
+    "CanonicalIngredientManagementReadService",
+    "CanonicalIngredientManagementService",
+    "/api/admin/canonical-ingredients"
+  ];
+  const implementationBoundaryFiles = [
+    ...filesUnder(sourceRoot, [".ts", ".tsx", ".js", ".jsx"]),
+    ...filesUnder(path.join(projectRoot, "migrations"), [".sql", ".ts"]),
+    ...filesUnder(path.join(projectRoot, "mockups"), [".html", ".js"])
+  ];
+  for (const filename of implementationBoundaryFiles) {
+    const source = readFileSync(filename, "utf8");
+    if (!implementationMarkers.some((marker) => source.includes(marker))) continue;
+    const relative = path.relative(projectRoot, filename).replaceAll("\\", "/");
+    assert.equal(
+      approved003BPaths.has(relative),
+      true,
+      `${relative} contains 003B implementation outside the exact twelve-path allowlist.`
+    );
+  }
+  const repositoryReferenceFiles = filesUnder(sourceRoot, [".ts"])
+    .filter((filename) => /\bCanonicalIngredientRepository\b/.test(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .sort();
+  assert.deepEqual(repositoryReferenceFiles, [
+    "src/domains/recipe/ingredient-catalog/application/canonical-ingredient-lifecycle-service.ts",
+    "src/domains/recipe/ingredient-catalog/application/canonical-ingredient-management-read-service.ts",
+    "src/domains/recipe/ingredient-catalog/canonical-ingredient-repository.ts",
+    "src/domains/recipe/ingredient-catalog/infrastructure/sqlite-canonical-ingredient-repository.ts",
+    "src/tests/architecture-guards.test.ts",
+    "src/tests/canonical-ingredient-catalog.test.ts"
+  ]);
+  const lifecycleFixtureSource = readFileSync(
+    path.join(sourceRoot, "tests", "canonical-ingredient-lifecycle-application.test.ts"),
+    "utf8"
+  );
+  assert.match(lifecycleFixtureSource, /class RepositoryFixture/);
+  for (const method of [
+    "findById",
+    "findDuplicateCandidates",
+    "saveWithExpectedVersion",
+    "listActiveForManagement",
+    "listArchivedForManagement"
+  ]) {
+    assert.match(
+      lifecycleFixtureSource,
+      new RegExp(`${method}\\s*\\(`),
+      `The known structural Application fixture must retain ${method}.`
+    );
+  }
+
+  const managementAdapterTargets = importedSpecifiers(managementServerAdapter)
+    .map((specifier) => resolveSourceImport(managementServerAdapter, specifier));
+  assert.equal(managementAdapterTargets.includes(recipePublicIndex), true);
+  assert.equal(
+    managementAdapterTargets.some((target) =>
+      target?.startsWith(`${ingredientRoot}${path.sep}`)
+    ),
+    false,
+    "The management server adapter must depend on the public Recipe boundary."
+  );
+  const routeTargets = importedSpecifiers(routes)
+    .map((specifier) => resolveSourceImport(routes, specifier));
+  assert.equal(routeTargets.includes(managementServerAdapter), true);
+  assert.equal(
+    routeTargets.some((target) =>
+      target?.startsWith(`${ingredientRoot}${path.sep}`)
+    ),
+    false,
+    "Routes must not import Canonical Ingredient internals."
+  );
+  const compositionTargets = importedSpecifiers(serverComposition)
+    .map((specifier) => resolveSourceImport(serverComposition, specifier));
+  assert.equal(compositionTargets.includes(sqliteIngredientRepository), true);
+  assert.equal(compositionTargets.includes(recipePublicIndex), true);
+  const namespaceProductionFiles = filesUnder(sourceRoot, [".ts", ".tsx"])
+    .filter((filename) => !filename.includes(`${path.sep}tests${path.sep}`))
+    .filter((filename) =>
+      /canonical-ingredients/.test(readFileSync(filename, "utf8"))
+    )
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"));
+  assert.deepEqual(namespaceProductionFiles, ["src/server/app/routes.ts"]);
+  const routesSource = readFileSync(routes, "utf8");
+  assert.equal(
+    Array.from(routesSource.matchAll(/canonical-ingredients/g)).length,
+    4,
+    "Exactly four route registrations own the six accepted management behaviors."
+  );
+  assert.equal(
+    Array.from(routesSource.matchAll(/ingredients/g)).length,
+    5,
+    "Routes may contain only the four accepted management registrations and the existing Cost creation route."
+  );
+  assert.match(
+    routesSource,
+    /request\.method === "GET"[\s\S]{0,120}pathname === "\/api\/admin\/canonical-ingredients"/
+  );
+  assert.match(routesSource, /request\.method === "GET" && canonicalIngredientDetailMatch/);
+  assert.match(routesSource, /request\.method === "POST" && canonicalIngredientRenameMatch/);
+  assert.match(routesSource, /request\.method === "POST" && canonicalIngredientArchiveMatch/);
+  assert.match(routesSource, /\/api\/admin\/cost\/ingredients/);
+  assert.doesNotMatch(
+    routesSource,
+    /(?:POST|PUT|PATCH)[\s\S]{0,160}\/api\/admin\/canonical-ingredients["']\s*\)/,
+    "003B must not add a create behavior at the management collection path."
+  );
+  assert.doesNotMatch(
+    routesSource,
+    /\/admin\/ingredients|\/api\/admin\/ingredients|pathname === "\/admin\/canonical-ingredients"|renderCanonicalIngredient/i,
+    "003B must not add a management UI or navigation route."
+  );
+  const costBackOfficeSource = readFileSync(
+    path.join(sourceRoot, "server", "app", "cost-back-office-service.ts"),
+    "utf8"
+  );
+  assert.doesNotMatch(
+    costBackOfficeSource,
+    /listActiveForManagement|listArchivedForManagement|CanonicalIngredientManagementReadService|\/api\/admin\/canonical-ingredients/,
+    "003B must not transfer management lifecycle authority into Cost Back Office."
+  );
+  const migration014 = Buffer.from(
+    readFileSync(
+      path.join(projectRoot, "migrations", "014_recipe_canonical_ingredients.sql"),
+      "utf8"
+    ).replaceAll("\r\n", "\n"),
+    "utf8"
+  );
+  const migration014Blob = createHash("sha1")
+    .update(`blob ${migration014.byteLength}\0`)
+    .update(migration014)
+    .digest("hex");
+  assert.equal(
+    migration014Blob,
+    "5bcc40cddfe9ba14db7dc6a5e8da2d46f41ee23d",
+    "Migration 014 remains outside 003B."
+  );
   assertNoTerms(
     readFileSync(ingredientContract, "utf8"),
     [

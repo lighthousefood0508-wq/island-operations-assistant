@@ -11,6 +11,7 @@ import {
   CanonicalIngredientLifecycleService,
   CanonicalIngredientLifecycleValidationFailure,
   CanonicalIngredientLifecycleVersionConflict,
+  CanonicalIngredientManagementReadService,
   InvalidCanonicalIngredientLifecycleTransition,
   type ArchiveCanonicalIngredientCommandV1,
   type RenameCanonicalIngredientCommandV1
@@ -85,11 +86,17 @@ function archiveCommand(
 class RepositoryFixture {
   found: CanonicalIngredient | undefined = ingredient();
   duplicates: readonly CanonicalIngredient[] = [];
+  activeManagement: readonly CanonicalIngredient[] = [];
+  archivedManagement: readonly CanonicalIngredient[] = [];
   findFailure: unknown;
   duplicateFailure: unknown;
+  activeListFailure: unknown;
+  archivedListFailure: unknown;
   saveFailure: unknown;
   findCalls = 0;
   duplicateCalls = 0;
+  activeListCalls = 0;
+  archivedListCalls = 0;
   saveCalls = 0;
   saved: CanonicalIngredient | undefined;
   savedExpectedVersion: number | undefined;
@@ -104,6 +111,18 @@ class RepositoryFixture {
     this.duplicateCalls += 1;
     if (this.duplicateFailure !== undefined) throw this.duplicateFailure;
     return this.duplicates;
+  }
+
+  listActiveForManagement(): readonly CanonicalIngredient[] {
+    this.activeListCalls += 1;
+    if (this.activeListFailure !== undefined) throw this.activeListFailure;
+    return this.activeManagement;
+  }
+
+  listArchivedForManagement(): readonly CanonicalIngredient[] {
+    this.archivedListCalls += 1;
+    if (this.archivedListFailure !== undefined) throw this.archivedListFailure;
+    return this.archivedManagement;
   }
 
   saveWithExpectedVersion(
@@ -127,6 +146,131 @@ function caught(action: () => unknown): Error & { code?: string } {
   }
   assert.fail("Expected action to throw.");
 }
+
+test("management read defaults to Active section then Archived section", () => {
+  const repository = new RepositoryFixture();
+  repository.activeManagement = [
+    ingredient(OTHER_ID, "A Active"),
+    ingredient(INGREDIENT_ID, "B Active")
+  ];
+  repository.archivedManagement = [
+    ingredient(THIRD_ID, "A Archived").archive({
+      occurredAt: LATER,
+      actorId: "actor_owner",
+      reason: "Retired"
+    })
+  ];
+  const service = new CanonicalIngredientManagementReadService(repository);
+
+  const expected = [
+    ["Active", OTHER_ID],
+    ["Active", INGREDIENT_ID],
+    ["Archived", THIRD_ID]
+  ];
+  assert.deepEqual(
+    service.list().map((record) => [record.status, record.ingredientId]),
+    expected
+  );
+  assert.deepEqual(
+    service.list("all").map((record) => [record.status, record.ingredientId]),
+    expected
+  );
+  assert.equal(repository.activeListCalls, 2);
+  assert.equal(repository.archivedListCalls, 2);
+});
+
+test("management read filters preserve Repository section order", () => {
+  const repository = new RepositoryFixture();
+  repository.activeManagement = [
+    ingredient(OTHER_ID, "Same"),
+    ingredient(THIRD_ID, "Same")
+  ];
+  repository.archivedManagement = [archived()];
+  const service = new CanonicalIngredientManagementReadService(repository);
+
+  assert.deepEqual(
+    service.list("active").map((record) => record.ingredientId),
+    [OTHER_ID, THIRD_ID]
+  );
+  assert.equal(repository.activeListCalls, 1);
+  assert.equal(repository.archivedListCalls, 0);
+  assert.deepEqual(
+    service.list("archived").map((record) => record.ingredientId),
+    [INGREDIENT_ID]
+  );
+  assert.equal(repository.activeListCalls, 1);
+  assert.equal(repository.archivedListCalls, 1);
+});
+
+test("management read returns empty selections and rejects invalid filters", () => {
+  const repository = new RepositoryFixture();
+  const service = new CanonicalIngredientManagementReadService(repository);
+
+  assert.deepEqual(service.list("active"), []);
+  assert.deepEqual(service.list("archived"), []);
+  repository.activeListCalls = 0;
+  repository.archivedListCalls = 0;
+  const error = caught(() => service.list("ACTIVE"));
+  assert.ok(error instanceof CanonicalIngredientLifecycleValidationFailure);
+  assert.equal(error.code, "CANONICAL_INGREDIENT_VALIDATION_FAILURE");
+  assert.equal(repository.activeListCalls, 0);
+  assert.equal(repository.archivedListCalls, 0);
+});
+
+test("management detail validates identity before Repository access", () => {
+  const repository = new RepositoryFixture();
+  const service = new CanonicalIngredientManagementReadService(repository);
+
+  const error = caught(() => service.getById("bad-id"));
+  assert.ok(error instanceof CanonicalIngredientLifecycleValidationFailure);
+  assert.equal(error.code, "CANONICAL_INGREDIENT_VALIDATION_FAILURE");
+  assert.equal(repository.findCalls, 0);
+});
+
+test("management detail distinguishes missing identity and returns either lifecycle", () => {
+  const repository = new RepositoryFixture();
+  const service = new CanonicalIngredientManagementReadService(repository);
+
+  repository.found = undefined;
+  const missing = caught(() => service.getById(INGREDIENT_ID));
+  assert.ok(missing instanceof CanonicalIngredientLifecycleNotFound);
+  assert.equal(missing.code, "CANONICAL_INGREDIENT_NOT_FOUND");
+
+  repository.found = ingredient();
+  assert.equal(service.getById(INGREDIENT_ID).status, "Active");
+  repository.found = archived();
+  const archivedRecord = service.getById(INGREDIENT_ID);
+  assert.equal(archivedRecord.status, "Archived");
+  assert.deepEqual(archivedRecord.archiveFact, {
+    archivedAt: LATER,
+    archivedBy: "actor_owner",
+    reason: "Retired"
+  });
+});
+
+test("management read maps unexpected list and detail failures without leakage", () => {
+  const raw = new Error("RAW_MANAGEMENT_REPOSITORY_MARKER");
+  raw.stack = "RAW_MANAGEMENT_REPOSITORY_STACK";
+  const scenarios: Array<(repository: RepositoryFixture) => void> = [
+    (repository) => { repository.activeListFailure = raw; },
+    (repository) => { repository.archivedListFailure = raw; },
+    (repository) => { repository.findFailure = raw; }
+  ];
+
+  for (const [index, configure] of scenarios.entries()) {
+    const repository = new RepositoryFixture();
+    configure(repository);
+    const service = new CanonicalIngredientManagementReadService(repository);
+    const error = caught(() => index === 2
+      ? service.getById(INGREDIENT_ID)
+      : service.list(index === 0 ? "active" : "archived"));
+    assert.ok(error instanceof CanonicalIngredientLifecyclePersistenceFailure);
+    assert.equal(error.code, "CANONICAL_INGREDIENT_PERSISTENCE_FAILURE");
+    assert.equal(Object.hasOwn(error, "cause"), false);
+    assert.doesNotMatch(error.message, /RAW_MANAGEMENT_REPOSITORY_MARKER/);
+    assert.doesNotMatch(error.stack ?? "", /RAW_MANAGEMENT_REPOSITORY_STACK/);
+  }
+});
 
 test("malformed identity fails before Repository access", () => {
   const repository = new RepositoryFixture();
@@ -386,7 +530,7 @@ test("authoritative Domain validation and lifecycle failures map to accepted err
   assert.equal(transitionRepository.saveCalls, 0);
 });
 
-test("003A source keeps the Repository Port unchanged and public surface additive", () => {
+test("003A lifecycle dependency and accepted Contract remain unchanged", () => {
   const repositorySource = readFileSync(
     path.join(
       projectRoot,

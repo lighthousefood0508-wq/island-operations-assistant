@@ -1,6 +1,6 @@
 # Roadmap
 
-Last synchronized: 2026-08-09
+Last synchronized: 2026-08-10
 
 Roadmap entries describe planning and verified completion state. They do not
 grant implementation, Git, release, deployment, or cleanup authority.
@@ -42,19 +42,30 @@ grant implementation, Git, release, deployment, or cleanup authority.
      evidence remains historical chronology.
 10. Post-PR #11 governance:
    - PR #12 recorded only the Phase A documentation synchronization Task Card.
-   - Phase B documentation synchronization is active only through its
-     pre-commit Gate; completion of this candidate is not merge authority.
+   - PR #13 completed the authorized Phase B documentation synchronization.
+11. Canonical Ingredient lifecycle Application boundary:
+   - PR #14 recorded the accepted PR-INGREDIENT-003 Proposal.
+   - PR #15 recorded the PR-INGREDIENT-003A Task Card.
+   - PR #16 completed and merged the Rename/Archive command boundary.
+12. Canonical Ingredient management persistence and API:
+   - PR #17 recorded the PR-INGREDIENT-003B Task Card.
+   - PR #18 completed and merged deterministic management reads, SQLite
+     persistence, server composition, and the management API.
+   - PR #19 recorded the post-PR18 governance closeout Task Card only.
+13. Post-PR18 Ingredient 003B governance closeout:
+   - Documentation synchronization is active only through its pre-commit Gate.
+   - The future closeout does not authorize Ingredient 003C or another feature.
 
 ## Current baseline identities
 
 - Owner-Accepted Architecture Development Baseline:
-  `1c31a31030e7c0d29181ebcc5355a706db95dc50`.
-- Verified remote integration Head after PR #12:
-  `20bca12ac7c2620ea2fc3c808bab035c9b5311fa`.
+  `97d6c7b52f09643b2cafaa50711f76ccc1ae7a96`.
+- Verified remote integration Head after PR #19:
+  `58cce2327f3f7121442e8a0cd4cd29693b9fde3c`.
 
-The first identifies accepted development capability through PR #11. The
-second is the later integration branch tip containing only the PR #12 Phase A
-Task Card merge. Neither is
+The first identifies accepted development capability through PR #18. The
+second is the later integration branch tip containing only the PR #19
+governance closeout Task Card merge. Neither is
 remote `main`, a deployment, or a product release.
 
 ## Unauthorized or separately gated
@@ -62,7 +73,8 @@ remote `main`, a deployment, or a product release.
 - Recipe 001C: formal Recipe management Application contracts/orchestration.
 - Recipe 001D: Recipe management API and Runtime composition.
 - Recipe 001E: Back Office Recipe management UI.
-- Ingredient lifecycle application/API/UI implementation.
+- Ingredient 003C UI/navigation implementation and Reference Impact
+  coordination. Ingredient 003A and 003B are completed.
 - Cost Snapshot persistence and reporting history.
 - Customer/Kiosk/Preorder, Inventory, package conversion, Supplier/Purchase,
   external integration, and AI work beyond existing accepted capability.

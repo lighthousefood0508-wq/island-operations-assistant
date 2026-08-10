@@ -1,6 +1,6 @@
 # Test Plan
 
-Last verified: 2026-08-09 (Asia/Taipei)
+Last verified: 2026-08-10 (Asia/Taipei)
 
 ## Evidence rules
 
@@ -119,6 +119,60 @@ After PR #11 merged, verification at integration Head
 These post-merge checks confirm the merged correction but are not substituted
 for, or added to, the broader PR-head evidence. Passing tests do not make Cost
 Back Office release-ready or establish deployment/runtime provenance.
+
+## PR-INGREDIENT-003A and 003B closeout evidence
+
+The following results are retained from the approved PR Heads. The selections
+overlap and are reported separately.
+
+### PR #16 approved Head evidence
+
+At approved Head `2b93889fd4a06351d650d73e12ab8567f5fff0f9`:
+
+| Group | Result |
+| --- | --- |
+| Focused PR-INGREDIENT-003A | 14/14 PASS |
+| Existing Canonical Ingredient Domain | 21/21 PASS |
+| Existing Canonical Ingredient persistence | 18/18 PASS |
+| Architecture Guard | 16/16 PASS |
+| Repository-configured `npm test` | 64/64 PASS |
+| Manually enumerated compiled repository suite | 35 files, 497/497 PASS |
+| `npm run verify` | PASS, including migration smoke and upgrade/restart/rerun |
+| `npm run verify:full` | PASS, including browser E2E 13/13 |
+| Typecheck, lint, build, and `git diff --check` | PASS |
+
+### PR #18 approved Head evidence
+
+At approved Head `784bb00912fd957dab6a84448dd8f640f0e166fc`:
+
+| Group | Result |
+| --- | --- |
+| Application focused | 20/20 PASS |
+| Canonical Ingredient catalog focused | 21/21 PASS |
+| Persistence integration | 21/21 PASS |
+| API integration | 3/3 PASS |
+| Architecture Guard | 16/16 PASS |
+| Repository-configured `npm test` | 64/64 PASS |
+| Playwright E2E | 13/13 PASS |
+| Manually enumerated compiled repository suite | 36 files, 509/509 PASS |
+| Migration smoke and upgrade 014 | PASS |
+| `npm run verify` and `npm run verify:full` | PASS |
+| Typecheck, lint, build, and `git diff --check` | PASS |
+
+The PR #18 review and remediation chronology includes corrected command
+precedence, valid non-object JSON handling, API matrix coverage, Architecture
+Guard namespace protection, and restoration of the established malformed-JSON
+message. The approved final candidate contained 12 files at `+1523/-9`.
+
+### Post-merge evidence boundary
+
+Post-merge verification for PR #16 and PR #18 established the approved merge
+parents, merge-tree equality, exact scope, protected blobs, remote integration
+advancement, and clean Git state. It did not rerun the complete test selections
+above. The PR-Head counts must not be described as post-merge reruns.
+
+PR #19 later merged only the Ingredient 003B governance closeout Task Card. It
+did not rerun product tests and did not change source or test files.
 
 ## Migration evidence
 

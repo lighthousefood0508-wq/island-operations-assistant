@@ -1,6 +1,6 @@
 # Current AI Handover
 
-Last verified reality check: 2026-08-10 (Asia/Taipei)
+Last verified reality check: 2026-08-11 (Asia/Taipei)
 
 This is operational handover material. `CONSTITUTION.md`, accepted ADRs, and
 Architecture Owner Decisions remain higher authority.
@@ -21,27 +21,31 @@ Architecture Owner Decisions remain higher authority.
 | Identity | SHA | Meaning |
 | --- | --- | --- |
 | Owner-Accepted Architecture Development Baseline | `97d6c7b52f09643b2cafaa50711f76ccc1ae7a96` | Reviewed development capability through completed PR-INGREDIENT-003B / PR #18 |
-| Current remote integration Head after PR #19 | `58cce2327f3f7121442e8a0cd4cd29693b9fde3c` | Later documentation-only Git advancement containing the closeout Task Card |
-| Current documentation branch base | `58cce2327f3f7121442e8a0cd4cd29693b9fde3c` | Exact starting point for the 14-file closeout candidate |
+| PR #21 base / remote integration Head after PR #20 | `c786cf478878f27c46537976afdbf4b5f34cb7bc` | Documentation-only merge completing the post-PR18 Ingredient 003B governance synchronization |
+| PR #21 handover-update base | `c786cf478878f27c46537976afdbf4b5f34cb7bc` | Exact starting point for this one-file handover refresh |
 
-PR #19 does not redesignate the formal baseline. Neither identity means remote
+PR #19 and PR #20 do not redesignate the formal baseline. None of these identities means remote
 `main`, main promotion, deployment provenance, a running process, a production
 database, or a formal product release.
 
-## 3. Current Git reality
+## 3. Verified Git provenance
 
-- Current branch:
-  `docs/post-pr18-ingredient-003b-governance-closeout`.
-- Remote `integration/architecture-development`:
-  `58cce2327f3f7121442e8a0cd4cd29693b9fde3c`.
+- PR #21 source branch:
+  `docs/post-pr20-handover-update`.
+- PR #21 base / verified remote `integration/architecture-development` Head
+  before the handover update:
+  `c786cf478878f27c46537976afdbf4b5f34cb7bc`.
 - Remote `main`: does not exist.
 - Local `main`: unpromoted at
   `2616fc86f5b1e81ba33ea05c71b561a8f0210e36`.
 - `origin/HEAD`: observed pointing to `origin/feature/pr-measure-001` at
   `8b80e9723d55c1e6dc0e30a6c83cb9e52effe20e`; it was not changed.
-- PR #14 through PR #19 feature/documentation branches remain remotely
+- PR #14 through PR #20 feature/documentation branches remain remotely
   available and are contained in integration. Containment does not authorize
   deletion.
+- The PR #21 source branch was created from exact remote integration Head
+  `c786cf4...`. This records branch provenance and does not assert the PR's
+  current merge state.
 - No branch or worktree cleanup is authorized by this handover.
 
 See [Repository Status](../REPOSITORY_STATUS.md) and
@@ -61,14 +65,20 @@ See [Repository Status](../REPOSITORY_STATUS.md) and
   composition, and management API support.
 - PR #19 recorded only the post-PR18 Ingredient 003B governance closeout Task
   Card.
-- The current 14-file closeout candidate is documentation-only and has no
-  commit, push, PR, or merge authority until its separate Gates pass.
+- PR #20 completed the authorized 14-file post-PR18 Ingredient 003B governance
+  synchronization as standard merge commit
+  `c786cf478878f27c46537976afdbf4b5f34cb7bc`.
+- PR #20 contains one approved documentation commit, 14 paths and
+  `+750/-206`. Its independent review returned
+  `APPROVE FOR OWNER MERGE DECISION`, and its merge tree exactly matched the
+  approved Head.
 
 The [Ingredient 003B Closeout Record](../reviews/PR-INGREDIENT-003B_CLOSEOUT_RECORD.md)
 contains the detailed authority, finding, remediation, test, and merge history.
 
 This closeout creates no DECISIONS number and does not rewrite DECISIONS #069,
-the Ingredient Proposal, or either historical Task Card.
+the Ingredient Proposal, or either historical Task Card. It is complete and
+merged, but it creates no Ingredient 003C or other implementation authority.
 
 ## 5. Canonical Ingredient capability and boundaries
 
@@ -106,6 +116,28 @@ Not authorized or implemented by 003A/003B:
 - authentication or authorization; or
 - Migration 014/schema redesign.
 
+### Architecture completion markers
+
+These markers describe repository capability at the verified Git Head. They
+do not grant authority, predict effort, or establish release/deployment state.
+Percentages are used only where the accepted work was explicitly divided into
+countable stages.
+
+| Architecture area | Completion marker | Verified meaning | Remaining boundary |
+| --- | --- | --- | --- |
+| Modular-monolith governance and ownership | COMPLETE for the current approved architecture | Constitution, ADR/Decision hierarchy, Domain ownership, dependency rules and Architecture Guards are present | Future architecture changes still require separate Owner approval |
+| Catalog authority | COMPLETE for the approved v1 slice | Category/Product Draft, Publish, immutable Product Versions and Product Contracts are contained | No claim of every future catalog feature |
+| Operations operating loop | COMPLETE for the approved operating-loop scope | Event, sellable inventory, POS Order, payment, Kitchen/lifecycle, realtime and closeout capabilities are contained | Customer/Kiosk/Preorder and later Operations expansion remain separate |
+| Measurement Foundation v1 | COMPLETE | Exact quantity, unit, conversion and evidence authority is contained | Package/density/rounding-policy expansion remains unauthorized |
+| Canonical Ingredient program | 67% of planned 003A-003C stages | 003A command boundary and 003B persistence/read/API boundary are complete and merged | 003C UI/navigation is not authorized; Reference Impact is separately gated |
+| Recipe Management 001A-001E | 40% of the five recorded stages | 001A Domain behavior and 001B persistence/UoW are complete and merged | 001C Application orchestration, 001D API/Runtime and 001E UI are unauthorized |
+| Cost capability | COMPLETE for the currently approved foundation/evaluation/Back Office slices | Cost Quote, exact normalization, Cost Evaluation, SQLite transaction remediation and Back Office workflow are contained | Cost Snapshot persistence/history and formal release remain incomplete |
+| Post-PR18 Ingredient governance closeout | COMPLETE | Task Card PR #19 and 14-file synchronization PR #20 are merged and verified | This handover refresh is carried by PR #21; its actual PR and merge state must be verified from GitHub |
+| Verified runtime/release delivery | NOT ESTABLISHED | A dated health observation exists only | Remote `main`, provenance-verified runtime, release and deployment are not established |
+| Inventory authority | DEFERRED / 0% authorized implementation | Namespace and future ownership are reserved only | Requires a separate Owner architecture decision and implementation program |
+| Supplier/Purchase/Package expansion | DEFERRED / 0% authorized implementation | No new authority is created by current Cost or Ingredient capability | Requires separate governance and implementation authorization |
+| Repository-wide architecture/duplication/security audit | NOT STARTED | It remains a future independent read-only Gate | Findings must not become remediation authority automatically |
+
 ## 6. Protected records and migration
 
 | Record | Protected blob |
@@ -135,8 +167,8 @@ passing typecheck, lint, build, migration, verify, verify:full, and diff checks.
 
 Post-merge verification for PR #16 and PR #18 verified Git parents, tree,
 scope, seals, and remote integration state. It did not rerun the complete test
-collections above. PR #19 was documentation-only and did not rerun product
-tests. See [Test Plan](../09_TEST_PLAN.md).
+collections above. PR #19 and PR #20 were documentation-only and did not rerun
+product tests. See [Test Plan](../09_TEST_PLAN.md).
 
 ## 8. Runtime observation and limitation
 
@@ -148,16 +180,22 @@ The only retained runtime statement is a historical, dated observation:
 > independently established.
 
 PID 12252 is not asserted to remain active. No public Tunnel is asserted to be
-active. This observation does not identify either current Git SHA as deployed.
+active. This observation does not identify either recorded Git SHA as deployed.
 
-## 9. Current documentation Gate
+## 9. Handover delivery provenance and known documentation note
 
-The current closeout candidate may modify exactly 13 existing documentation
-files and create `docs/reviews/PR-INGREDIENT-003B_CLOSEOUT_RECORD.md`.
-
-At handover time it is authorized only through preparation and the
-Documentation Pre-Commit Gate. Staging, commit, push, PR creation, review,
-merge, and post-merge actions remain separate Gates.
+- `DOCS-ROS-POST-PR18-INGREDIENT-003B-001` is complete through PR #20 merge and
+  post-merge Git/tree/seal verification.
+- This one-file handover refresh is carried by PR #21 from exact base
+  `c786cf4...` on source branch `docs/post-pr20-handover-update`. Its actual PR
+  and merge state must be verified from GitHub; this document does not assert
+  that PR #21 is merged or authorize any further action.
+- The independent PR #20 reviewer recorded one non-blocking documentation
+  note: `docs/REPOSITORY_STATUS.md` refers to the linked worktree inventory as
+  the `2026-08-09` reality check, while `docs/ACTIVE_BRANCHES.md` correctly
+  dates the updated inventory `2026-08-10`. The inventory identities are
+  correct. This handover records the note but does not modify either protected
+  path or silently expand this one-file task.
 
 ## 10. Unauthorized next work
 

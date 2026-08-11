@@ -23,6 +23,40 @@ async function createIngredient(
   return (await response.json()).data as Ingredient;
 }
 
+async function advanceActiveIngredient(
+  request: APIRequestContext,
+  ingredient: Ingredient,
+  targetVersion: number,
+  namePrefix: string
+): Promise<Ingredient> {
+  let current = ingredient;
+  for (let nextVersion = 1; nextVersion <= targetVersion; nextVersion += 1) {
+    const newName = `${namePrefix} v${nextVersion}`;
+    const response = await request.post(
+      `/api/admin/canonical-ingredients/${encodeURIComponent(current.ingredientId)}/rename`,
+      {
+        data: {
+          newName,
+          expectedVersion: current.aggregateVersion,
+          actor: "e2e-version-setup",
+          occurredAt: `2026-08-11T00:${String(10 + nextVersion).padStart(2, "0")}:00.000Z`,
+          reason: `Prepare exact version ${nextVersion}`
+        }
+      }
+    );
+    expect(response.ok()).toBeTruthy();
+    const body = await response.json();
+    current = body.data.ingredient as Ingredient;
+    expect(current).toMatchObject({
+      ingredientId: ingredient.ingredientId,
+      name: newName,
+      status: "Active",
+      aggregateVersion: nextVersion
+    });
+  }
+  return current;
+}
+
 async function openIngredient(page: Page, name: string): Promise<void> {
   await page.getByRole("button", { name: new RegExp(name) }).first().click();
   await expect(page.locator("#detail-name")).toHaveText(name);
@@ -401,7 +435,23 @@ test("Canonical Ingredient management UI keeps command responses bound to their 
   await expect.poll(() => aPosts).toBe(1);
   await expect(page.locator("#rename-submit")).toBeDisabled();
   await openIngredient(page, ingredientB.name);
+  let backgroundCollectionRefreshes = 0;
+  await page.route("**/api/admin/canonical-ingredients?lifecycle=all", async (route) => {
+    backgroundCollectionRefreshes += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        data: [
+          managementRecord(ingredientA, `Race A renamed ${suffix}`, "Active", 1),
+          managementRecord(ingredientB)
+        ]
+      })
+    });
+  }, { times: 1 });
   releaseA();
+  await expect.poll(() => backgroundCollectionRefreshes).toBe(1);
   await expect(page.locator("#notice")).toHaveText("更名已完成。");
   await expect(page.locator("#detail-id")).toHaveText(ingredientB.ingredientId);
   await expect(page.locator("#detail-name")).toHaveText(ingredientB.name);
@@ -420,25 +470,52 @@ test("Canonical Ingredient management UI keeps command responses bound to their 
   await expect(page.locator("#rename-submit")).toBeEnabled();
 
   const backgroundConflictScenarios = [
-    { code: "CANONICAL_INGREDIENT_VERSION_CONFLICT", operation: "rename", failure: "offline" },
-    { code: "CANONICAL_INGREDIENT_ALREADY_ARCHIVED", operation: "archive", failure: "http" },
-    { code: "CANONICAL_INGREDIENT_ARCHIVED_RENAME_REJECTED", operation: "rename", failure: "json" },
-    { code: "INVALID_CANONICAL_INGREDIENT_TRANSITION", operation: "rename", failure: "unusable" }
+    { key: "vc", code: "CANONICAL_INGREDIENT_VERSION_CONFLICT", operation: "rename", failure: "offline", aVersion: 1, bVersion: 2 },
+    { key: "aa", code: "CANONICAL_INGREDIENT_ALREADY_ARCHIVED", operation: "archive", failure: "http", aVersion: 2, bVersion: 3 },
+    { key: "ar", code: "CANONICAL_INGREDIENT_ARCHIVED_RENAME_REJECTED", operation: "rename", failure: "json", aVersion: 3, bVersion: 1 },
+    { key: "it", code: "INVALID_CANONICAL_INGREDIENT_TRANSITION", operation: "rename", failure: "unusable", aVersion: 2, bVersion: 4 }
   ] as const;
+  const observedAVersions = new Set<number>();
+  const observedBVersions = new Set<number>();
 
   for (const scenario of backgroundConflictScenarios) {
-    await openIngredient(page, ingredientA.name);
+    const matrixSeedA = await createIngredient(page.request, `Matrix A ${scenario.key} ${suffix}`);
+    const matrixSeedB = await createIngredient(page.request, `Matrix B ${scenario.key} ${suffix}`);
+    const matrixA = await advanceActiveIngredient(
+      page.request,
+      matrixSeedA,
+      scenario.aVersion,
+      `Matrix A ${scenario.key} ${suffix}`
+    );
+    const matrixB = await advanceActiveIngredient(
+      page.request,
+      matrixSeedB,
+      scenario.bVersion,
+      `Matrix B ${scenario.key} ${suffix}`
+    );
+    expect(matrixA.aggregateVersion).toBeGreaterThan(0);
+    expect(matrixB.aggregateVersion).toBeGreaterThan(0);
+    expect(matrixA.aggregateVersion).not.toBe(matrixB.aggregateVersion);
+    observedAVersions.add(matrixA.aggregateVersion);
+    observedBVersions.add(matrixB.aggregateVersion);
+
+    await page.goto("/admin/ingredients");
+    await openIngredient(page, matrixA.name);
+    const commandActor = `race-owner-${scenario.code}`;
+    const commandOccurredAt = "2026-08-11T17:05";
+    const commandReason = `deferred conflict ${scenario.code}`;
+    const commandNewName = `Matrix A rejected ${scenario.key} ${suffix}`;
     if (scenario.operation === "rename") {
       await fillRename(page, {
-        name: `Race A conflict ${scenario.code} ${suffix}`,
-        actor: "race-owner",
-        occurredAt: "2026-08-11T17:05",
-        reason: "deferred conflict"
+        name: commandNewName,
+        actor: commandActor,
+        occurredAt: commandOccurredAt,
+        reason: commandReason
       });
     } else {
-      await page.locator("#archive-actor").fill("race-owner");
-      await page.locator("#archive-occurred-at").fill("2026-08-11T17:05");
-      await page.locator("#archive-reason").fill("deferred conflict");
+      await page.locator("#archive-actor").fill(commandActor);
+      await page.locator("#archive-occurred-at").fill(commandOccurredAt);
+      await page.locator("#archive-reason").fill(commandReason);
     }
 
     let releaseConflict!: () => void;
@@ -446,14 +523,18 @@ test("Canonical Ingredient management UI keeps command responses bound to their 
     let conflictPosts = 0;
     let conflictMethod = "";
     let conflictPath = "";
+    let conflictPayload: unknown;
     let originalIdentityRefreshes = 0;
     let refreshMethod = "";
     let refreshPath = "";
-    const operationPath = `/api/admin/canonical-ingredients/${ingredientA.ingredientId}/${scenario.operation}`;
+    const encodedAId = encodeURIComponent(matrixA.ingredientId);
+    const encodedBId = encodeURIComponent(matrixB.ingredientId);
+    const operationPath = `/api/admin/canonical-ingredients/${encodedAId}/${scenario.operation}`;
     await page.route(`**${operationPath}`, async (route) => {
       conflictPosts += 1;
       conflictMethod = route.request().method();
       conflictPath = new URL(route.request().url()).pathname;
+      conflictPayload = route.request().postDataJSON();
       await conflictGate;
       await route.fulfill({
         status: 409,
@@ -461,7 +542,8 @@ test("Canonical Ingredient management UI keeps command responses bound to their 
         body: JSON.stringify({ ok: false, error: { code: scenario.code, message: "Conflict." } })
       });
     }, { times: 1 });
-    await page.route(`**/api/admin/canonical-ingredients/${ingredientA.ingredientId}`, async (route) => {
+    const refreshTarget = `/api/admin/canonical-ingredients/${encodedAId}`;
+    await page.route(`**${refreshTarget}`, async (route) => {
       originalIdentityRefreshes += 1;
       refreshMethod = route.request().method();
       refreshPath = new URL(route.request().url()).pathname;
@@ -487,22 +569,38 @@ test("Canonical Ingredient management UI keeps command responses bound to their 
       await page.locator("#archive-submit").click();
     }
     await expect.poll(() => conflictPosts).toBe(1);
-    await openIngredient(page, ingredientB.name);
+    await openIngredient(page, matrixB.name);
     releaseConflict();
 
-    await expect(page.locator("#notice")).toContainText("原操作發生衝突");
-    await expect(page.locator("#notice")).toContainText("目前檢視未受影響");
+    await expect(page.locator("#notice")).toHaveText("原操作發生衝突；目前檢視未受影響。請重新選取該食材以取得最新資料。");
     await expect(page.locator("#notice")).not.toContainText("最新資料載入失敗");
     await expect.poll(() => originalIdentityRefreshes).toBe(1);
     expect(conflictPosts).toBe(1);
     expect(conflictMethod).toBe("POST");
     expect(conflictPath).toBe(operationPath);
+    const expectedConflictPayload = scenario.operation === "rename"
+      ? {
+          newName: commandNewName,
+          expectedVersion: matrixA.aggregateVersion,
+          actor: commandActor,
+          occurredAt: new Date(commandOccurredAt).toISOString(),
+          reason: commandReason
+        }
+      : {
+          expectedVersion: matrixA.aggregateVersion,
+          actor: commandActor,
+          occurredAt: new Date(commandOccurredAt).toISOString(),
+          reason: commandReason
+        };
+    expect(conflictPayload).toEqual(expectedConflictPayload);
+    expect(expectedConflictPayload.expectedVersion).not.toBe(matrixB.aggregateVersion);
+    expect(expectedConflictPayload.expectedVersion).not.toBe(0);
     expect(refreshMethod).toBe("GET");
-    expect(refreshPath).toBe(`/api/admin/canonical-ingredients/${encodeURIComponent(ingredientA.ingredientId)}`);
-    await expect(page.getByRole("button", { name: new RegExp(ingredientB.name) }).first()).toHaveAttribute("aria-current", "true");
-    await expect(page.locator("#detail-id")).toHaveText(ingredientB.ingredientId);
-    await expect(page.locator("#detail-name")).toHaveText(ingredientB.name);
-    await expect(page.locator("#detail-version")).toHaveText(String(ingredientB.aggregateVersion));
+    expect(refreshPath).toBe(refreshTarget);
+    await expect(page.getByRole("button", { name: new RegExp(matrixB.name) }).first()).toHaveAttribute("aria-current", "true");
+    await expect(page.locator("#detail-id")).toHaveText(matrixB.ingredientId);
+    await expect(page.locator("#detail-name")).toHaveText(matrixB.name);
+    await expect(page.locator("#detail-version")).toHaveText(String(matrixB.aggregateVersion));
     await expect(page.locator("#detail-status")).toHaveText("使用中");
     await expect(page.locator("#active-actions")).toBeVisible();
     await expect(page.locator("#rename-submit")).toBeVisible();
@@ -511,9 +609,14 @@ test("Canonical Ingredient management UI keeps command responses bound to their 
     await expect(page.locator("#archive-submit")).toBeEnabled();
 
     let bValidationPosts = 0;
+    let bValidationMethod = "";
+    let bValidationPath = "";
     let bValidationPayload: unknown;
-    await page.route(`**/api/admin/canonical-ingredients/${ingredientB.ingredientId}/rename`, async (route) => {
+    const bProbePath = `/api/admin/canonical-ingredients/${encodedBId}/rename`;
+    await page.route(`**${bProbePath}`, async (route) => {
       bValidationPosts += 1;
+      bValidationMethod = route.request().method();
+      bValidationPath = new URL(route.request().url()).pathname;
       bValidationPayload = route.request().postDataJSON();
       await route.fulfill({
         status: 422,
@@ -521,18 +624,44 @@ test("Canonical Ingredient management UI keeps command responses bound to their 
         body: JSON.stringify({ ok: false, error: { code: "CANONICAL_INGREDIENT_VALIDATION_FAILURE", message: "Evidence only." } })
       });
     }, { times: 1 });
+    const bProbeName = `B evidence ${scenario.code}`;
+    const bProbeActor = `b-probe-${scenario.code}`;
+    const bProbeOccurredAt = "2026-08-11T17:06";
+    const bProbeReason = `version evidence ${scenario.code}`;
     await fillRename(page, {
-      name: `B evidence ${scenario.code}`,
-      actor: "race-owner",
-      occurredAt: "2026-08-11T17:06",
-      reason: "version evidence"
+      name: bProbeName,
+      actor: bProbeActor,
+      occurredAt: bProbeOccurredAt,
+      reason: bProbeReason
     });
     await page.locator("#rename-submit").click();
     await expect.poll(() => bValidationPosts).toBe(1);
-    expect(bValidationPayload).toMatchObject({ expectedVersion: ingredientB.aggregateVersion });
+    expect(bValidationMethod).toBe("POST");
+    expect(bValidationPath).toBe(bProbePath);
+    expect(bValidationPayload).toEqual({
+      newName: bProbeName,
+      expectedVersion: matrixB.aggregateVersion,
+      actor: bProbeActor,
+      occurredAt: new Date(bProbeOccurredAt).toISOString(),
+      reason: bProbeReason
+    });
+    expect(matrixB.aggregateVersion).not.toBe(matrixA.aggregateVersion);
+    expect(matrixB.aggregateVersion).not.toBe(0);
     expect(conflictPosts).toBe(1);
+    await expect(page.getByRole("button", { name: new RegExp(matrixB.name) }).first()).toHaveAttribute("aria-current", "true");
+    await expect(page.locator("#detail-id")).toHaveText(matrixB.ingredientId);
+    await expect(page.locator("#detail-name")).toHaveText(matrixB.name);
+    await expect(page.locator("#detail-version")).toHaveText(String(matrixB.aggregateVersion));
+    await expect(page.locator("#detail-status")).toHaveText("使用中");
+    await expect(page.locator("#rename-submit")).toBeVisible();
+    await expect(page.locator("#rename-submit")).toBeEnabled();
+    await expect(page.locator("#archive-submit")).toBeVisible();
+    await expect(page.locator("#archive-submit")).toBeEnabled();
   }
+  expect(observedAVersions.size).toBeGreaterThanOrEqual(2);
+  expect(observedBVersions.size).toBeGreaterThanOrEqual(2);
 
+  await openIngredient(page, ingredientB.name);
   await fillRename(page, {
     name: `Race B renamed ${suffix}`,
     actor: "race-owner",
@@ -767,6 +896,92 @@ test("Canonical Ingredient management UI renders remote text without executable 
   await expect(page.locator("#detail img")).toHaveCount(0);
   await expect(page.locator("#detail script")).toHaveCount(0);
   expect(await page.evaluate(() => (window as typeof window & { __unsafe?: boolean }).__unsafe)).not.toBe(true);
+});
+
+test("Canonical Ingredient UI encodes a transport-only identity as one path segment", async ({ page }) => {
+  const rawTransportIdentity = "transport/id?query#fragment%value";
+  const encodedTransportIdentity = encodeURIComponent(rawTransportIdentity);
+  const doubleEncodedTransportIdentity = encodeURIComponent(encodedTransportIdentity);
+  expect(encodedTransportIdentity).not.toBe(rawTransportIdentity);
+  const transportIngredient: Ingredient = {
+    ingredientId: rawTransportIdentity,
+    name: "Transport encoding fixture",
+    status: "Active",
+    aggregateVersion: 7
+  };
+  let detailRequests = 0;
+  let detailMethod = "";
+  let detailUrl: URL | undefined;
+  let renameRequests = 0;
+  let renameMethod = "";
+  let renameUrl: URL | undefined;
+
+  await page.route("**/api/admin/canonical-ingredients?lifecycle=all", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ ok: true, data: [managementRecord(transportIngredient)] })
+  }));
+  await page.route("**/api/admin/canonical-ingredients/**", async (route) => {
+    const request = route.request();
+    if (request.method() === "GET") {
+      detailRequests += 1;
+      detailMethod = request.method();
+      detailUrl = new URL(request.url());
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true, data: managementRecord(transportIngredient) })
+      });
+      return;
+    }
+    renameRequests += 1;
+    renameMethod = request.method();
+    renameUrl = new URL(request.url());
+    await route.fulfill({
+      status: 422,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: false, error: { code: "CANONICAL_INGREDIENT_VALIDATION_FAILURE", message: "Transport evidence only." } })
+    });
+  });
+
+  await page.goto("/admin/ingredients");
+  await openIngredient(page, transportIngredient.name);
+  await expect.poll(() => detailRequests).toBe(1);
+  await fillRename(page, {
+    name: "Transport encoding probe",
+    actor: "transport-probe",
+    occurredAt: "2026-08-11T19:00",
+    reason: "encoded path evidence"
+  });
+  await page.locator("#rename-submit").click();
+  await expect.poll(() => renameRequests).toBe(1);
+
+  const expectedDetailPath = `/api/admin/canonical-ingredients/${encodedTransportIdentity}`;
+  const expectedRenamePath = `${expectedDetailPath}/rename`;
+  expect(detailMethod).toBe("GET");
+  expect(renameMethod).toBe("POST");
+  expect(detailUrl?.pathname).toBe(expectedDetailPath);
+  expect(renameUrl?.pathname).toBe(expectedRenamePath);
+  expect(detailUrl?.search).toBe("");
+  expect(renameUrl?.search).toBe("");
+  expect(detailUrl?.hash).toBe("");
+  expect(renameUrl?.hash).toBe("");
+  expect(detailUrl?.pathname.split("/").filter(Boolean)).toEqual([
+    "api",
+    "admin",
+    "canonical-ingredients",
+    encodedTransportIdentity
+  ]);
+  expect(renameUrl?.pathname.split("/").filter(Boolean)).toEqual([
+    "api",
+    "admin",
+    "canonical-ingredients",
+    encodedTransportIdentity,
+    "rename"
+  ]);
+  expect(decodeURIComponent(detailUrl!.pathname.split("/").at(-1)!)).toBe(rawTransportIdentity);
+  expect(detailUrl?.pathname).not.toContain(doubleEncodedTransportIdentity);
+  expect(renameUrl?.pathname).not.toContain(doubleEncodedTransportIdentity);
 });
 
 test("Canonical Ingredient management UI remains operable on a representative mobile viewport", async ({ page }) => {

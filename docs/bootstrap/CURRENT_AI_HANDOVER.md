@@ -21,18 +21,19 @@ Architecture Owner Decisions remain higher authority.
 | Identity | SHA | Meaning |
 | --- | --- | --- |
 | Owner-Accepted Architecture Development Baseline | `97d6c7b52f09643b2cafaa50711f76ccc1ae7a96` | Reviewed development capability through completed PR-INGREDIENT-003B / PR #18 |
-| Current remote integration Head after PR #20 | `c786cf478878f27c46537976afdbf4b5f34cb7bc` | Documentation-only merge completing the post-PR18 Ingredient 003B governance synchronization |
-| Current handover-update branch base | `c786cf478878f27c46537976afdbf4b5f34cb7bc` | Exact starting point for this one-file handover refresh |
+| PR #21 base / remote integration Head after PR #20 | `c786cf478878f27c46537976afdbf4b5f34cb7bc` | Documentation-only merge completing the post-PR18 Ingredient 003B governance synchronization |
+| PR #21 handover-update base | `c786cf478878f27c46537976afdbf4b5f34cb7bc` | Exact starting point for this one-file handover refresh |
 
 PR #19 and PR #20 do not redesignate the formal baseline. None of these identities means remote
 `main`, main promotion, deployment provenance, a running process, a production
 database, or a formal product release.
 
-## 3. Current Git reality
+## 3. Verified Git provenance
 
-- Current branch:
+- PR #21 source branch:
   `docs/post-pr20-handover-update`.
-- Remote `integration/architecture-development`:
+- PR #21 base / verified remote `integration/architecture-development` Head
+  before the handover update:
   `c786cf478878f27c46537976afdbf4b5f34cb7bc`.
 - Remote `main`: does not exist.
 - Local `main`: unpromoted at
@@ -42,9 +43,9 @@ database, or a formal product release.
 - PR #14 through PR #20 feature/documentation branches remain remotely
   available and are contained in integration. Containment does not authorize
   deletion.
-- The current `docs/post-pr20-handover-update` branch was created locally from
-  exact remote integration Head `c786cf4...`; it had no remote branch at the
-  time this handover refresh began.
+- The PR #21 source branch was created from exact remote integration Head
+  `c786cf4...`. This records branch provenance and does not assert the PR's
+  current merge state.
 - No branch or worktree cleanup is authorized by this handover.
 
 See [Repository Status](../REPOSITORY_STATUS.md) and
@@ -131,7 +132,7 @@ countable stages.
 | Canonical Ingredient program | 67% of planned 003A-003C stages | 003A command boundary and 003B persistence/read/API boundary are complete and merged | 003C UI/navigation is not authorized; Reference Impact is separately gated |
 | Recipe Management 001A-001E | 40% of the five recorded stages | 001A Domain behavior and 001B persistence/UoW are complete and merged | 001C Application orchestration, 001D API/Runtime and 001E UI are unauthorized |
 | Cost capability | COMPLETE for the currently approved foundation/evaluation/Back Office slices | Cost Quote, exact normalization, Cost Evaluation, SQLite transaction remediation and Back Office workflow are contained | Cost Snapshot persistence/history and formal release remain incomplete |
-| Post-PR18 Ingredient governance closeout | COMPLETE | Task Card PR #19 and 14-file synchronization PR #20 are merged and verified | This one-file handover refresh remains local and uncommitted |
+| Post-PR18 Ingredient governance closeout | COMPLETE | Task Card PR #19 and 14-file synchronization PR #20 are merged and verified | This handover refresh is carried by PR #21; its actual PR and merge state must be verified from GitHub |
 | Verified runtime/release delivery | NOT ESTABLISHED | A dated health observation exists only | Remote `main`, provenance-verified runtime, release and deployment are not established |
 | Inventory authority | DEFERRED / 0% authorized implementation | Namespace and future ownership are reserved only | Requires a separate Owner architecture decision and implementation program |
 | Supplier/Purchase/Package expansion | DEFERRED / 0% authorized implementation | No new authority is created by current Cost or Ingredient capability | Requires separate governance and implementation authorization |
@@ -179,16 +180,16 @@ The only retained runtime statement is a historical, dated observation:
 > independently established.
 
 PID 12252 is not asserted to remain active. No public Tunnel is asserted to be
-active. This observation does not identify either current Git SHA as deployed.
+active. This observation does not identify either recorded Git SHA as deployed.
 
-## 9. Current Gate and known documentation note
+## 9. Handover delivery provenance and known documentation note
 
 - `DOCS-ROS-POST-PR18-INGREDIENT-003B-001` is complete through PR #20 merge and
   post-merge Git/tree/seal verification.
-- This one-file handover refresh is being prepared on
-  `docs/post-pr20-handover-update` from exact integration Head `c786cf4...`.
-  Its delivery state must be verified from current Git and PR reality; this
-  document does not itself authorize staging, commit, push, review or merge.
+- This one-file handover refresh is carried by PR #21 from exact base
+  `c786cf4...` on source branch `docs/post-pr20-handover-update`. Its actual PR
+  and merge state must be verified from GitHub; this document does not assert
+  that PR #21 is merged or authorize any further action.
 - The independent PR #20 reviewer recorded one non-blocking documentation
   note: `docs/REPOSITORY_STATUS.md` refers to the linked worktree inventory as
   the `2026-08-09` reality check, while `docs/ACTIVE_BRANCHES.md` correctly

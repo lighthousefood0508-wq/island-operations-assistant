@@ -842,6 +842,13 @@ test("Canonical Ingredient internals remain behind the published contract", () =
     "canonical-ingredient-management-service.ts"
   );
   const routes = path.join(sourceRoot, "server", "app", "routes.ts");
+  const ingredientManagementPage = path.join(
+    sourceRoot,
+    "web",
+    "ingredients",
+    "page.ts"
+  );
+  const sharedNavigation = path.join(sourceRoot, "web", "shared", "navigation.ts");
 
   for (const filename of filesUnder(ingredientRoot, [".ts"])) {
     for (const specifier of importedSpecifiers(filename)) {
@@ -1143,9 +1150,10 @@ export {
     if (!implementationMarkers.some((marker) => source.includes(marker))) continue;
     const relative = path.relative(projectRoot, filename).replaceAll("\\", "/");
     assert.equal(
-      approved003BPaths.has(relative),
+      approved003BPaths.has(relative)
+        || relative === "src/web/ingredients/page.ts",
       true,
-      `${relative} contains 003B implementation outside the exact twelve-path allowlist.`
+      `${relative} contains 003B implementation outside its accepted authority or the authorized 003C UI consumer.`
     );
   }
   const repositoryReferenceFiles = filesUnder(sourceRoot, [".ts"])
@@ -1208,8 +1216,12 @@ export {
     .filter((filename) =>
       /canonical-ingredients/.test(readFileSync(filename, "utf8"))
     )
-    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"));
-  assert.deepEqual(namespaceProductionFiles, ["src/server/app/routes.ts"]);
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .sort();
+  assert.deepEqual(namespaceProductionFiles, [
+    "src/server/app/routes.ts",
+    "src/web/ingredients/page.ts"
+  ]);
   const routesSource = readFileSync(routes, "utf8");
   assert.equal(
     Array.from(routesSource.matchAll(/canonical-ingredients/g)).length,
@@ -1218,8 +1230,8 @@ export {
   );
   assert.equal(
     Array.from(routesSource.matchAll(/ingredients/g)).length,
-    5,
-    "Routes may contain only the four accepted management registrations and the existing Cost creation route."
+    7,
+    "Routes may contain only the four accepted management API registrations, the existing Cost creation route, and the 003C page import plus route."
   );
   assert.match(
     routesSource,
@@ -1234,11 +1246,86 @@ export {
     /(?:POST|PUT|PATCH)[\s\S]{0,160}\/api\/admin\/canonical-ingredients["']\s*\)/,
     "003B must not add a create behavior at the management collection path."
   );
+  assert.match(
+    routesSource,
+    /request\.method === "GET" && pathname === "\/admin\/ingredients"\) return sendHtml\(response, renderCanonicalIngredientManagement\(\)\)/,
+    "003C must own exactly one server-rendered management UI route."
+  );
   assert.doesNotMatch(
     routesSource,
-    /\/admin\/ingredients|\/api\/admin\/ingredients|pathname === "\/admin\/canonical-ingredients"|renderCanonicalIngredient/i,
-    "003B must not add a management UI or navigation route."
+    /\/api\/admin\/ingredients|pathname === "\/admin\/canonical-ingredients"/,
+    "003C must not introduce an alternative management namespace."
   );
+  const ingredientPageSource = readFileSync(ingredientManagementPage, "utf8");
+  const navigationSource = readFileSync(sharedNavigation, "utf8");
+  assert.equal(
+    Array.from(ingredientPageSource.matchAll(/\bexport\s+/g)).length,
+    1,
+    "The 003C page may export only its accepted renderer."
+  );
+  assert.match(
+    ingredientPageSource,
+    /export function renderCanonicalIngredientManagement\(\): string/
+  );
+  const pageTargets = importedSpecifiers(ingredientManagementPage)
+    .map((specifier) => resolveSourceImport(ingredientManagementPage, specifier));
+  assert.deepEqual(pageTargets, [sharedNavigation]);
+  assert.doesNotMatch(
+    ingredientPageSource,
+    /innerHTML|outerHTML|insertAdjacentHTML|\son[a-z]+\s*=|localStorage|sessionStorage/,
+    "003C must render dynamic values with safe DOM APIs and keep state transient."
+  );
+  assert.doesNotMatch(
+    ingredientPageSource,
+    /\/(?:create|reactivate|delete|merge|reference-impact)(?:[/'"]|$)|建立食材|重新啟用|刪除|合併|Reference Impact/,
+    "003C must not expose out-of-scope lifecycle controls or routes."
+  );
+  assert.match(ingredientPageSource, /encodeURIComponent\(state\.detail\.ingredientId\)/);
+  assert.match(ingredientPageSource, /expectedVersion:state\.detail\.aggregateVersion/);
+  assert.match(ingredientPageSource, /parsed\.toISOString\(\)/);
+  assert.match(ingredientPageSource, /window\.confirm\(/);
+  for (const code of [
+    "CANONICAL_INGREDIENT_VERSION_CONFLICT",
+    "CANONICAL_INGREDIENT_ALREADY_ARCHIVED",
+    "CANONICAL_INGREDIENT_ARCHIVED_RENAME_REJECTED",
+    "INVALID_CANONICAL_INGREDIENT_TRANSITION"
+  ]) {
+    assert.match(ingredientPageSource, new RegExp(code));
+  }
+  assert.match(
+    navigationSource,
+    /\{ key: "catalog", href: "\/admin\/catalog", label: "商品目錄" \},\s*\{ key: "ingredients", href: "\/admin\/ingredients", label: "食材主檔" \},\s*\{ key: "cost", href: "\/admin\/cost", label: "成本中心" \}/,
+    "The Ingredient entry must remain between Catalog and Cost."
+  );
+  const approved003CPaths = new Set([
+    "src/web/ingredients/page.ts",
+    "src/web/shared/navigation.ts",
+    "src/server/app/routes.ts",
+    "src/tests/canonical-ingredient-lifecycle-api.integration.test.ts",
+    "tests/e2e/canonical-ingredient-management.spec.ts",
+    "src/tests/architecture-guards.test.ts"
+  ]);
+  const approved003CResponsibilities = new Map<string, readonly RegExp[]>([
+    ["src/web/ingredients/page.ts", [/renderCanonicalIngredientManagement/, /\/api\/admin\/canonical-ingredients/, /DUPLICATE_NAME_WARNING|duplicate-warning/]],
+    ["src/web/shared/navigation.ts", [/key: "ingredients"/, /label: "食材主檔"/]],
+    ["src/server/app/routes.ts", [/pathname === "\/admin\/ingredients"/, /renderCanonicalIngredientManagement/]],
+    ["src/tests/canonical-ingredient-lifecycle-api.integration.test.ts", [/Rendering the management UI must not write/, /<title>食材主檔/]],
+    ["tests/e2e/canonical-ingredient-management.spec.ts", [/Canonical Ingredient management UI/, /\/admin\/ingredients/]],
+    ["src/tests/architecture-guards.test.ts", [/approved003CPaths/, /approved003CResponsibilities/]]
+  ]);
+  assert.deepEqual(
+    [...approved003CResponsibilities.keys()].sort(),
+    [...approved003CPaths].sort(),
+    "Every path in the exact 003C allowlist must own an explicit guarded responsibility."
+  );
+  for (const [relative, patterns] of approved003CResponsibilities) {
+    const filename = path.join(projectRoot, ...relative.split("/"));
+    assert.equal(existsSync(filename), true, `${relative} is required by the 003C boundary.`);
+    const source = readFileSync(filename, "utf8");
+    for (const pattern of patterns) {
+      assert.match(source, pattern, `${relative} lost an accepted 003C responsibility.`);
+    }
+  }
   const costBackOfficeSource = readFileSync(
     path.join(sourceRoot, "server", "app", "cost-back-office-service.ts"),
     "utf8"

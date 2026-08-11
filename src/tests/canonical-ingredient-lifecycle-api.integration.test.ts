@@ -37,6 +37,18 @@ async function request(
   return { status: response.status, body: await response.json() };
 }
 
+async function requestText(
+  baseUrl: string,
+  pathname: string
+): Promise<Readonly<{ status: number; contentType: string; body: string }>> {
+  const response = await fetch(`${baseUrl}${pathname}`);
+  return {
+    status: response.status,
+    contentType: response.headers.get("content-type") ?? "",
+    body: await response.text()
+  };
+}
+
 async function malformedJsonRequest(
   baseUrl: string,
   pathname: string
@@ -445,8 +457,25 @@ test("four registrations provide six management API behaviors and survive restar
       {}
     );
     assert.equal(noCreateRoute.status, 404);
-    const noUiRoute = await request(running.baseUrl, "/admin/ingredients");
-    assert.equal(noUiRoute.status, 404);
+    const beforeUiRoute = await request(
+      running.baseUrl,
+      "/api/admin/canonical-ingredients"
+    );
+    const uiRoute = await requestText(running.baseUrl, "/admin/ingredients");
+    assert.equal(uiRoute.status, 200);
+    assert.match(uiRoute.contentType, /^text\/html; charset=utf-8$/);
+    assert.match(uiRoute.body, /<title>食材主檔 \| 荒島 ROS 後台<\/title>/);
+    assert.match(uiRoute.body, /href="\/admin\/ingredients" aria-current="page">食材主檔<\/a>/);
+    assert.match(uiRoute.body, /\/api\/admin\/canonical-ingredients/);
+    const afterUiRoute = await request(
+      running.baseUrl,
+      "/api/admin/canonical-ingredients"
+    );
+    assert.deepEqual(
+      afterUiRoute.body.data,
+      beforeUiRoute.body.data,
+      "Rendering the management UI must not write Canonical Ingredient state."
+    );
 
     const beforeRestart = defaultAll.body.data;
     await stop(running.server);

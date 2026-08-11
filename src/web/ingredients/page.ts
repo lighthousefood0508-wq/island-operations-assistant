@@ -1,0 +1,114 @@
+import {
+  renderBackOfficeNav,
+  renderNavigationStyles,
+  renderSystemNav
+} from "../shared/navigation.js";
+
+export function renderCanonicalIngredientManagement(): string {
+  return `<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>食材主檔 | 荒島 ROS 後台</title>
+  <style>
+    ${renderNavigationStyles()}
+    :root{font-family:Arial,"Noto Sans TC",sans-serif;color:#17343b;background:#f3f0e9;--green:#0e6d63;--deep:#1f4650;--orange:#d45f3f;--line:#d8d0c3;--paper:#fffdf9;--soft:#e8f2ee;--muted:#66787c;--danger:#a63825;--warning:#8a5b00}
+    *{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;background:linear-gradient(145deg,#f3f0e9 0,#e7efeb 100%);min-height:100vh}main{max-width:1280px;margin:0 auto;padding:20px}.hero{border-bottom:3px solid var(--orange);padding:12px 0 18px}.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--orange);font-weight:900}.hero h1{font-size:clamp(30px,5vw,48px);line-height:1;margin:8px 0}.hero p,.hint{color:var(--muted);line-height:1.6}.layout{display:grid;grid-template-columns:minmax(280px,.8fr) minmax(0,1.4fr);gap:16px}.card{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:16px;box-shadow:0 7px 24px rgba(32,57,57,.06)}.card h2,.card h3{margin-top:0}.toolbar{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.toolbar label{min-width:180px}.stack{display:grid;gap:11px}.list{display:grid;gap:8px;margin-top:14px}.list button{display:grid;text-align:left;gap:3px;background:#eef4f1;color:#17343b;border:1px solid #c4d3cf}.list button[aria-current="true"]{border-color:var(--green);box-shadow:0 0 0 2px rgba(14,109,99,.18)}button{font:inherit;border:0;background:var(--green);color:#fff;border-radius:6px;padding:11px 14px;font-weight:900;cursor:pointer}button.secondary{background:var(--deep)}button.danger{background:var(--danger)}button:disabled{opacity:.5;cursor:not-allowed}label{display:grid;gap:5px;color:#40555b;font-size:13px;font-weight:900}input,select,textarea{font:inherit;width:100%;border:1px solid #afbfbb;background:#fff;border-radius:6px;padding:10px;color:#17343b}textarea{min-height:74px;resize:vertical}.notice{min-height:28px;padding:8px 10px;border-radius:6px;background:#edf5f1;color:#17653f;font-weight:800}.notice.error{background:#f9e9e5;color:var(--danger)}.notice.warning{background:#fff4d7;color:var(--warning)}.empty{color:var(--muted);padding:18px 0}.status{display:inline-flex;padding:4px 8px;border-radius:999px;background:var(--soft);color:var(--green);font-size:12px;font-weight:900}.status.archived{background:#eee;color:#555}.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}.fact{border:1px solid var(--line);border-radius:7px;padding:10px}.fact small{display:block;color:var(--muted);margin-bottom:4px}.history{display:grid;gap:8px;padding:0;list-style:none}.history li{border-left:3px solid var(--orange);padding:8px 10px;background:#faf7f1}.actions{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}.action{border-top:1px solid var(--line);padding-top:14px}.warning-box{border:1px solid #e4c36a;background:#fff4d7;color:#654900;border-radius:7px;padding:12px;margin:12px 0}.warning-box ul{margin-bottom:0}.muted{color:var(--muted);font-size:13px}.sr-status{position:absolute;left:-9999px}@media(max-width:820px){main{padding:12px}.layout,.actions,.facts{grid-template-columns:1fr}.toolbar{align-items:stretch}.toolbar label{min-width:0;flex:1}.card{padding:13px}}
+  </style>
+</head>
+<body>
+  ${renderSystemNav("admin")}
+  <main>
+    <section class="hero"><div class="eyebrow">Recipe Core · Canonical Ingredient</div><h1>食材主檔</h1><p>查閱正式食材身分與歷史證據；Active 食材可更名或封存。所有變更都以目前載入版本送出，不會自動覆寫衝突。</p></section>
+    ${renderBackOfficeNav("ingredients")}
+    <p id="notice" class="notice" role="status" aria-live="polite">正在載入食材主檔…</p>
+    <div class="layout">
+      <section class="card" aria-labelledby="collection-title">
+        <h2 id="collection-title">食材清單</h2>
+        <div class="toolbar"><label>生命週期<select id="lifecycle-filter"><option value="all">全部</option><option value="active">使用中</option><option value="archived">已封存</option></select></label><button id="refresh-list" type="button" class="secondary">重新整理</button></div>
+        <div id="collection-loading" class="muted" hidden>正在取得清單…</div>
+        <div id="ingredient-list" class="list" aria-live="polite"></div>
+      </section>
+      <section class="card" aria-labelledby="detail-title">
+        <h2 id="detail-title">食材詳細資料</h2>
+        <div id="detail-loading" class="muted" hidden>正在取得詳細資料…</div>
+        <div id="detail-empty" class="empty">請從清單選擇食材。</div>
+        <div id="detail" hidden>
+          <div><strong id="detail-name"></strong> <span id="detail-status" class="status"></span></div>
+          <div class="facts">
+            <div class="fact"><small>Ingredient ID</small><span id="detail-id"></span></div>
+            <div class="fact"><small>分類</small><span id="detail-category"></span></div>
+            <div class="fact"><small>Aggregate Version</small><span id="detail-version"></span></div>
+            <div class="fact"><small>建立證據</small><span id="detail-created"></span></div>
+          </div>
+          <h3>更名歷史</h3><ul id="rename-history" class="history"></ul>
+          <section id="archive-evidence" hidden><h3>封存證據</h3><div class="fact" id="archive-fact"></div></section>
+          <div id="duplicate-warning" class="warning-box" role="status" hidden></div>
+          <div id="active-actions" class="actions">
+            <form id="rename-form" class="action stack">
+              <h3>更名</h3>
+              <label>新名稱<input id="rename-name" required autocomplete="off"></label>
+              <label>操作者（caller-reported）<input id="rename-actor" required autocomplete="off"></label>
+              <label>發生時間（本地）<input id="rename-occurred-at" type="datetime-local" required></label>
+              <label>原因<textarea id="rename-reason" required></textarea></label>
+              <button id="rename-submit" type="submit">送出更名</button>
+            </form>
+            <form id="archive-form" class="action stack">
+              <h3>封存</h3>
+              <label>操作者（caller-reported）<input id="archive-actor" required autocomplete="off"></label>
+              <label>發生時間（本地）<input id="archive-occurred-at" type="datetime-local" required></label>
+              <label>原因<textarea id="archive-reason" required></textarea></label>
+              <button id="archive-submit" type="submit" class="danger">確認封存</button>
+            </form>
+          </div>
+          <p id="archived-readonly" class="notice warning" hidden>此身分已封存，仍可查閱歷史，但不能再執行管理操作。</p>
+        </div>
+      </section>
+    </div>
+    <span id="request-status" class="sr-status" aria-live="polite"></span>
+  </main>
+<script>
+const API_ROOT='/api/admin/canonical-ingredients';
+const state={filter:'all',collection:[],selectedIngredientId:null,detail:null,listRequest:0,detailRequest:0,commandRequest:0,activeCommandToken:null,commandPending:false};
+const byId=id=>document.getElementById(id);
+class RequestFailure extends Error{constructor(status,code,message,details){super(message);this.name='RequestFailure';this.status=status;this.code=code;this.details=details}}
+function element(tag,className,text){const value=document.createElement(tag);if(className)value.className=className;if(text!==undefined)value.textContent=String(text);return value}
+function detailLines(value,prefix){if(value===null||value===undefined)return[];if(['string','number','boolean'].includes(typeof value))return[prefix?prefix+': '+String(value):String(value)];if(Array.isArray(value))return value.flatMap((item,index)=>detailLines(item,prefix?prefix+'['+index+']':String(index)));if(typeof value==='object')return Object.entries(value).flatMap(([key,item])=>detailLines(item,prefix?prefix+'.'+key:key));return[]}
+function showNotice(message,kind,details){const notice=byId('notice');notice.replaceChildren(element('span','',message));const lines=detailLines(details,'').slice(0,20);if(lines.length){const list=element('ul','validation-details');lines.forEach(line=>list.append(element('li','',line)));notice.append(list)}notice.className='notice'+(kind?' '+kind:'')}
+function setCommandPending(value){state.commandPending=value;byId('rename-submit').disabled=value;byId('archive-submit').disabled=value;byId('request-status').textContent=value?'正在送出操作':'操作已完成'}
+function isObject(value){return Boolean(value)&&typeof value==='object'&&!Array.isArray(value)}
+function isText(value){return typeof value==='string'}
+function isRenameEvidence(value){return isObject(value)&&['previousName','newName','renamedAt','renamedBy','reason'].every(key=>isText(value[key]))}
+function isArchiveEvidence(value){return isObject(value)&&['archivedAt','archivedBy','reason'].every(key=>isText(value[key]))}
+function isIngredient(value){return isObject(value)&&Number.isSafeInteger(value.contractVersion)&&isText(value.ingredientId)&&isText(value.name)&&isText(value.categoryCode)&&(value.status==='Active'||value.status==='Archived')&&Number.isSafeInteger(value.aggregateVersion)&&value.aggregateVersion>=0&&isText(value.createdAt)&&isText(value.createdBy)&&Array.isArray(value.renameHistory)&&value.renameHistory.every(isRenameEvidence)&&(value.status==='Archived'?isArchiveEvidence(value.archiveFact):value.archiveFact===undefined||value.archiveFact===null)}
+function isCandidate(value){return isObject(value)&&isText(value.ingredientId)&&isText(value.name)&&(value.status==='Active'||value.status==='Archived')}
+function isWarning(value){return isObject(value)&&value.code==='DUPLICATE_NAME_WARNING'&&Array.isArray(value.candidates)&&value.candidates.every(isCandidate)}
+function isRenameResult(value){return isObject(value)&&isIngredient(value.ingredient)&&Array.isArray(value.warnings)&&value.warnings.length<=1&&value.warnings.every(isWarning)}
+function isArchiveResult(value){return isObject(value)&&isIngredient(value.ingredient)}
+async function api(path,options,accept){let response;try{response=await fetch(path,{headers:options&&options.body?{'content-type':'application/json'}:undefined,...options})}catch{throw new RequestFailure(0,'NETWORK_OFFLINE','無法連線，請確認網路後按重新整理或重新送出。')}let body;try{body=await response.json()}catch{throw new RequestFailure(response.status,'UNUSABLE_RESPONSE','伺服器回應格式無法使用，請明確重試。')}if(!response.ok){const error=isObject(body)&&isObject(body.error)?body.error:{};throw new RequestFailure(response.status,String(error.code||'UNKNOWN_ERROR'),String(error.message||'請求失敗。'),error.details)}if(!isObject(body)||body.ok!==true||!accept(body.data))throw new RequestFailure(response.status,'UNUSABLE_RESPONSE','伺服器回應格式無法使用，請明確重試。');return body.data}
+function requiredValue(id,label){const value=byId(id).value;if(!value.trim())throw new RequestFailure(422,'CLIENT_VALIDATION',label+'不得空白。');return value}
+function localTimeToUtc(id){const value=requiredValue(id,'發生時間');const parsed=new Date(value);if(Number.isNaN(parsed.getTime()))throw new RequestFailure(422,'CLIENT_VALIDATION','發生時間格式無效。');return parsed.toISOString()}
+function statusText(status){return status==='Active'?'使用中':'已封存'}
+function emptyCollectionText(){return state.filter==='active'?'目前沒有使用中的食材。':state.filter==='archived'?'目前沒有已封存的食材。':'目前沒有任何食材。'}
+function renderCollection(){const list=byId('ingredient-list');list.replaceChildren();if(!state.collection.length){list.append(element('p','empty',emptyCollectionText()));return}state.collection.forEach(item=>{const button=element('button','ingredient-row');button.type='button';button.setAttribute('aria-current',String(item.ingredientId===state.selectedIngredientId));button.append(element('strong','',item.name));button.append(element('span','muted',statusText(item.status)+' · v'+item.aggregateVersion));button.addEventListener('click',()=>{void loadDetail(item.ingredientId)});list.append(button)})}
+function evidenceText(values){return values.filter(Boolean).join(' · ')}
+function renderDetail(){const detail=state.detail;byId('detail-empty').hidden=Boolean(detail);byId('detail').hidden=!detail;byId('duplicate-warning').hidden=true;byId('duplicate-warning').replaceChildren();if(!detail)return;byId('detail-name').textContent=detail.name;byId('detail-id').textContent=detail.ingredientId;byId('detail-category').textContent=detail.categoryCode;byId('detail-version').textContent=String(detail.aggregateVersion);byId('detail-created').textContent=evidenceText([detail.createdAt,detail.createdBy]);const status=byId('detail-status');status.textContent=statusText(detail.status);status.className='status'+(detail.status==='Archived'?' archived':'');const history=byId('rename-history');history.replaceChildren();if(!detail.renameHistory.length){history.append(element('li','muted','尚無更名紀錄。'))}else{detail.renameHistory.forEach(item=>history.append(element('li','',evidenceText([item.previousName+' → '+item.newName,item.renamedAt,item.renamedBy,item.reason]))))}const archiveSection=byId('archive-evidence');archiveSection.hidden=!detail.archiveFact;if(detail.archiveFact)byId('archive-fact').textContent=evidenceText([detail.archiveFact.archivedAt,detail.archiveFact.archivedBy,detail.archiveFact.reason]);const archived=detail.status==='Archived';byId('active-actions').hidden=archived;byId('archived-readonly').hidden=!archived}
+function renderDuplicateWarning(warnings){const box=byId('duplicate-warning');box.replaceChildren();if(!Array.isArray(warnings)||warnings.length===0){box.hidden=true;return}const warning=warnings[0];box.append(element('strong','','名稱相近提醒（不阻擋更名）'));const list=element('ul');const candidates=Array.isArray(warning.candidates)?warning.candidates:[];candidates.forEach(candidate=>list.append(element('li','',candidate.name+' · '+statusText(candidate.status)+' · '+candidate.ingredientId)));box.append(list);box.hidden=false}
+function clearCommandForms(){byId('rename-form').reset();byId('archive-form').reset();renderDuplicateWarning([])}
+function clearSelection(){state.detailRequest+=1;state.selectedIngredientId=null;state.detail=null;clearCommandForms();renderCollection();renderDetail()}
+async function loadCollection(options){const request=++state.listRequest;byId('collection-loading').hidden=false;try{const data=await api(API_ROOT+'?lifecycle='+encodeURIComponent(state.filter),undefined,value=>Array.isArray(value)&&value.every(isIngredient));if(request!==state.listRequest)return false;state.collection=data;if(state.selectedIngredientId&&!data.some(item=>item.ingredientId===state.selectedIngredientId))clearSelection();else renderCollection();if(options&&options.announce)showNotice('食材主檔已載入。','');return true}catch(error){if(request===state.listRequest)showNotice(error instanceof RequestFailure?error.message:'清單載入失敗，請按重新整理再試。','error');return false}finally{if(request===state.listRequest)byId('collection-loading').hidden=true}}
+async function loadDetail(ingredientId){const request=++state.detailRequest;const selectionChanged=state.selectedIngredientId!==ingredientId;state.selectedIngredientId=ingredientId;if(selectionChanged){state.detail=null;clearCommandForms();renderDetail()}renderCollection();byId('detail-loading').hidden=false;try{const detail=await api(API_ROOT+'/'+encodeURIComponent(ingredientId),undefined,isIngredient);if(request!==state.detailRequest)return false;state.detail=detail;renderDetail();showNotice('已載入「'+detail.name+'」的最新資料。','');return true}catch(error){if(request!==state.detailRequest)return false;if(error instanceof RequestFailure&&error.status===404){clearSelection();await loadCollection();showNotice('食材已不存在，清單已重新整理。','warning')}else{showNotice(error instanceof RequestFailure?error.message:'詳細資料載入失敗，請重新選取後再試。','error')}return false}finally{if(request===state.detailRequest)byId('detail-loading').hidden=true}}
+async function refreshSelected(announce){const selected=state.selectedIngredientId;const loaded=await loadCollection();if(loaded&&selected&&state.selectedIngredientId===selected)await loadDetail(selected);else if(loaded&&announce)showNotice('食材主檔已重新整理。','')}
+function commandIsCurrent(context){return state.activeCommandToken===context.token}
+async function reconcileCommandTarget(context){await loadCollection();let latest;try{latest=await api(API_ROOT+'/'+encodeURIComponent(context.ingredientId),undefined,isIngredient)}catch(error){if(commandIsCurrent(context)&&state.selectedIngredientId===context.ingredientId){if(error instanceof RequestFailure&&error.status===404)clearSelection();else{state.detail=null;clearCommandForms();renderDetail();renderCollection()}return'refresh-failed-current'}return'refresh-failed-background'}if(commandIsCurrent(context)&&state.selectedIngredientId===context.ingredientId){state.detail=latest;renderDetail();return'applied'}return'superseded'}
+async function handleFailure(error,context){if(!(error instanceof RequestFailure)){showNotice('服務發生未預期錯誤，輸入內容已保留，請明確重試。','error');return}if(error.status===409){const known=['CANONICAL_INGREDIENT_VERSION_CONFLICT','CANONICAL_INGREDIENT_ALREADY_ARCHIVED','CANONICAL_INGREDIENT_ARCHIVED_RENAME_REJECTED','INVALID_CANONICAL_INGREDIENT_TRANSITION'].includes(error.code);const reconciliation=known?await reconcileCommandTarget(context):null;if(reconciliation==='refresh-failed-current'){showNotice('衝突已發生，但最新資料載入失敗；目前畫面不可作為最新版本。請按重新整理或重新選取後再試。','error');return}if(reconciliation==='refresh-failed-background'||reconciliation==='superseded'){showNotice('原操作發生衝突；目前檢視未受影響。請重新選取該食材以取得最新資料。','warning');return}if(error.code==='CANONICAL_INGREDIENT_VERSION_CONFLICT'){showNotice('版本已變更，已重新載入最新資料；請重新檢視後再決定，不會自動重送。','warning');return}if(error.code==='CANONICAL_INGREDIENT_ALREADY_ARCHIVED'){showNotice('此食材已封存，已重新載入唯讀資料。','warning');return}if(error.code==='CANONICAL_INGREDIENT_ARCHIVED_RENAME_REJECTED'){showNotice('已封存食材不能更名，已重新載入唯讀資料。','warning');return}if(error.code==='INVALID_CANONICAL_INGREDIENT_TRANSITION'){showNotice('目前狀態不允許'+context.operation+'，請重新檢視最新資料。','warning');return}showNotice('操作發生衝突，請重新整理後再試。','warning');return}if(error.status===404){if(state.selectedIngredientId===context.ingredientId)clearSelection();await loadCollection();showNotice('食材已不存在，清單已重新整理。','warning');return}if(error.status===422){showNotice(error.message,'error',error.details);return}if(error.code==='CANONICAL_INGREDIENT_PERSISTENCE_FAILURE'){showNotice('資料暫時無法儲存，輸入內容已保留，請稍後明確重試。','error');return}if(error.status===0){showNotice(error.message,'error');return}if(error.code==='UNUSABLE_RESPONSE'){showNotice('伺服器回應無法使用，輸入內容已保留，請明確重試。','error');return}showNotice('服務發生未預期錯誤，輸入內容已保留，請明確重試。','error')}
+byId('lifecycle-filter').addEventListener('change',event=>{state.filter=event.currentTarget.value;void loadCollection()});
+byId('refresh-list').addEventListener('click',()=>{void refreshSelected(true)});
+byId('rename-form').addEventListener('submit',async event=>{event.preventDefault();if(state.commandPending||!state.detail)return;const ingredientPath=encodeURIComponent(state.detail.ingredientId);const context={token:++state.commandRequest,ingredientId:state.detail.ingredientId,operation:'更名',expectedVersion:state.detail.aggregateVersion};state.activeCommandToken=context.token;setCommandPending(true);try{const result=await api(API_ROOT+'/'+ingredientPath+'/rename',{method:'POST',body:JSON.stringify({newName:requiredValue('rename-name','新名稱'),expectedVersion:context.expectedVersion,actor:requiredValue('rename-actor','操作者'),occurredAt:localTimeToUtc('rename-occurred-at'),reason:requiredValue('rename-reason','原因')})},isRenameResult);if(commandIsCurrent(context)&&state.selectedIngredientId===context.ingredientId){state.detail=result.ingredient;renderDetail();renderDuplicateWarning(result.warnings)}await loadCollection();showNotice('更名已完成。','')}catch(error){await handleFailure(error,context)}finally{if(commandIsCurrent(context)){state.activeCommandToken=null;setCommandPending(false)}}});
+byId('archive-form').addEventListener('submit',async event=>{event.preventDefault();if(state.commandPending||!state.detail)return;if(!window.confirm('確定封存「'+state.detail.name+'」？封存後仍可查閱，但不能再更名。'))return;const ingredientPath=encodeURIComponent(state.detail.ingredientId);const context={token:++state.commandRequest,ingredientId:state.detail.ingredientId,operation:'封存',expectedVersion:state.detail.aggregateVersion};state.activeCommandToken=context.token;setCommandPending(true);try{const result=await api(API_ROOT+'/'+ingredientPath+'/archive',{method:'POST',body:JSON.stringify({expectedVersion:context.expectedVersion,actor:requiredValue('archive-actor','操作者'),occurredAt:localTimeToUtc('archive-occurred-at'),reason:requiredValue('archive-reason','原因')})},isArchiveResult);if(commandIsCurrent(context)&&state.selectedIngredientId===context.ingredientId){state.detail=result.ingredient;if(state.filter==='active'){state.filter='archived';byId('lifecycle-filter').value='archived'}renderDetail()}await loadCollection();showNotice('食材已封存。','')}catch(error){await handleFailure(error,context)}finally{if(commandIsCurrent(context)){state.activeCommandToken=null;setCommandPending(false)}}});
+void loadCollection({announce:true});
+</script>
+</body>
+</html>`;
+}

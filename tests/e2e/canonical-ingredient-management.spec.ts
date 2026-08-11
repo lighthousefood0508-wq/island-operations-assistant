@@ -419,38 +419,119 @@ test("Canonical Ingredient management UI keeps command responses bound to their 
   expect(aPayload).not.toHaveProperty("ingredientId");
   await expect(page.locator("#rename-submit")).toBeEnabled();
 
-  await openIngredient(page, ingredientA.name);
-  await fillRename(page, {
-    name: `Race A conflict ${suffix}`,
-    actor: "race-owner",
-    occurredAt: "2026-08-11T17:05",
-    reason: "deferred conflict"
-  });
-  let releaseConflict!: () => void;
-  const conflictGate = new Promise<void>((resolve) => { releaseConflict = resolve; });
-  let conflictPosts = 0;
-  let originalIdentityRefreshes = 0;
-  await page.route(`**/api/admin/canonical-ingredients/${ingredientA.ingredientId}/rename`, async (route) => {
-    conflictPosts += 1;
-    await conflictGate;
-    await route.fulfill({
-      status: 409,
-      contentType: "application/json",
-      body: JSON.stringify({ ok: false, error: { code: "CANONICAL_INGREDIENT_VERSION_CONFLICT", message: "Version conflict." } })
+  const backgroundConflictScenarios = [
+    { code: "CANONICAL_INGREDIENT_VERSION_CONFLICT", operation: "rename", failure: "offline" },
+    { code: "CANONICAL_INGREDIENT_ALREADY_ARCHIVED", operation: "archive", failure: "http" },
+    { code: "CANONICAL_INGREDIENT_ARCHIVED_RENAME_REJECTED", operation: "rename", failure: "json" },
+    { code: "INVALID_CANONICAL_INGREDIENT_TRANSITION", operation: "rename", failure: "unusable" }
+  ] as const;
+
+  for (const scenario of backgroundConflictScenarios) {
+    await openIngredient(page, ingredientA.name);
+    if (scenario.operation === "rename") {
+      await fillRename(page, {
+        name: `Race A conflict ${scenario.code} ${suffix}`,
+        actor: "race-owner",
+        occurredAt: "2026-08-11T17:05",
+        reason: "deferred conflict"
+      });
+    } else {
+      await page.locator("#archive-actor").fill("race-owner");
+      await page.locator("#archive-occurred-at").fill("2026-08-11T17:05");
+      await page.locator("#archive-reason").fill("deferred conflict");
+    }
+
+    let releaseConflict!: () => void;
+    const conflictGate = new Promise<void>((resolve) => { releaseConflict = resolve; });
+    let conflictPosts = 0;
+    let conflictMethod = "";
+    let conflictPath = "";
+    let originalIdentityRefreshes = 0;
+    let refreshMethod = "";
+    let refreshPath = "";
+    const operationPath = `/api/admin/canonical-ingredients/${ingredientA.ingredientId}/${scenario.operation}`;
+    await page.route(`**${operationPath}`, async (route) => {
+      conflictPosts += 1;
+      conflictMethod = route.request().method();
+      conflictPath = new URL(route.request().url()).pathname;
+      await conflictGate;
+      await route.fulfill({
+        status: 409,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: false, error: { code: scenario.code, message: "Conflict." } })
+      });
+    }, { times: 1 });
+    await page.route(`**/api/admin/canonical-ingredients/${ingredientA.ingredientId}`, async (route) => {
+      originalIdentityRefreshes += 1;
+      refreshMethod = route.request().method();
+      refreshPath = new URL(route.request().url()).pathname;
+      if (scenario.failure === "offline") {
+        await route.abort("failed");
+      } else if (scenario.failure === "http") {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ ok: false, error: { code: "CANONICAL_INGREDIENT_PERSISTENCE_FAILURE", message: "Unavailable." } })
+        });
+      } else if (scenario.failure === "json") {
+        await route.fulfill({ status: 200, contentType: "application/json", body: "{" });
+      } else {
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, data: {} }) });
+      }
+    }, { times: 1 });
+
+    if (scenario.operation === "rename") {
+      await page.locator("#rename-submit").click();
+    } else {
+      page.once("dialog", (dialog) => dialog.accept());
+      await page.locator("#archive-submit").click();
+    }
+    await expect.poll(() => conflictPosts).toBe(1);
+    await openIngredient(page, ingredientB.name);
+    releaseConflict();
+
+    await expect(page.locator("#notice")).toContainText("原操作發生衝突");
+    await expect(page.locator("#notice")).toContainText("目前檢視未受影響");
+    await expect(page.locator("#notice")).not.toContainText("最新資料載入失敗");
+    await expect.poll(() => originalIdentityRefreshes).toBe(1);
+    expect(conflictPosts).toBe(1);
+    expect(conflictMethod).toBe("POST");
+    expect(conflictPath).toBe(operationPath);
+    expect(refreshMethod).toBe("GET");
+    expect(refreshPath).toBe(`/api/admin/canonical-ingredients/${encodeURIComponent(ingredientA.ingredientId)}`);
+    await expect(page.getByRole("button", { name: new RegExp(ingredientB.name) }).first()).toHaveAttribute("aria-current", "true");
+    await expect(page.locator("#detail-id")).toHaveText(ingredientB.ingredientId);
+    await expect(page.locator("#detail-name")).toHaveText(ingredientB.name);
+    await expect(page.locator("#detail-version")).toHaveText(String(ingredientB.aggregateVersion));
+    await expect(page.locator("#detail-status")).toHaveText("使用中");
+    await expect(page.locator("#active-actions")).toBeVisible();
+    await expect(page.locator("#rename-submit")).toBeVisible();
+    await expect(page.locator("#rename-submit")).toBeEnabled();
+    await expect(page.locator("#archive-submit")).toBeVisible();
+    await expect(page.locator("#archive-submit")).toBeEnabled();
+
+    let bValidationPosts = 0;
+    let bValidationPayload: unknown;
+    await page.route(`**/api/admin/canonical-ingredients/${ingredientB.ingredientId}/rename`, async (route) => {
+      bValidationPosts += 1;
+      bValidationPayload = route.request().postDataJSON();
+      await route.fulfill({
+        status: 422,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: false, error: { code: "CANONICAL_INGREDIENT_VALIDATION_FAILURE", message: "Evidence only." } })
+      });
+    }, { times: 1 });
+    await fillRename(page, {
+      name: `B evidence ${scenario.code}`,
+      actor: "race-owner",
+      occurredAt: "2026-08-11T17:06",
+      reason: "version evidence"
     });
-  }, { times: 1 });
-  await page.route(`**/api/admin/canonical-ingredients/${ingredientA.ingredientId}`, async (route) => {
-    originalIdentityRefreshes += 1;
-    await route.abort("failed");
-  }, { times: 1 });
-  await page.locator("#rename-submit").click();
-  await expect.poll(() => conflictPosts).toBe(1);
-  await openIngredient(page, ingredientB.name);
-  releaseConflict();
-  await expect(page.locator("#notice")).toContainText("目前檢視未受影響");
-  await expect.poll(() => originalIdentityRefreshes).toBe(1);
-  await expect(page.locator("#detail-id")).toHaveText(ingredientB.ingredientId);
-  await expect(page.locator("#detail-name")).toHaveText(ingredientB.name);
+    await page.locator("#rename-submit").click();
+    await expect.poll(() => bValidationPosts).toBe(1);
+    expect(bValidationPayload).toMatchObject({ expectedVersion: ingredientB.aggregateVersion });
+    expect(conflictPosts).toBe(1);
+  }
 
   await fillRename(page, {
     name: `Race B renamed ${suffix}`,

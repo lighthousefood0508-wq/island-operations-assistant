@@ -376,8 +376,12 @@ test("Canonical Ingredient management UI keeps command responses bound to their 
   const aGate = new Promise<void>((resolve) => { releaseA = resolve; });
   let aPosts = 0;
   let aPayload: unknown;
+  let aMethod = "";
+  let aPath = "";
   await page.route(`**/api/admin/canonical-ingredients/${ingredientA.ingredientId}/rename`, async (route) => {
     aPosts += 1;
+    aMethod = route.request().method();
+    aPath = new URL(route.request().url()).pathname;
     aPayload = route.request().postDataJSON();
     await aGate;
     await route.fulfill({
@@ -403,7 +407,15 @@ test("Canonical Ingredient management UI keeps command responses bound to their 
   await expect(page.locator("#detail-name")).toHaveText(ingredientB.name);
   await expect(page.getByRole("button", { name: new RegExp(ingredientB.name) })).toHaveAttribute("aria-current", "true");
   expect(aPosts).toBe(1);
-  expect(aPayload).toMatchObject({ expectedVersion: ingredientA.aggregateVersion });
+  expect(aMethod).toBe("POST");
+  expect(aPath).toBe(`/api/admin/canonical-ingredients/${encodeURIComponent(ingredientA.ingredientId)}/rename`);
+  expect(aPayload).toEqual({
+    newName: `Race A renamed ${suffix}`,
+    expectedVersion: ingredientA.aggregateVersion,
+    actor: "race-owner",
+    occurredAt: new Date("2026-08-11T17:00").toISOString(),
+    reason: "deferred response"
+  });
   expect(aPayload).not.toHaveProperty("ingredientId");
   await expect(page.locator("#rename-submit")).toBeEnabled();
 
@@ -429,17 +441,13 @@ test("Canonical Ingredient management UI keeps command responses bound to their 
   }, { times: 1 });
   await page.route(`**/api/admin/canonical-ingredients/${ingredientA.ingredientId}`, async (route) => {
     originalIdentityRefreshes += 1;
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ ok: true, data: managementRecord(ingredientA, ingredientA.name, "Active", 1) })
-    });
+    await route.abort("failed");
   }, { times: 1 });
   await page.locator("#rename-submit").click();
   await expect.poll(() => conflictPosts).toBe(1);
   await openIngredient(page, ingredientB.name);
   releaseConflict();
-  await expect(page.locator("#notice")).toContainText("版本已變更");
+  await expect(page.locator("#notice")).toContainText("目前檢視未受影響");
   await expect.poll(() => originalIdentityRefreshes).toBe(1);
   await expect(page.locator("#detail-id")).toHaveText(ingredientB.ingredientId);
   await expect(page.locator("#detail-name")).toHaveText(ingredientB.name);
@@ -483,8 +491,14 @@ test("Canonical Ingredient management UI keeps command responses bound to their 
   let releaseArchive!: () => void;
   const archiveGate = new Promise<void>((resolve) => { releaseArchive = resolve; });
   let archivePosts = 0;
+  let archivePayload: unknown;
+  let archiveMethod = "";
+  let archivePath = "";
   await page.route(`**/api/admin/canonical-ingredients/${ingredientB.ingredientId}/archive`, async (route) => {
     archivePosts += 1;
+    archiveMethod = route.request().method();
+    archivePath = new URL(route.request().url()).pathname;
+    archivePayload = route.request().postDataJSON();
     await archiveGate;
     await route.fulfill({
       status: 200,
@@ -501,6 +515,89 @@ test("Canonical Ingredient management UI keeps command responses bound to their 
   releaseArchive();
   await expect(page.locator("#notice")).toHaveText("食材已封存。");
   expect(archivePosts).toBe(1);
+  expect(archiveMethod).toBe("POST");
+  expect(archivePath).toBe(`/api/admin/canonical-ingredients/${encodeURIComponent(ingredientB.ingredientId)}/archive`);
+  expect(archivePayload).toEqual({
+    expectedVersion: 1,
+    actor: "race-owner",
+    occurredAt: new Date("2026-08-11T17:20").toISOString(),
+    reason: "single archive post"
+  });
+  expect(archivePayload).not.toHaveProperty("ingredientId");
+});
+
+test("Canonical Ingredient conflict refresh failures fail closed without retrying mutations", async ({ page }) => {
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 10_000)}`;
+  const ingredient = await createIngredient(page.request, `Refresh failure ${suffix}`);
+  const scenarios = [
+    { code: "CANONICAL_INGREDIENT_VERSION_CONFLICT", operation: "rename", failure: "offline" },
+    { code: "CANONICAL_INGREDIENT_ALREADY_ARCHIVED", operation: "archive", failure: "http" },
+    { code: "CANONICAL_INGREDIENT_ARCHIVED_RENAME_REJECTED", operation: "rename", failure: "json" },
+    { code: "INVALID_CANONICAL_INGREDIENT_TRANSITION", operation: "rename", failure: "unusable" }
+  ] as const;
+
+  for (const scenario of scenarios) {
+    await page.goto("/admin/ingredients");
+    await openIngredient(page, ingredient.name);
+    let mutationPosts = 0;
+    let originalIdentityRefreshes = 0;
+    const operationPath = `/api/admin/canonical-ingredients/${ingredient.ingredientId}/${scenario.operation}`;
+    await page.route(`**${operationPath}`, async (route) => {
+      mutationPosts += 1;
+      await route.fulfill({
+        status: 409,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: false, error: { code: scenario.code, message: "Conflict." } })
+      });
+    }, { times: 1 });
+    await page.route(`**/api/admin/canonical-ingredients/${ingredient.ingredientId}`, async (route) => {
+      originalIdentityRefreshes += 1;
+      if (scenario.failure === "offline") {
+        await route.abort("failed");
+      } else if (scenario.failure === "http") {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ ok: false, error: { code: "CANONICAL_INGREDIENT_PERSISTENCE_FAILURE", message: "Unavailable." } })
+        });
+      } else if (scenario.failure === "json") {
+        await route.fulfill({ status: 200, contentType: "application/json", body: "{" });
+      } else {
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, data: {} }) });
+      }
+    }, { times: 1 });
+
+    if (scenario.operation === "rename") {
+      await fillRename(page, {
+        name: `Rejected ${scenario.code}`,
+        actor: "refresh-owner",
+        occurredAt: "2026-08-11T18:00",
+        reason: "refresh failure"
+      });
+      await page.locator("#rename-submit").click();
+    } else {
+      await page.locator("#archive-actor").fill("refresh-owner");
+      await page.locator("#archive-occurred-at").fill("2026-08-11T18:05");
+      await page.locator("#archive-reason").fill("refresh failure");
+      page.once("dialog", (dialog) => dialog.accept());
+      await page.locator("#archive-submit").click();
+    }
+
+    await expect(page.locator("#notice")).toContainText("最新資料載入失敗");
+    await expect(page.locator("#notice")).not.toContainText("已重新載入");
+    await expect.poll(() => originalIdentityRefreshes).toBe(1);
+    expect(mutationPosts).toBe(1);
+    await expect(page.locator("#detail")).toBeHidden();
+    await expect(page.locator("#active-actions")).toBeHidden();
+    const selectedRow = page.getByRole("button", { name: new RegExp(ingredient.name) }).first();
+    await expect(selectedRow).toHaveAttribute("aria-current", "true");
+
+    await selectedRow.click();
+    await expect(page.locator("#detail-id")).toHaveText(ingredient.ingredientId);
+    await expect(page.locator("#detail-version")).toHaveText(String(ingredient.aggregateVersion));
+    await expect(page.locator("#active-actions")).toBeVisible();
+    expect(mutationPosts).toBe(1);
+  }
 });
 
 test("Canonical Ingredient management UI treats initial offline and unusable responses as retryable failures", async ({ page }) => {

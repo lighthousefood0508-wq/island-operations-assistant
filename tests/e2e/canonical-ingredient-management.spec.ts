@@ -1,11 +1,17 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
+test.use({ timezoneId: "Asia/Taipei" });
+
 type Ingredient = Readonly<{
   ingredientId: string;
   name: string;
   status: "Active" | "Archived";
   aggregateVersion: number;
 }>;
+
+function taipeiLocalToUtc(value: string): string {
+  return new Date(`${value}:00+08:00`).toISOString();
+}
 
 async function createIngredient(
   request: APIRequestContext,
@@ -463,7 +469,7 @@ test("Canonical Ingredient management UI keeps command responses bound to their 
     newName: `Race A renamed ${suffix}`,
     expectedVersion: ingredientA.aggregateVersion,
     actor: "race-owner",
-    occurredAt: new Date("2026-08-11T17:00").toISOString(),
+    occurredAt: taipeiLocalToUtc("2026-08-11T17:00"),
     reason: "deferred response"
   });
   expect(aPayload).not.toHaveProperty("ingredientId");
@@ -583,13 +589,13 @@ test("Canonical Ingredient management UI keeps command responses bound to their 
           newName: commandNewName,
           expectedVersion: matrixA.aggregateVersion,
           actor: commandActor,
-          occurredAt: new Date(commandOccurredAt).toISOString(),
+          occurredAt: taipeiLocalToUtc(commandOccurredAt),
           reason: commandReason
         }
       : {
           expectedVersion: matrixA.aggregateVersion,
           actor: commandActor,
-          occurredAt: new Date(commandOccurredAt).toISOString(),
+          occurredAt: taipeiLocalToUtc(commandOccurredAt),
           reason: commandReason
         };
     expect(conflictPayload).toEqual(expectedConflictPayload);
@@ -642,7 +648,7 @@ test("Canonical Ingredient management UI keeps command responses bound to their 
       newName: bProbeName,
       expectedVersion: matrixB.aggregateVersion,
       actor: bProbeActor,
-      occurredAt: new Date(bProbeOccurredAt).toISOString(),
+      occurredAt: taipeiLocalToUtc(bProbeOccurredAt),
       reason: bProbeReason
     });
     expect(matrixB.aggregateVersion).not.toBe(matrixA.aggregateVersion);
@@ -730,7 +736,7 @@ test("Canonical Ingredient management UI keeps command responses bound to their 
   expect(archivePayload).toEqual({
     expectedVersion: 1,
     actor: "race-owner",
-    occurredAt: new Date("2026-08-11T17:20").toISOString(),
+    occurredAt: taipeiLocalToUtc("2026-08-11T17:20"),
     reason: "single archive post"
   });
   expect(archivePayload).not.toHaveProperty("ingredientId");
@@ -899,6 +905,7 @@ test("Canonical Ingredient management UI renders remote text without executable 
 });
 
 test("Canonical Ingredient UI encodes a transport-only identity as one path segment", async ({ page }) => {
+  expect(await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone)).toBe("Asia/Taipei");
   const rawTransportIdentity = "transport/id?query#fragment%value";
   const encodedTransportIdentity = encodeURIComponent(rawTransportIdentity);
   const doubleEncodedTransportIdentity = encodeURIComponent(encodedTransportIdentity);

@@ -915,6 +915,7 @@ test("Canonical Ingredient UI encodes a transport-only identity as one path segm
   let renameRequests = 0;
   let renameMethod = "";
   let renameUrl: URL | undefined;
+  let renamePayload: unknown;
 
   await page.route("**/api/admin/canonical-ingredients?lifecycle=all", (route) => route.fulfill({
     status: 200,
@@ -937,6 +938,7 @@ test("Canonical Ingredient UI encodes a transport-only identity as one path segm
     renameRequests += 1;
     renameMethod = request.method();
     renameUrl = new URL(request.url());
+    renamePayload = request.postDataJSON();
     await route.fulfill({
       status: 422,
       contentType: "application/json",
@@ -950,7 +952,7 @@ test("Canonical Ingredient UI encodes a transport-only identity as one path segm
   await fillRename(page, {
     name: "Transport encoding probe",
     actor: "transport-probe",
-    occurredAt: "2026-08-11T19:00",
+    occurredAt: "2026-08-12T03:00",
     reason: "encoded path evidence"
   });
   await page.locator("#rename-submit").click();
@@ -960,6 +962,14 @@ test("Canonical Ingredient UI encodes a transport-only identity as one path segm
   const expectedRenamePath = `${expectedDetailPath}/rename`;
   expect(detailMethod).toBe("GET");
   expect(renameMethod).toBe("POST");
+  expect(renameRequests).toBe(1);
+  expect(renamePayload).toEqual({
+    newName: "Transport encoding probe",
+    expectedVersion: 7,
+    actor: "transport-probe",
+    occurredAt: "2026-08-11T19:00:00.000Z",
+    reason: "encoded path evidence"
+  });
   expect(detailUrl?.pathname).toBe(expectedDetailPath);
   expect(renameUrl?.pathname).toBe(expectedRenamePath);
   expect(detailUrl?.search).toBe("");
@@ -980,6 +990,9 @@ test("Canonical Ingredient UI encodes a transport-only identity as one path segm
     "rename"
   ]);
   expect(decodeURIComponent(detailUrl!.pathname.split("/").at(-1)!)).toBe(rawTransportIdentity);
+  const renameIdentitySegment = renameUrl!.pathname.split("/").filter(Boolean).at(-2)!;
+  expect(renameIdentitySegment).toBe(encodedTransportIdentity);
+  expect(decodeURIComponent(renameIdentitySegment)).toBe(rawTransportIdentity);
   expect(detailUrl?.pathname).not.toContain(doubleEncodedTransportIdentity);
   expect(renameUrl?.pathname).not.toContain(doubleEncodedTransportIdentity);
 });

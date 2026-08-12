@@ -22,6 +22,47 @@
 
 ## Approval Register
 
+- **DECISIONS #071 - Canonical Ingredient Reference Impact Read Model**
+  - **Date**: 2026-08-13.
+  - **Status**: APPROVED by Architecture Owner for the Ingredient 003D architecture and Task Card boundary. Implementation remains separately gated.
+  - **Single responsibility**:
+    - Ingredient 003D provides one read-only `CanonicalIngredientReferenceImpact` v1 use case.
+    - A neutral interactive Application Service under `src/application/` composes Canonical Ingredient, Recipe, and Cost Domain-owned public read boundaries.
+    - `src/application/` is approved only for cross-Domain orchestration and coordination use cases. It must not become a shared Domain model, generic utility location, persistence authority, or a second authority for facts owned by a Domain.
+  - **Reference semantics**:
+    - Recipe impact is separated into Draft and Published Recipe Version impact.
+    - Each Recipe category reports unique Recipe count, Draft or Published Version count, line-occurrence count, and structured reference identities sufficient to distinguish every occurrence.
+    - Published impact includes immutable Published and Superseded Recipe Version history.
+    - Cost Quote impact is provided by a Cost-owned public read port and includes all formal historical Quote references, including Superseded Quotes, with Quote count and identities.
+    - Returned collections are deterministic, readonly, and ordered lexically by their identity tuples.
+  - **Unavailable authorities and deletion eligibility**:
+    - Accepted Purchase impact is `Unavailable` in v1. Legacy `cost_purchases` and `cost_purchase_items` are not promoted to formal Purchase authority.
+    - Cost Snapshot impact is `Unavailable` in v1 and must never be represented as numeric zero or an available empty collection.
+    - While Snapshot authority is unavailable, deletion eligibility is `Indeterminate` and blocked.
+    - Ingredient 003D does not authorize or implement deletion.
+  - **Failure semantics**:
+    - Failure of a currently available Domain read authority fails the complete Reference Impact request.
+    - v1 has no partial-success result, and a read failure must not be converted into zero references.
+    - Raw Repository, SQLite, persistence message, cause, stack, or implementation detail must not cross the Application or API boundary.
+  - **API boundary**:
+    - The accepted production route is `GET /api/admin/canonical-ingredients/:ingredientId/reference-impact`.
+    - The accepted stable errors are `CANONICAL_INGREDIENT_REFERENCE_IMPACT_VALIDATION_FAILURE`, `CANONICAL_INGREDIENT_REFERENCE_IMPACT_NOT_FOUND`, and `CANONICAL_INGREDIENT_REFERENCE_IMPACT_READ_FAILURE`.
+    - Their HTTP mappings are respectively `422`, `404`, and `500`; successful reads return `200` in the existing success envelope.
+  - **Persistence and performance policy**:
+    - Ingredient 003D v1 accepts controlled, set-based Recipe full scans scoped by `ingredient_id`.
+    - The implementation must provide SQL shape, query-count, representative-fixture, and `EXPLAIN QUERY PLAN` evidence.
+    - No migration, schema change, Recipe ingredient index, or modification of Migration 017 is authorized.
+    - If implementation evidence shows that an index is a correctness or operability prerequisite, implementation readiness stops for renewed Owner scope review. The implementation must not add a migration on its own.
+  - **Exact implementation boundary**:
+    - The Owner-approved PR-INGREDIENT-003D Task Card fixes an exact thirteen-path implementation allowlist covering the neutral Application Service, two Domain-owned read ports and SQLite implementations, public exports, one API route and composition, focused tests, persistence/API integration evidence, and Architecture Guards.
+    - Canonical Ingredient Identity Authority must not query Recipe, Cost, Purchase, or Snapshot persistence. Cross-Domain reads use only public Domain-owned read ports.
+    - No shared cross-Domain authority is created.
+  - **Explicitly excluded**:
+    - Delete, Reactivate, Merge, aliases, lifecycle mutation, Reference Impact UI or navigation, Purchase authority implementation, Cost Snapshot persistence, Recipe or Cost calculation, Supplier, Inventory, Package, authentication, authorization, migration, schema, `main` promotion, release, and deployment.
+  - **Authorization boundary**:
+    - This Decision authorizes recording this architecture decision and the dedicated PR-INGREDIENT-003D Task Card only.
+    - Implementation branch creation, production or test modification, staging, implementation commit, push, PR creation, merge, Ingredient 003E, other Ingredient work, `main` promotion, release, and deployment require later, explicit Owner authorization.
+
 - **DECISIONS #070 - Retrospective Governance Ratification and Recipe Management Historical Closeout**
   - **Date**: 2026-08-09.
   - **Status**: APPROVED by Architecture Owner as a retrospective governance record.

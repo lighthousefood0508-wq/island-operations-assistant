@@ -20,32 +20,26 @@ Architecture Owner Decisions remain higher authority.
 
 | Identity | SHA | Meaning |
 | --- | --- | --- |
-| Owner-Accepted Architecture Development Baseline | `97d6c7b52f09643b2cafaa50711f76ccc1ae7a96` | Reviewed development capability through completed PR-INGREDIENT-003B / PR #18 |
-| PR #21 base / remote integration Head after PR #20 | `c786cf478878f27c46537976afdbf4b5f34cb7bc` | Documentation-only merge completing the post-PR18 Ingredient 003B governance synchronization |
-| PR #21 handover-update base | `c786cf478878f27c46537976afdbf4b5f34cb7bc` | Exact starting point for this one-file handover refresh |
+| Owner-Accepted Architecture Development Baseline | `ea46678cbb955b7aeb093dc34525c52325af9cae` | PR #23 merge; reviewed development capability through technically completed Ingredient 003C |
+| Current remote integration Head | `ea46678cbb955b7aeb093dc34525c52325af9cae` | Exact base for the prepared Ingredient 003C governance closeout documentation |
 
-PR #19 and PR #20 do not redesignate the formal baseline. None of these identities means remote
+Neither identity means remote
 `main`, main promotion, deployment provenance, a running process, a production
 database, or a formal product release.
 
 ## 3. Verified Git provenance
 
-- PR #21 source branch:
-  `docs/post-pr20-handover-update`.
-- PR #21 base / verified remote `integration/architecture-development` Head
-  before the handover update:
-  `c786cf478878f27c46537976afdbf4b5f34cb7bc`.
+- Current closeout preparation branch:
+  `docs/post-pr23-ingredient-003c-closeout`, created from exact remote
+  integration Head `ea46678cbb955b7aeb093dc34525c52325af9cae`.
 - Remote `main`: does not exist.
 - Local `main`: unpromoted at
   `2616fc86f5b1e81ba33ea05c71b561a8f0210e36`.
 - `origin/HEAD`: observed pointing to `origin/feature/pr-measure-001` at
   `8b80e9723d55c1e6dc0e30a6c83cb9e52effe20e`; it was not changed.
-- PR #14 through PR #20 feature/documentation branches remain remotely
-  available and are contained in integration. Containment does not authorize
+- The Ingredient 003C feature branch remains remotely available at
+  `06929a7c73e370e1a2e0ba4fd230cdbdb0f19a35`. Containment does not authorize
   deletion.
-- The PR #21 source branch was created from exact remote integration Head
-  `c786cf4...`. This records branch provenance and does not assert the PR's
-  current merge state.
 - No branch or worktree cleanup is authorized by this handover.
 
 See [Repository Status](../REPOSITORY_STATUS.md) and
@@ -72,13 +66,24 @@ See [Repository Status](../REPOSITORY_STATUS.md) and
   `+750/-206`. Its independent review returned
   `APPROVE FOR OWNER MERGE DECISION`, and its merge tree exactly matched the
   approved Head.
+- PR #21 merged the one-file AI handover refresh as
+  `124f4487b5af672a1b9be6a26993919ad2a6caad`; it did not redesignate the
+  Architecture Development Baseline.
+- PR #22 recorded the independently reviewed 003C Task Card as
+  `c15a03e138e21328a3db0c88f861bca1b6af7e8c`.
+- PR #23 merged seven feature commits and six files (`+1288/-11`) as
+  `ea46678cbb955b7aeb093dc34525c52325af9cae`. Independent review closed
+  Original Findings 1–5 with zero blocking and non-blocking findings; the
+  Owner accepted post-merge validation and designated that merge as the new
+  Architecture Development Baseline.
 
 The [Ingredient 003B Closeout Record](../reviews/PR-INGREDIENT-003B_CLOSEOUT_RECORD.md)
 contains the detailed authority, finding, remediation, test, and merge history.
 
-This closeout creates no DECISIONS number and does not rewrite DECISIONS #069,
-the Ingredient Proposal, or either historical Task Card. It is complete and
-merged, but it creates no Ingredient 003C or other implementation authority.
+The prepared 003C closeout creates no DECISIONS number and does not rewrite
+DECISIONS #069, the Ingredient Proposal, or historical Task Cards. Ingredient
+003C is technically complete, but governance closure awaits independent review
+and separately authorized commit, push, PR, and merge Gates.
 
 ## 5. Canonical Ingredient capability and boundaries
 
@@ -93,6 +98,9 @@ The current integration ancestry contains:
 - Active and Archived management reads with deterministic ordering;
 - SQLite persistence and restart/rehydration coverage;
 - management list, detail, Rename, and Archive APIs; and
+- an API-backed management page at `/admin/ingredients`, with Back Office
+  navigation, safe text rendering, version-aware commands, conflict recovery,
+  and representative responsive operability; and
 - Architecture Guards protecting public exports, Repository boundaries,
   composition, and namespaces.
 
@@ -105,9 +113,9 @@ Caller-provided `actor`, `occurredAt`, and `reason` remain caller-reported,
 unverified metadata. They are not authentication, authorization, or verified
 operator identity.
 
-Not authorized or implemented by 003A/003B:
+Not authorized or implemented by 003A/003B/003C:
 
-- Ingredient 003C UI/navigation;
+- Ingredient 003D;
 - Reference Impact Coordinator;
 - reactivation;
 - permanent deletion;
@@ -129,10 +137,10 @@ countable stages.
 | Catalog authority | COMPLETE for the approved v1 slice | Category/Product Draft, Publish, immutable Product Versions and Product Contracts are contained | No claim of every future catalog feature |
 | Operations operating loop | COMPLETE for the approved operating-loop scope | Event, sellable inventory, POS Order, payment, Kitchen/lifecycle, realtime and closeout capabilities are contained | Customer/Kiosk/Preorder and later Operations expansion remain separate |
 | Measurement Foundation v1 | COMPLETE | Exact quantity, unit, conversion and evidence authority is contained | Package/density/rounding-policy expansion remains unauthorized |
-| Canonical Ingredient program | 67% of planned 003A-003C stages | 003A command boundary and 003B persistence/read/API boundary are complete and merged | 003C UI/navigation is not authorized; Reference Impact is separately gated |
+| Canonical Ingredient program | 100% of planned 003A-003C stages technically complete | 003A command, 003B persistence/read/API, and 003C UI/navigation are merged and post-merge verified | 003C governance closeout is pending; Ingredient 003D and Reference Impact are separately gated |
 | Recipe Management 001A-001E | 40% of the five recorded stages | 001A Domain behavior and 001B persistence/UoW are complete and merged | 001C Application orchestration, 001D API/Runtime and 001E UI are unauthorized |
 | Cost capability | COMPLETE for the currently approved foundation/evaluation/Back Office slices | Cost Quote, exact normalization, Cost Evaluation, SQLite transaction remediation and Back Office workflow are contained | Cost Snapshot persistence/history and formal release remain incomplete |
-| Post-PR18 Ingredient governance closeout | COMPLETE | Task Card PR #19 and 14-file synchronization PR #20 are merged and verified | This handover refresh is carried by PR #21; its actual PR and merge state must be verified from GitHub |
+| Post-PR18 Ingredient governance closeout | COMPLETE | Task Card PR #19 and 14-file synchronization PR #20 are merged and verified | PR #21 merged this handover refresh as `124f4487b5af672a1b9be6a26993919ad2a6caad`; no additional PR #21 state verification is pending in this handover |
 | Verified runtime/release delivery | NOT ESTABLISHED | A dated health observation exists only | Remote `main`, provenance-verified runtime, release and deployment are not established |
 | Inventory authority | DEFERRED / 0% authorized implementation | Namespace and future ownership are reserved only | Requires a separate Owner architecture decision and implementation program |
 | Supplier/Purchase/Package expansion | DEFERRED / 0% authorized implementation | No new authority is created by current Cost or Ingredient capability | Requires separate governance and implementation authorization |
@@ -145,6 +153,7 @@ countable stages.
 | Ingredient Proposal | `35a41567b16a714e154162042fba1ee0f6d160d9` |
 | PR-INGREDIENT-003A Task Card | `d678765982fa11e9921ab898dfc4d878bbcd7e10` |
 | PR-INGREDIENT-003B Task Card | `9453d54b4ad0529c84c277f61ebb83efcae0c1ec` |
+| PR-INGREDIENT-003C Task Card | `085858fd39ec5d4d614b862f6e9e664da381f1a5` |
 | Post-PR18 closeout Task Card | `5ef657585a80d3d0aaa23f8826e513940409a56d` |
 | Migration 014 | `5bcc40cddfe9ba14db7dc6a5e8da2d46f41ee23d` |
 
@@ -165,6 +174,13 @@ persistence 21/21, API 3/3, Architecture Guard 16/16, configured `npm test`
 64/64, Playwright 13/13, compiled repository suite 36 files / 509/509, and
 passing typecheck, lint, build, migration, verify, verify:full, and diff checks.
 
+PR #23 final approved-Head evidence includes API 3/3, Architecture Guard 16/16,
+configured `npm test` 64/64, focused E2E 9/9, complete E2E 22/22, manually
+enumerated compiled tests 36 files / 509/509, a fresh `TZ=UTC` focused E2E 9/9,
+and passing typecheck, lint, build, verify, verify:full, diff, encoding,
+whitespace, forbidden-sink/storage, and protected-seal checks. Remote checks
+were `NOT CONFIGURED`, not passed.
+
 Post-merge verification for PR #16 and PR #18 verified Git parents, tree,
 scope, seals, and remote integration state. It did not rerun the complete test
 collections above. PR #19 and PR #20 were documentation-only and did not rerun
@@ -182,24 +198,22 @@ The only retained runtime statement is a historical, dated observation:
 PID 12252 is not asserted to remain active. No public Tunnel is asserted to be
 active. This observation does not identify either recorded Git SHA as deployed.
 
-## 9. Handover delivery provenance and known documentation note
+## 9. Ingredient 003C closeout preparation
 
-- `DOCS-ROS-POST-PR18-INGREDIENT-003B-001` is complete through PR #20 merge and
-  post-merge Git/tree/seal verification.
-- This one-file handover refresh is carried by PR #21 from exact base
-  `c786cf4...` on source branch `docs/post-pr20-handover-update`. Its actual PR
-  and merge state must be verified from GitHub; this document does not assert
-  that PR #21 is merged or authorize any further action.
-- The independent PR #20 reviewer recorded one non-blocking documentation
-  note: `docs/REPOSITORY_STATUS.md` refers to the linked worktree inventory as
-  the `2026-08-09` reality check, while `docs/ACTIVE_BRANCHES.md` correctly
-  dates the updated inventory `2026-08-10`. The inventory identities are
-  correct. This handover records the note but does not modify either protected
-  path or silently expand this one-file task.
+- The 13-path Ingredient 003C closeout set is currently prepared as unstaged
+  working-tree changes only. No closeout commit, PR, or merge identity exists
+  yet.
+- The `Ingredient 003C Closeout Documentation Pre-Commit Review Gate` returned
+  `CHANGES REQUIRED`, with 2 blocking findings and 0 non-blocking findings.
+  The Owner authorized remediation of only those two findings; after remediation,
+  the candidate must return to an independent remediation re-review.
+- Commit, push, PR, and merge remain unauthorized. Governance closure becomes
+  effective only after independent review and separate Owner authorization for
+  each Git and merge Gate.
 
 ## 10. Unauthorized next work
 
-- Ingredient 003C;
+- Ingredient 003D;
 - Recipe 001C through 001E;
 - Reference Impact implementation;
 - architecture, duplication, or security remediation;

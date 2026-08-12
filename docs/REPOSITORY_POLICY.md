@@ -192,17 +192,25 @@ Post-PR18 Ingredient 003B Closeout Task Card
         |
         v
 Post-PR18 Ingredient 003B Documentation Closeout
-(IN PROGRESS; PRE-COMMIT GATE)
+(COMPLETED; PR #20)
+        |
+        v
+PR-INGREDIENT-003C Task Card and Implementation
+(TECHNICALLY COMPLETED; PR #22 AND PR #23)
+        |
+        v
+Ingredient 003C Governance Closeout
+(PREPARED WORKTREE; INDEPENDENT REVIEW AND GIT GATES PENDING)
         |
         v
 Owner Product-Planning Decision
 (PENDING / NOT AUTOMATICALLY AUTHORIZED)
 ```
 
-The Owner-Accepted Architecture Development Baseline is
-`97d6c7b52f09643b2cafaa50711f76ccc1ae7a96`; the current integration Git Head
-is the documentation-only PR #19 merge
-`58cce2327f3f7121442e8a0cd4cd29693b9fde3c`. Ingredient 003A and 003B are
-completed. This status sequence does not authorize Ingredient 003C, Recipe
+The Owner-Accepted Architecture Development Baseline and current integration
+Git Head are `ea46678cbb955b7aeb093dc34525c52325af9cae`, the PR #23 merge.
+Ingredient 003A and 003B are closed; Ingredient 003C is technically complete
+and awaits independent governance-closeout review and separately authorized
+Git gates. This status sequence does not authorize Ingredient 003D, Recipe
 001C through 001E, release, deployment, cleanup, or `main` promotion.
 Architecture Owner review remains required at every applicable Gate.

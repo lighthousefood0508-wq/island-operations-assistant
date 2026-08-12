@@ -1,6 +1,6 @@
 # ROS Repository Status
 
-Last verified: 2026-08-10 (Asia/Taipei)
+Last verified: 2026-08-11 (Asia/Taipei)
 
 Governance basis: DECISIONS #055, #058, #059, #064, #065, #066,
 #069, and #070.
@@ -9,9 +9,9 @@ Governance basis: DECISIONS #055, #058, #059, #064, #065, #066,
 
 | Area | Verified state |
 | --- | --- |
-| Owner-Accepted Architecture Development Baseline | `97d6c7b52f09643b2cafaa50711f76ccc1ae7a96` |
-| Remote integration Head after PR #19 | `58cce2327f3f7121442e8a0cd4cd29693b9fde3c` |
-| Documentation execution branch | `docs/post-pr18-ingredient-003b-governance-closeout`, based exactly on `58cce232...` |
+| Owner-Accepted Architecture Development Baseline | `ea46678cbb955b7aeb093dc34525c52325af9cae` |
+| Remote integration Head after PR #23 | `ea46678cbb955b7aeb093dc34525c52325af9cae` |
+| Documentation execution branch | `docs/post-pr23-ingredient-003c-closeout`, based exactly on `ea46678...`; unstaged preparation only |
 | Recipe 001A | Completed, independently reviewed, merged by PR #5 |
 | Recipe 001B | Completed after remediation and three independent review rounds, merged by PR #7 |
 | Recipe 001C-001E | Unauthorized; not started |
@@ -19,7 +19,7 @@ Governance basis: DECISIONS #055, #058, #059, #064, #065, #066,
 | Ingredient Proposal | Tracked governance record; merged by PR #14 |
 | Ingredient 003A | Command boundary completed and merged by PR #16 |
 | Ingredient 003B | Management read/persistence/API boundary completed and merged by PR #18 |
-| Ingredient 003C | Unauthorized; not started |
+| Ingredient 003C | Technical implementation and post-merge validation complete by PR #23; governance closeout pending independent documentation review and merge |
 | Migrations | Files 001 through 017 present |
 | Remote `main` | Does not exist |
 | Local `main` | Unpromoted at `2616fc86f5b1e81ba33ea05c71b561a8f0210e36` |
@@ -30,16 +30,9 @@ Governance basis: DECISIONS #055, #058, #059, #064, #065, #066,
 ## Baseline identity
 
 The Owner-Accepted Architecture Development Baseline and current integration
-Head are deliberately distinct:
-
-- `97d6c7b52f09643b2cafaa50711f76ccc1ae7a96` identifies accepted development
-  capability through the completed Ingredient 003B implementation.
-- `58cce2327f3f7121442e8a0cd4cd29693b9fde3c` is the later remote integration
-  tip after PR #19 recorded the post-PR18 governance closeout Task Card.
-
-Neither SHA identifies `main`, deployment provenance, or a product release.
-PR #19 is documentation-only. It neither redesignates the accepted baseline
-nor completes the 14-file documentation synchronization.
+Head currently coincide at `ea46678cbb955b7aeb093dc34525c52325af9cae`, the
+PR #23 merge accepted after post-merge validation. This SHA does not identify
+`main`, deployment provenance, a production database, or a product release.
 
 The [Ingredient 003B Closeout Record](reviews/PR-INGREDIENT-003B_CLOSEOUT_RECORD.md)
 records the Proposal, 003A, 003B, review, remediation, and merge chronology.
@@ -71,6 +64,10 @@ PR #16 003A implementation b5641482bbfe34d110ccdf40d1ab5347850a9155
 PR #17 003B Task Card     5c2a69282567c6456a5d2e7e2628270a03847e57
 PR #18 003B implementation 97d6c7b52f09643b2cafaa50711f76ccc1ae7a96
 PR #19 003B closeout Task Card 58cce2327f3f7121442e8a0cd4cd29693b9fde3c
+PR #20 003B documentation closeout c786cf478878f27c46537976afdbf4b5f34cb7bc
+PR #21 AI handover update 124f4487b5af672a1b9be6a26993919ad2a6caad
+PR #22 003C Task Card c15a03e138e21328a3db0c88f861bca1b6af7e8c
+PR #23 003C implementation ea46678cbb955b7aeb093dc34525c52325af9cae
 ```
 
 PR #3 through PR #19 were verified as merged two-parent PR commits with their
@@ -112,7 +109,8 @@ release readiness, deployment or runtime provenance.
 
 Remote feature and governance branches were marked "contained" in
 [Active Branches](ACTIVE_BRANCHES.md) only where `git merge-base --is-ancestor`
-proved reachability from `58cce232...`. Reachability does not authorize deletion.
+proved reachability from the then-current integration Head. The 2026-08-11
+refresh uses `ea46678...`. Reachability does not authorize deletion.
 
 The worktree list in that document contains only worktrees returned by
 `git worktree list --porcelain` during the 2026-08-09 reality check. The list is

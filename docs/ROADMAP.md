@@ -1,6 +1,6 @@
 # Roadmap
 
-Last synchronized: 2026-08-10
+Last synchronized: 2026-08-11
 
 Roadmap entries describe planning and verified completion state. They do not
 grant implementation, Git, release, deployment, or cleanup authority.
@@ -53,19 +53,21 @@ grant implementation, Git, release, deployment, or cleanup authority.
      persistence, server composition, and the management API.
    - PR #19 recorded the post-PR18 governance closeout Task Card only.
 13. Post-PR18 Ingredient 003B governance closeout:
-   - Documentation synchronization is active only through its pre-commit Gate.
-   - The future closeout does not authorize Ingredient 003C or another feature.
+   - PR #20 completed the independently reviewed documentation synchronization.
+14. Canonical Ingredient management UI/navigation:
+   - PR #22 recorded the PR-INGREDIENT-003C Task Card.
+   - PR #23 completed the six-file implementation through six remediation
+     rounds and passed independent and post-merge validation.
+   - Ingredient 003C governance closeout is prepared but remains ineffective
+     until independent review and a separately authorized documentation merge.
 
 ## Current baseline identities
 
-- Owner-Accepted Architecture Development Baseline:
-  `97d6c7b52f09643b2cafaa50711f76ccc1ae7a96`.
-- Verified remote integration Head after PR #19:
-  `58cce2327f3f7121442e8a0cd4cd29693b9fde3c`.
+- Owner-Accepted Architecture Development Baseline and verified remote
+  integration Head after PR #23:
+  `ea46678cbb955b7aeb093dc34525c52325af9cae`.
 
-The first identifies accepted development capability through PR #18. The
-second is the later integration branch tip containing only the PR #19
-governance closeout Task Card merge. Neither is
+This identifies accepted development capability through PR #23. It is not
 remote `main`, a deployment, or a product release.
 
 ## Unauthorized or separately gated
@@ -73,8 +75,9 @@ remote `main`, a deployment, or a product release.
 - Recipe 001C: formal Recipe management Application contracts/orchestration.
 - Recipe 001D: Recipe management API and Runtime composition.
 - Recipe 001E: Back Office Recipe management UI.
-- Ingredient 003C UI/navigation implementation and Reference Impact
-  coordination. Ingredient 003A and 003B are completed.
+- Ingredient 003D, Reference Impact coordination, reactivation, deletion, and
+  merge/alias behavior. Ingredient 003A/003B are closed and 003C is technically
+  complete pending governance closeout.
 - Cost Snapshot persistence and reporting history.
 - Customer/Kiosk/Preorder, Inventory, package conversion, Supplier/Purchase,
   external integration, and AI work beyond existing accepted capability.

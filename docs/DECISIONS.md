@@ -1,5 +1,25 @@
 # Decisions
 
+### Canonical Ingredient 003C factual closeout synchronization — prepared, not yet effective
+
+- This is an unnumbered factual synchronization under existing
+  **DECISIONS #069**. It creates, reserves, and backdates no Decision number and
+  does not change the substance of DECISIONS #069.
+- PR #22 recorded the accepted PR-INGREDIENT-003C Task Card as merge commit
+  `c15a03e138e21328a3db0c88f861bca1b6af7e8c`.
+- PR #23 merged the six-file Canonical Ingredient management UI/navigation
+  implementation as `ea46678cbb955b7aeb093dc34525c52325af9cae` after six
+  remediation rounds, independent approval, and passing post-merge validation.
+- The Owner accepted `ea46678cbb955b7aeb093dc34525c52325af9cae` as the
+  Architecture Development Baseline. It is not `main`, a release, deployment,
+  production database identity, or runtime provenance.
+- Ingredient 003C is technically complete. Governance closeout becomes
+  effective only after this documentation set is independently reviewed and
+  separately authorized for commit, push, PR, and merge.
+- Ingredient 003D, Reference Impact, reactivation, permanent deletion,
+  merge/alias, other Domain work, main promotion, release, and deployment
+  remain unauthorized.
+
 ## Approval Register
 
 - **DECISIONS #070 - Retrospective Governance Ratification and Recipe Management Historical Closeout**

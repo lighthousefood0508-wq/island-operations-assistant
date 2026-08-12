@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-08-11 - Canonical Ingredient management UI technical completion
+
+- PR #22 recorded the independently reviewed PR-INGREDIENT-003C Task Card as
+  merge commit `c15a03e138e21328a3db0c88f861bca1b6af7e8c`.
+- PR #23 merged seven approved feature commits as
+  `ea46678cbb955b7aeb093dc34525c52325af9cae`, with exact scope of six files and
+  `+1288/-11`.
+- The Owner accepted post-merge validation and designated `ea46678...` as the
+  Architecture Development Baseline. This is not `main`, release, deployment,
+  production database, or runtime provenance.
+- Independent remediation review closed Original Findings 1 through 5 with
+  zero blocking and zero non-blocking findings. Remote checks were
+  `NOT CONFIGURED`; complete local and independent validation evidence is
+  recorded separately in the Test Plan.
+- Ingredient 003C is technically complete. Its governance closeout remains
+  pending until this prepared documentation receives independent review and a
+  separately authorized merge. Ingredient 003D, Reference Impact,
+  reactivation, deletion, and merge/alias work remain unauthorized.
+
 ## 2026-08-10 - Canonical Ingredient lifecycle command and management API closeout
 
 - PR #14 recorded the Owner-accepted PR-INGREDIENT-003 Proposal as merge

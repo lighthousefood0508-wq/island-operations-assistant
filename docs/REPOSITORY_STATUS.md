@@ -1,6 +1,6 @@
 # ROS Repository Status
 
-Last verified: 2026-08-10 (Asia/Taipei)
+Last verified: 2026-08-12 (Asia/Taipei)
 
 Governance basis: DECISIONS #055, #058, #059, #064, #065, #066,
 #069, and #070.
@@ -9,9 +9,18 @@ Governance basis: DECISIONS #055, #058, #059, #064, #065, #066,
 
 | Area | Verified state |
 | --- | --- |
-| Owner-Accepted Architecture Development Baseline | `97d6c7b52f09643b2cafaa50711f76ccc1ae7a96` |
-| Remote integration Head after PR #19 | `58cce2327f3f7121442e8a0cd4cd29693b9fde3c` |
-| Documentation execution branch | `docs/post-pr18-ingredient-003b-governance-closeout`, based exactly on `58cce232...` |
+| Owner-Accepted Architecture Development Baseline | `ea46678cbb955b7aeb093dc34525c52325af9cae` |
+| Remote integration Head after PR #23 | `ea46678cbb955b7aeb093dc34525c52325af9cae` |
+| Original PR #24 review snapshot (2026-08-12) | `docs/post-pr23-ingredient-003c-closeout` at `b3f56130eb29d477d82849267c0f8bb801e64e7b`; the PR was OPEN and unmerged; review `FAILED` with 5 blocking and 0 non-blocking findings |
+| First remediation review snapshot (2026-08-12) | The five-file candidate review `FAILED` with 2 blocking and 0 non-blocking findings: lifecycle-unsafe delivery-state wording and an obsolete PR #20-era Current documentation Gate |
+| Lifecycle-safe remediation review snapshot (2026-08-12) | The second five-file candidate review `FAILED` with 1 blocking and 0 non-blocking findings because `ACTIVE_BRANCHES.md` incorrectly marked the OPEN, unmerged PR #24 branch as contained by integration |
+| Containment-remediation review snapshot (2026-08-12 14:00-14:04 UTC+8) | The third five-file candidate used `ACTIVE_BRANCHES.md` blob `d4dcf593385d2feb5004b428ce1bb205a1f72325` and total statistics `+98/-34`; review `FAILED` with 1 blocking and 0 non-blocking findings because the five documents omitted the preceding `FAILED 1/0` provenance |
+| Fourth remediation preparation snapshot (2026-08-12) | At the Owner-authorized observation, five unstaged working-tree files formed a review-provenance remediation candidate that had not been staged, committed, pushed, added to PR #24, or independently reviewed; later state requires fresh Git/GitHub and Owner evidence |
+| Fourth candidate Independent Review result | `PASSED` with 0 blocking and 0 non-blocking findings; content qualification for Owner Commit Decision only, not PR Review PASS or push, merge, closeout, baseline, main, release, or deployment authority |
+| Authorized remediation commit (2026-08-12 14:40-14:41 UTC+8) | `15fa0fc88b090a3d2856ed5ed3dbde5b757ed661`; parent `b3f56130...`; tree `aeb2cb6f...`; approved provenance message; exact five-file `+155/-34` scope |
+| Authorized remediation push (2026-08-12 19:17 UTC+8) | Fast-forward pushed to `docs/post-pr23-ingredient-003c-closeout`; remote branch and PR #24 Head became `15fa0fc88...`; PR remained OPEN, non-Draft, and unmerged |
+| Full-range Independent PR Re-Review (2026-08-12 19:42-19:46 UTC+8) | Range `ea46678...15fa0fc88...`; `FAILED` with 1 blocking and 0 non-blocking findings because these five documents omitted Candidate Review PASS, commit, push, and current Head provenance; no other identity, chain, scope, statistics, format, containment, or unauthorized-scope finding; PR #24 did not qualify for Owner Merge Decision |
+| Post-re-review remediation preparation snapshot | At the later Owner-authorized observation, edits to the same five local working-tree files formed a candidate that had not been staged, committed, pushed, added to PR #24, or independently reviewed; later state requires fresh Git/GitHub and Owner evidence |
 | Recipe 001A | Completed, independently reviewed, merged by PR #5 |
 | Recipe 001B | Completed after remediation and three independent review rounds, merged by PR #7 |
 | Recipe 001C-001E | Unauthorized; not started |
@@ -19,7 +28,8 @@ Governance basis: DECISIONS #055, #058, #059, #064, #065, #066,
 | Ingredient Proposal | Tracked governance record; merged by PR #14 |
 | Ingredient 003A | Command boundary completed and merged by PR #16 |
 | Ingredient 003B | Management read/persistence/API boundary completed and merged by PR #18 |
-| Ingredient 003C | Unauthorized; not started |
+| Ingredient 003C | Technical implementation and post-merge validation completed by PR #23; governance closeout does not become effective without separately accepted documentation merge and Owner evidence |
+| PR #24 review evidence | At its original review, remote checks were `NOT CONFIGURED` (0); GitHub clean / Ready to merge was mechanical mergeability only and did not override the failed content review |
 | Migrations | Files 001 through 017 present |
 | Remote `main` | Does not exist |
 | Local `main` | Unpromoted at `2616fc86f5b1e81ba33ea05c71b561a8f0210e36` |
@@ -30,16 +40,9 @@ Governance basis: DECISIONS #055, #058, #059, #064, #065, #066,
 ## Baseline identity
 
 The Owner-Accepted Architecture Development Baseline and current integration
-Head are deliberately distinct:
-
-- `97d6c7b52f09643b2cafaa50711f76ccc1ae7a96` identifies accepted development
-  capability through the completed Ingredient 003B implementation.
-- `58cce2327f3f7121442e8a0cd4cd29693b9fde3c` is the later remote integration
-  tip after PR #19 recorded the post-PR18 governance closeout Task Card.
-
-Neither SHA identifies `main`, deployment provenance, or a product release.
-PR #19 is documentation-only. It neither redesignates the accepted baseline
-nor completes the 14-file documentation synchronization.
+Head currently coincide at `ea46678cbb955b7aeb093dc34525c52325af9cae`, the
+PR #23 merge accepted after post-merge validation. This SHA does not identify
+`main`, deployment provenance, a production database, or a product release.
 
 The [Ingredient 003B Closeout Record](reviews/PR-INGREDIENT-003B_CLOSEOUT_RECORD.md)
 records the Proposal, 003A, 003B, review, remediation, and merge chronology.
@@ -71,6 +74,10 @@ PR #16 003A implementation b5641482bbfe34d110ccdf40d1ab5347850a9155
 PR #17 003B Task Card     5c2a69282567c6456a5d2e7e2628270a03847e57
 PR #18 003B implementation 97d6c7b52f09643b2cafaa50711f76ccc1ae7a96
 PR #19 003B closeout Task Card 58cce2327f3f7121442e8a0cd4cd29693b9fde3c
+PR #20 003B documentation closeout c786cf478878f27c46537976afdbf4b5f34cb7bc
+PR #21 AI handover update 124f4487b5af672a1b9be6a26993919ad2a6caad
+PR #22 003C Task Card c15a03e138e21328a3db0c88f861bca1b6af7e8c
+PR #23 003C implementation ea46678cbb955b7aeb093dc34525c52325af9cae
 ```
 
 PR #3 through PR #19 were verified as merged two-parent PR commits with their
@@ -112,7 +119,8 @@ release readiness, deployment or runtime provenance.
 
 Remote feature and governance branches were marked "contained" in
 [Active Branches](ACTIVE_BRANCHES.md) only where `git merge-base --is-ancestor`
-proved reachability from `58cce232...`. Reachability does not authorize deletion.
+proved reachability from the then-current integration Head. The 2026-08-11
+refresh uses `ea46678...`. Reachability does not authorize deletion.
 
 The worktree list in that document contains only worktrees returned by
 `git worktree list --porcelain` during the 2026-08-09 reality check. The list is
@@ -133,12 +141,15 @@ modified under this documentation task.
 
 These tracked historical records remain outside the closeout edit scope.
 
-## Current documentation Gate
+## Historical documentation Gate provenance
 
-`DOCS-ROS-POST-PR18-INGREDIENT-003B-001` permits only the exact 14-file
-documentation allowlist. It does not permit stage, commit, push, Pull Request
-creation, or merge. After the authorized edits and verification, work stops at
-the Owner pre-commit review Gate.
+`DOCS-ROS-POST-PR18-INGREDIENT-003B-001` governed the historical 14-file
+Ingredient 003B documentation synchronization, which was completed by PR #20.
+Its pre-commit restrictions applied only to that historical stage. They are not
+the current authority for PR #24 or Ingredient 003C work and must not be used to
+decide whether a present action may stage, commit, push, create a PR, or merge.
+Every such action requires the latest applicable Owner authorization and fresh
+Git/GitHub identity verification.
 
 A future repository-wide architecture/duplication/security audit remains a
 separate read-only Gate. No audit or remediation result is implied here.

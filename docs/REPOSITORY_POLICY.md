@@ -192,17 +192,74 @@ Post-PR18 Ingredient 003B Closeout Task Card
         |
         v
 Post-PR18 Ingredient 003B Documentation Closeout
-(IN PROGRESS; PRE-COMMIT GATE)
+(COMPLETED; PR #20)
+        |
+        v
+PR-INGREDIENT-003C Task Card and Implementation
+(TECHNICALLY COMPLETED; PR #22 AND PR #23)
+        |
+        v
+Ingredient 003C Governance Closeout
+(PR REVIEW FAILED 5/0; REMEDIATION REVIEWS FAILED 2/0, 1/0, AND 1/0)
+        |
+        v
+Further Remediation and Git/PR Gates
+(EACH REQUIRES SEPARATE OWNER AUTHORIZATION)
         |
         v
 Owner Product-Planning Decision
 (PENDING / NOT AUTOMATICALLY AUTHORIZED)
 ```
 
-The Owner-Accepted Architecture Development Baseline is
-`97d6c7b52f09643b2cafaa50711f76ccc1ae7a96`; the current integration Git Head
-is the documentation-only PR #19 merge
-`58cce2327f3f7121442e8a0cd4cd29693b9fde3c`. Ingredient 003A and 003B are
-completed. This status sequence does not authorize Ingredient 003C, Recipe
-001C through 001E, release, deployment, cleanup, or `main` promotion.
+The Owner-Accepted Architecture Development Baseline and current integration
+Git Head are `ea46678cbb955b7aeb093dc34525c52325af9cae`, the PR #23 merge.
+Ingredient 003A and 003B are closed; Ingredient 003C is technically complete.
+Its original closeout candidate was committed, pushed, and submitted as PR #24;
+Independent PR Review returned `FAILED` with 5 blocking findings and
+0 non-blocking findings. The Owner then authorized first remediation preparation,
+whose Independent Candidate Review returned `FAILED` with 2 blocking findings
+and 0 non-blocking findings. The latter findings were lifecycle-unsafe
+delivery-state wording and an obsolete PR #20-era Current documentation Gate.
+The second, lifecycle-safe candidate then returned `FAILED` with 1 blocking
+finding and 0 non-blocking findings because `ACTIVE_BRANCHES.md` incorrectly
+marked the open PR #24 branch as contained by integration. The third,
+containment-remediation candidate used `ACTIVE_BRANCHES.md` blob
+`d4dcf593385d2feb5004b428ce1bb205a1f72325` and total statistics of 5 files,
+`+98/-34`; its 2026-08-12 14:00-14:04 (UTC+8) review returned `FAILED` with
+1 blocking finding and 0 non-blocking findings because the five documents
+omitted the preceding `FAILED 1/0` provenance. At the subsequent authorized
+preparation observation, the five unstaged working-tree files formed a fourth
+review-provenance remediation candidate and had not been staged, committed,
+pushed, added to PR #24, or independently reviewed. That is historical
+preparation provenance, not permanent execution state or current authority.
+GitHub clean / Ready to merge was only mechanical mergeability, and 0 remote
+checks meant `NOT CONFIGURED`, not passed.
+
+The fourth candidate subsequently received Independent Candidate Review
+`PASSED` with 0 blocking findings and 0 non-blocking findings. That PASS was
+content qualification for an Owner Commit Decision only, not PR Review PASS or
+push, merge, closeout, baseline, main, release, or deployment authority. Under
+separate Owner authorizations, commit `15fa0fc88b090a3d2856ed5ed3dbde5b757ed661`
+was created on 2026-08-12 from 14:40 through 14:41 (UTC+8), with parent
+`b3f56130...`, tree `aeb2cb6f...`, the approved provenance message, and exact
+five-file `+155/-34` scope; it was fast-forward pushed at 19:17 (UTC+8), making
+the remote branch and PR #24 Head `15fa0fc88...` while the PR remained open,
+non-Draft, and unmerged.
+
+The full-range Independent PR Re-Review at 19:42-19:46 (UTC+8), over
+`ea46678...15fa0fc88...`, returned `FAILED` with 1 blocking finding and
+0 non-blocking findings. The sole finding was that these five documents omitted
+the Candidate Review PASS, commit, push, and current PR Head provenance; all
+other identity, chain, scope, statistics, format, containment, and unauthorized
+scope checks had no finding. At the later authorized remediation observation,
+the same five local working-tree files formed a post-re-review provenance
+candidate that had not been staged, committed, pushed, added to PR #24, or
+independently reviewed. This observation grants no later Gate authority.
+
+Candidate review, commit, push, PR re-review, and merge are separate Owner Gates.
+Completion or failure of one never authorizes the next. Immediate execution
+authority must be established from the latest Owner instruction and fresh
+Git/GitHub evidence; this historical workflow grants none. It does not authorize
+Ingredient 003D, Recipe 001C through 001E, release, deployment, cleanup, or
+`main` promotion.
 Architecture Owner review remains required at every applicable Gate.

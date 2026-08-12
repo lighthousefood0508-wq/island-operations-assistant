@@ -7,21 +7,19 @@ The latest recorded local product release remains
 `v0.4-order-core`. It is historical release evidence and must not be confused
 with the current development integration branch.
 
-## Current development state - 2026-08-10
+## Current development state - 2026-08-11
 
-- Owner-Accepted Architecture Development Baseline after PR #18:
-  `97d6c7b52f09643b2cafaa50711f76ccc1ae7a96`.
-- Verified remote `integration/architecture-development` Head after the
-  documentation-only PR #19 Task Card merge:
-  `58cce2327f3f7121442e8a0cd4cd29693b9fde3c`.
-- PR #19 advances the integration Git tip only. It does not redesignate the
-  accepted Architecture Development Baseline.
+- Owner-Accepted Architecture Development Baseline and verified remote
+  `integration/architecture-development` Head after PR #23:
+  `ea46678cbb955b7aeb093dc34525c52325af9cae`.
 - Recipe 001A and 001B are completed, independently reviewed, and merged.
 - Recipe 001C through 001E remain unauthorized.
 - The Canonical Ingredient Proposal is recorded. PR-INGREDIENT-003A command
-  lifecycle and PR-INGREDIENT-003B management read, persistence, and API work
-  are completed and merged. PR-INGREDIENT-003C UI/navigation work and the
-  Reference Impact Coordinator remain unauthorized.
+  lifecycle, PR-INGREDIENT-003B management read/persistence/API work, and
+  PR-INGREDIENT-003C management UI/navigation are technically complete and
+  merged. Ingredient 003C governance closeout is being prepared and is not
+  effective until independent review and a separately authorized merge. The
+  Reference Impact Coordinator and Ingredient 003D remain unauthorized.
 - Migration files 001 through 017 are present. Migration 017 is the
   forward-only Recipe persistence correction; Migration 016 remained
   unchanged during 001B.
@@ -33,12 +31,11 @@ with the current development integration branch.
 - Remote `main` does not exist. Local `main` remains unpromoted.
 
 The accepted baseline identifies reviewed development capability through the
-completed Ingredient 003B implementation. The later integration Head adds only
-the PR #19 governance closeout Task Card merge. Neither SHA
-identifies a deployed runtime, remote `main`, main promotion, or a product
-release. See [Current Status](docs/CURRENT_STATUS.md),
+completed Ingredient 003C technical implementation. It does not identify a
+deployed runtime, remote `main`, main promotion, or a product release. See
+[Current Status](docs/CURRENT_STATUS.md),
 [Architecture Development Baseline](docs/RELEASE_BASELINE.md), and the
-[Ingredient 003B Closeout Record](docs/reviews/PR-INGREDIENT-003B_CLOSEOUT_RECORD.md).
+[prepared Ingredient 003C Closeout Record](docs/reviews/PR-INGREDIENT-003C_CLOSEOUT_RECORD.md).
 
 Recipe 001A provides stable Recipe Line identity, ordered repeated Ingredient
 Lines, Draft editing behavior, and terminal abandonment at the Domain layer.
@@ -52,7 +49,8 @@ Canonical Ingredient lifecycle management now has synchronous Rename and
 Archive commands plus management list/detail/rename/archive APIs under
 `/api/admin/canonical-ingredients`. The existing
 `/api/admin/cost/ingredients` endpoint remains the Cost Back Office
-creation-composition route; it is not a second lifecycle authority.
+creation-composition route; it is not a second lifecycle authority. The
+management UI is available at `/admin/ingredients` and uses only that API.
 
 ## Historical 2026-07-26 Shadow Run context
 

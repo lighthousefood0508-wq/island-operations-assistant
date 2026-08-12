@@ -1,6 +1,6 @@
 # ROS Architecture Development Baseline
 
-Last verified: 2026-08-10 (Asia/Taipei)
+Last verified: 2026-08-11 (Asia/Taipei)
 
 Governance basis: DECISIONS #055, #058, #059, #064, #065, #066,
 #069, and #070.
@@ -12,12 +12,12 @@ release. It records development and integration identities only.
 
 ```text
 Branch lineage: integration/architecture-development
-Accepted baseline: 97d6c7b52f09643b2cafaa50711f76ccc1ae7a96
-First parent:      5c2a69282567c6456a5d2e7e2628270a03847e57
-Second parent:     784bb00912fd957dab6a84448dd8f640f0e166fc
+Accepted baseline: ea46678cbb955b7aeb093dc34525c52325af9cae
+First parent:      c15a03e138e21328a3db0c88f861bca1b6af7e8c
+Second parent:     06929a7c73e370e1a2e0ba4fd230cdbdb0f19a35
 ```
 
-The second parent is the final approved PR-INGREDIENT-003B Head. This accepted
+The second parent is the final approved PR-INGREDIENT-003C Head. This accepted
 baseline contains:
 
 - the earlier Measurement, Ingredient/Profile, Recipe projection, Cost
@@ -31,25 +31,28 @@ baseline contains:
   version-first precedence, stable errors, and non-blocking duplicate warnings;
   and
 - PR-INGREDIENT-003B deterministic Active/Archived management reads, SQLite
-  persistence, server composition, and management APIs.
+  persistence, server composition, and management APIs; and
+- PR-INGREDIENT-003C API-backed management UI/navigation with safe rendering,
+  version-aware Rename/Archive flows, conflict recovery, and responsive E2E
+  evidence.
 
 It is an architecture-development/integration baseline only. It is not remote
 `main`, main promotion, a deployed runtime, a production database identity, or
 a formal product release.
 
-## Current integration Head after PR #19
+## Current integration Head after PR #23
 
 ```text
 Remote branch: integration/architecture-development
-Verified Head: 58cce2327f3f7121442e8a0cd4cd29693b9fde3c
-First parent:  97d6c7b52f09643b2cafaa50711f76ccc1ae7a96
-Second parent: 7c80fbd13bb196d9c78e938baeb9625a6658e1d3
+Verified Head: ea46678cbb955b7aeb093dc34525c52325af9cae
+First parent:  c15a03e138e21328a3db0c88f861bca1b6af7e8c
+Second parent: 06929a7c73e370e1a2e0ba4fd230cdbdb0f19a35
 ```
 
-PR #19 added only the Owner-approved post-PR18 Ingredient 003B governance
-closeout Task Card. Its merge advances the integration branch tip but does not
-redefine the accepted capability baseline, complete the 14-file documentation
-synchronization, or create release authority.
+PR #23 implemented the independently reviewed Ingredient 003C UI/navigation
+scope. The Owner separately designated its merge commit as the Architecture
+Development Baseline after passing post-merge validation. The prepared
+governance closeout is not effective until independently reviewed and merged.
 
 ## Main and remote-default state
 
@@ -74,8 +77,10 @@ default-branch change. This task does not modify it.
 - Cost Back Office is contained in development integration but is not formally
   released or deployment-verified. COST-REGRESSION-001 is completed and its
   post-merge verification passed; that does not make the product release-ready.
-- Ingredient 003A and 003B are completed and merged. Ingredient 003C,
-  UI/navigation, and the Reference Impact Coordinator remain unauthorized.
+- Ingredient 003A and 003B are closed. Ingredient 003C implementation is
+  technically complete; its governance closeout is pending this documentation
+  workflow. Ingredient 003D and the Reference Impact Coordinator remain
+  unauthorized.
 - Recipe 001C through 001E remain unauthorized.
 
 ## Promotion gate

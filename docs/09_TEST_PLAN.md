@@ -1,6 +1,6 @@
 # Test Plan
 
-Last verified: 2026-08-10 (Asia/Taipei)
+Last verified: 2026-08-11 (Asia/Taipei)
 
 ## Evidence rules
 
@@ -173,6 +173,48 @@ above. The PR-Head counts must not be described as post-merge reruns.
 
 PR #19 later merged only the Ingredient 003B governance closeout Task Card. It
 did not rerun product tests and did not change source or test files.
+
+## PR-INGREDIENT-003C evidence
+
+PR #22 recorded the Owner-approved 003C Task Card as merge commit
+`c15a03e138e21328a3db0c88f861bca1b6af7e8c`. PR #23 then implemented the
+six-file management UI/navigation scope through seven feature commits. GitHub
+had no configured remote checks for PR #23; this is recorded as
+`NOT CONFIGURED`, not as remote checks passing.
+
+At approved PR #23 Head `06929a7c73e370e1a2e0ba4fd230cdbdb0f19a35`,
+the independent sixth-remediation review reported each overlapping collection
+separately:
+
+| Group | Result |
+| --- | --- |
+| Typecheck | PASS |
+| Lint | PASS |
+| Build | PASS |
+| Focused Canonical Ingredient API integration | 3/3 PASS |
+| Architecture Guard | 16/16 PASS |
+| Repository-configured `npm test` | 64/64 PASS |
+| `npm run verify` | PASS |
+| Focused Ingredient management Playwright | 9/9 PASS |
+| Complete Playwright E2E | 22/22 PASS |
+| `npm run verify:full` | PASS |
+| Manually enumerated compiled repository suite | 36 files, 509/509 PASS |
+| Fresh `TZ=UTC` focused Playwright run | 9/9 PASS |
+| UTF-8, final newline, trailing whitespace, forbidden sink/storage, no-index and `git diff --check` audits | PASS |
+
+The six remediation rounds closed command-response identity safety,
+filter/selection reconciliation, initial/offline/unusable-response handling,
+code-specific error mapping, the mandatory E2E matrix, distinct non-zero
+version evidence, encoded identity request evidence, exact request payload
+evidence, and timezone-reproducible local-time conversion. Original Findings
+1 through 5 are all `CLOSED`; blocking and non-blocking findings are both zero.
+
+Post-merge validation at
+`ea46678cbb955b7aeb093dc34525c52325af9cae` independently confirmed the merge
+parents/tree, exact six-file `+1288/-11` scope, protected seals, remote branch
+state, the same required validation groups, and a clean repository. These
+results establish development evidence only; they do not establish `main`,
+release, deployment, production database, or runtime provenance.
 
 ## Migration evidence
 

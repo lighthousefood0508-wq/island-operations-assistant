@@ -198,18 +198,45 @@ The only retained runtime statement is a historical, dated observation:
 PID 12252 is not asserted to remain active. No public Tunnel is asserted to be
 active. This observation does not identify either recorded Git SHA as deployed.
 
-## 9. Ingredient 003C closeout preparation
+## 9. Ingredient 003C closeout review provenance
 
-- The 13-path Ingredient 003C closeout set is currently prepared as unstaged
-  working-tree changes only. No closeout commit, PR, or merge identity exists
-  yet.
-- The `Ingredient 003C Closeout Documentation Pre-Commit Review Gate` returned
-  `CHANGES REQUIRED`, with 2 blocking findings and 0 non-blocking findings.
-  The Owner authorized remediation of only those two findings; after remediation,
-  the candidate must return to an independent remediation re-review.
-- Commit, push, PR, and merge remain unauthorized. Governance closure becomes
-  effective only after independent review and separate Owner authorization for
-  each Git and merge Gate.
+- At the 2026-08-12 original PR review, the 13-path closeout candidate had been
+  committed as `b3f56130eb29d477d82849267c0f8bb801e64e7b`, pushed on
+  `docs/post-pr23-ingredient-003c-closeout`, and submitted as OPEN, non-Draft,
+  unmerged PR #24 against `integration/architecture-development` at
+  `ea46678cbb955b7aeb093dc34525c52325af9cae`.
+- That Independent PR Review returned `FAILED` with 5 blocking findings and
+  0 non-blocking findings. All five concerned stale delivery-state wording.
+  Remote checks were `NOT CONFIGURED` (0); GitHub clean / Ready to merge was
+  mechanical mergeability only, not successful content review.
+- The first five-file remediation candidate was subsequently reviewed and
+  returned `FAILED` with 2 blocking findings and 0 non-blocking findings:
+  lifecycle-unsafe delivery-state wording and an obsolete PR #20-era Current
+  documentation Gate in `REPOSITORY_STATUS.md`.
+- The second, lifecycle-safe candidate subsequently returned `FAILED` with
+  1 blocking finding and 0 non-blocking findings because `ACTIVE_BRANCHES.md`
+  incorrectly marked the OPEN, unmerged PR #24 branch as contained by integration.
+- The third, containment-remediation candidate used `ACTIVE_BRANCHES.md` blob
+  `d4dcf593385d2feb5004b428ce1bb205a1f72325` and total statistics of 5 files,
+  `+98/-34`. Its 2026-08-12 14:00-14:04 (UTC+8) Independent Candidate Review
+  returned `FAILED` with 1 blocking finding and 0 non-blocking findings because
+  the five documents omitted the preceding `FAILED 1/0` review provenance.
+- At the subsequent Owner-authorized preparation observation, five unstaged
+  working-tree files formed a fourth review-provenance remediation candidate.
+  It had not been staged, committed, pushed, added to PR #24, or independently
+  reviewed. This records a historical preparation snapshot; current delivery
+  and Gate state must be re-established from Git, GitHub, and Owner authority.
+- None of the four failed reviews grants candidate approval, commit, push, PR re-review,
+  merge, or implementation authority. Candidate review, commit, push, PR
+  re-review, and merge are separate Owner Gates; completion or failure of one
+  does not authorize the next.
+- A later executor must read the latest Owner instruction and freshly verify
+  branch, HEAD, PR, checks, and merge state from Git and GitHub. This historical
+  provenance is not current execution authority.
+- None of these remediation reviews automatically makes Ingredient 003C governance
+  closeout effective, starts Ingredient 003D, changes the Architecture
+  Development Baseline, promotes main, creates a release, or performs deployment.
+  Decision `#071` is not created, reserved, occupied, or implied by this history.
 
 ## 10. Unauthorized next work
 

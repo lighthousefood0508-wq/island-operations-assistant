@@ -1,6 +1,6 @@
 # ROS Repository Status
 
-Last verified: 2026-08-11 (Asia/Taipei)
+Last verified: 2026-08-12 (Asia/Taipei)
 
 Governance basis: DECISIONS #055, #058, #059, #064, #065, #066,
 #069, and #070.
@@ -11,7 +11,11 @@ Governance basis: DECISIONS #055, #058, #059, #064, #065, #066,
 | --- | --- |
 | Owner-Accepted Architecture Development Baseline | `ea46678cbb955b7aeb093dc34525c52325af9cae` |
 | Remote integration Head after PR #23 | `ea46678cbb955b7aeb093dc34525c52325af9cae` |
-| Documentation execution branch | `docs/post-pr23-ingredient-003c-closeout`, based exactly on `ea46678...`; unstaged preparation only |
+| Original PR #24 review snapshot (2026-08-12) | `docs/post-pr23-ingredient-003c-closeout` at `b3f56130eb29d477d82849267c0f8bb801e64e7b`; the PR was OPEN and unmerged; review `FAILED` with 5 blocking and 0 non-blocking findings |
+| First remediation review snapshot (2026-08-12) | The five-file candidate review `FAILED` with 2 blocking and 0 non-blocking findings: lifecycle-unsafe delivery-state wording and an obsolete PR #20-era Current documentation Gate |
+| Lifecycle-safe remediation review snapshot (2026-08-12) | The second five-file candidate review `FAILED` with 1 blocking and 0 non-blocking findings because `ACTIVE_BRANCHES.md` incorrectly marked the OPEN, unmerged PR #24 branch as contained by integration |
+| Containment-remediation review snapshot (2026-08-12 14:00-14:04 UTC+8) | The third five-file candidate used `ACTIVE_BRANCHES.md` blob `d4dcf593385d2feb5004b428ce1bb205a1f72325` and total statistics `+98/-34`; review `FAILED` with 1 blocking and 0 non-blocking findings because the five documents omitted the preceding `FAILED 1/0` provenance |
+| Fourth remediation preparation snapshot (2026-08-12) | At the Owner-authorized observation, five unstaged working-tree files formed a review-provenance remediation candidate that had not been staged, committed, pushed, added to PR #24, or independently reviewed; later state requires fresh Git/GitHub and Owner evidence |
 | Recipe 001A | Completed, independently reviewed, merged by PR #5 |
 | Recipe 001B | Completed after remediation and three independent review rounds, merged by PR #7 |
 | Recipe 001C-001E | Unauthorized; not started |
@@ -19,7 +23,8 @@ Governance basis: DECISIONS #055, #058, #059, #064, #065, #066,
 | Ingredient Proposal | Tracked governance record; merged by PR #14 |
 | Ingredient 003A | Command boundary completed and merged by PR #16 |
 | Ingredient 003B | Management read/persistence/API boundary completed and merged by PR #18 |
-| Ingredient 003C | Technical implementation and post-merge validation complete by PR #23; governance closeout pending independent documentation review and merge |
+| Ingredient 003C | Technical implementation and post-merge validation completed by PR #23; governance closeout does not become effective without separately accepted documentation merge and Owner evidence |
+| PR #24 review evidence | At its original review, remote checks were `NOT CONFIGURED` (0); GitHub clean / Ready to merge was mechanical mergeability only and did not override the failed content review |
 | Migrations | Files 001 through 017 present |
 | Remote `main` | Does not exist |
 | Local `main` | Unpromoted at `2616fc86f5b1e81ba33ea05c71b561a8f0210e36` |
@@ -131,12 +136,15 @@ modified under this documentation task.
 
 These tracked historical records remain outside the closeout edit scope.
 
-## Current documentation Gate
+## Historical documentation Gate provenance
 
-`DOCS-ROS-POST-PR18-INGREDIENT-003B-001` permits only the exact 14-file
-documentation allowlist. It does not permit stage, commit, push, Pull Request
-creation, or merge. After the authorized edits and verification, work stops at
-the Owner pre-commit review Gate.
+`DOCS-ROS-POST-PR18-INGREDIENT-003B-001` governed the historical 14-file
+Ingredient 003B documentation synchronization, which was completed by PR #20.
+Its pre-commit restrictions applied only to that historical stage. They are not
+the current authority for PR #24 or Ingredient 003C work and must not be used to
+decide whether a present action may stage, commit, push, create a PR, or merge.
+Every such action requires the latest applicable Owner authorization and fresh
+Git/GitHub identity verification.
 
 A future repository-wide architecture/duplication/security audit remains a
 separate read-only Gate. No audit or remediation result is implied here.

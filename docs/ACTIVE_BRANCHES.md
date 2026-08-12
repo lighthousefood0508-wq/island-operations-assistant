@@ -1,6 +1,6 @@
 # ROS Branch and Worktree Observations
 
-Reality check: 2026-08-11 (Asia/Taipei)
+Reality check: 2026-08-12 (Asia/Taipei)
 
 This document records only refs and worktrees actually observed. It assigns no
 new governance, retention, evidence, cleanup, or deletion status. No branch or
@@ -12,8 +12,10 @@ worktree was deleted, rebased, moved, or cleaned by this inventory.
   `integration/architecture-development` Head after PR #23:
   `ea46678cbb955b7aeb093dc34525c52325af9cae`.
 - Current documentation branch:
-  `docs/post-pr23-ingredient-003c-closeout`, created locally from exact Head
-  `ea46678cbb955b7aeb093dc34525c52325af9cae`; no remote branch exists yet.
+  `docs/post-pr23-ingredient-003c-closeout`, created from exact Head
+  `ea46678cbb955b7aeb093dc34525c52325af9cae`. Its original closeout commit
+  `b3f56130eb29d477d82849267c0f8bb801e64e7b` is pushed and carried by OPEN,
+  non-Draft, unmerged PR #24.
 - Remote `main`: not present.
 - Local `main`: `2616fc86f5b1e81ba33ea05c71b561a8f0210e36`, unpromoted.
 - `origin/HEAD`: observed pointing to `origin/feature/pr-measure-001` at
@@ -38,6 +40,7 @@ material to PR #23; omission of another branch is not deletion authority.
 | `origin/docs/docs-ros-post-pr11-001-phase-b` | `5f6478d27838f386d4f188d4fd453675bf68a55e` | Yes |
 | `origin/docs/post-pr18-ingredient-003b-closeout-task-card` | `7c80fbd13bb196d9c78e938baeb9625a6658e1d3` | Yes |
 | `origin/docs/post-pr18-ingredient-003b-governance-closeout` | `86772c838cc0eb053e0dbc65953fe23d38d24bd5` | Yes |
+| `origin/docs/post-pr23-ingredient-003c-closeout` | `b3f56130eb29d477d82849267c0f8bb801e64e7b` | No — PR #24 open and unmerged |
 | `origin/docs/pr-ingredient-003-proposal-record` | `850dab8265c8a40e956e1dae39a294c35367ee49` | Yes |
 | `origin/docs/pr-ingredient-003a-task-card` | `d115e1e2446b5a6b12098cb449a38a62d7820ffa` | Yes |
 | `origin/docs/pr-ingredient-003b-task-card` | `3de9b2d3012792353707edde478be706341ba05f` | Yes |
@@ -63,8 +66,36 @@ material to PR #23; omission of another branch is not deletion authority.
 | `origin/governance/ros-post-pr7-documentation-task-card` | `70b6dab1159a3e8f10c951aca4a2992691cdf971` | Yes |
 | `origin/integration/architecture-development` | `ea46678cbb955b7aeb093dc34525c52325af9cae` | Yes |
 
-The current documentation branch has no remote branch. Push and Pull Request
-creation remain separately gated.
+At the recorded integration Head `ea46678cbb955b7aeb093dc34525c52325af9cae`,
+the PR #24 branch Head `b3f56130eb29d477d82849267c0f8bb801e64e7b`
+was not contained: integration was its first parent, the branch was ahead by one
+commit, and PR #24 remained open and unmerged. Mechanical mergeability did not
+change that containment result.
+
+The 2026-08-12 original Independent PR Review of PR #24 returned `FAILED` with
+5 blocking findings and 0 non-blocking findings, all concerning stale
+delivery-state wording. The first uncommitted five-file remediation candidate
+then returned `FAILED` with 2 blocking findings and 0 non-blocking findings:
+lifecycle-unsafe delivery-state wording and an obsolete PR #20-era Current
+documentation Gate. The second, lifecycle-safe candidate returned `FAILED` with
+1 blocking finding and 0 non-blocking findings because this table incorrectly
+marked the PR #24 branch as contained. The third, containment-remediation
+candidate, identified by this file's blob
+`d4dcf593385d2feb5004b428ce1bb205a1f72325` and total statistics of 5 files,
+`+98/-34`, was reviewed on 2026-08-12 from 14:00 through 14:04 (UTC+8) and
+returned `FAILED` with 1 blocking finding and 0 non-blocking findings because
+the five documents omitted the preceding `FAILED 1/0` provenance.
+
+At the subsequent Owner-authorized preparation observation, the five unstaged
+working-tree files formed a fourth review-provenance remediation candidate. It
+had not been committed, pushed, added to PR #24, or independently reviewed.
+That statement records the preparation observation rather than permanent
+execution state; later state must be verified from Git, GitHub, and the latest
+Owner instruction. Candidate review, commit, push, PR re-review, and merge
+remain separate Owner Gates. Remote checks at the original PR review were
+`NOT CONFIGURED`; GitHub's clean / Ready to merge state recorded mechanical
+mergeability only. Both this closeout branch and the Ingredient 003C feature
+branch remain protected from cleanup.
 
 ## Worktrees actually observed
 

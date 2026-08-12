@@ -1,15 +1,42 @@
 # Current Status
 
-Last verified: 2026-08-11 (Asia/Taipei)
+Last verified: 2026-08-12 (Asia/Taipei)
 
 ## Governance and Git state
 
 - Owner-Accepted Architecture Development Baseline and verified remote
   `integration/architecture-development` Head after PR #23:
   `ea46678cbb955b7aeb093dc34525c52325af9cae`.
-- Ingredient 003C closeout documentation is being prepared, unstaged, on
-  `docs/post-pr23-ingredient-003c-closeout` from that exact base. Its governance
-  effect awaits independent review and separately authorized Git/merge Gates.
+- At the 2026-08-12 original PR review, the Ingredient 003C closeout candidate
+  had been committed as `b3f56130eb29d477d82849267c0f8bb801e64e7b`, pushed on
+  `docs/post-pr23-ingredient-003c-closeout`, and submitted as OPEN, non-Draft,
+  unmerged PR #24. That review returned `FAILED` with 5 blocking findings and
+  0 non-blocking findings, all concerning stale delivery-state wording. Its
+  remote checks were `NOT CONFIGURED` (0); GitHub clean / Ready to merge was
+  mechanical mergeability only, not a successful content review.
+- The first five-file remediation candidate was then independently reviewed and
+  returned `FAILED` with 2 blocking findings and 0 non-blocking findings:
+  lifecycle-unsafe delivery-state wording and an obsolete PR #20-era Current
+  documentation Gate in `REPOSITORY_STATUS.md`.
+- The second, lifecycle-safe five-file candidate then returned `FAILED` with
+  1 blocking finding and 0 non-blocking findings because `ACTIVE_BRANCHES.md`
+  incorrectly marked the open PR #24 branch as contained by integration.
+- The third, containment-remediation candidate used `ACTIVE_BRANCHES.md` blob
+  `d4dcf593385d2feb5004b428ce1bb205a1f72325` and total statistics of 5 files,
+  `+98/-34`. Its 2026-08-12 14:00-14:04 (UTC+8) Independent Candidate Review
+  returned `FAILED` with 1 blocking finding and 0 non-blocking findings because
+  the five documents omitted the preceding `FAILED 1/0` review provenance.
+- At the subsequent Owner-authorized preparation observation, the five unstaged
+  working-tree files formed a fourth review-provenance remediation candidate.
+  They had not been staged, committed, pushed, added to PR #24, or independently
+  reviewed. This is a historical preparation snapshot; later delivery and Gate
+  state must be established from current Git/GitHub evidence and Owner authority.
+- These review results grant no commit, push, re-review, merge, or implementation
+  authority. Each later action requires its own Owner Gate. Immediate branch,
+  PR, and authorization state must be established from current Git/GitHub
+  evidence and the latest Owner instruction, not inferred from this history.
+- Ingredient 003C governance closeout was not effective at any failed review.
+  Any later effectiveness requires separately accepted merge and Owner evidence.
 - Remote `main` does not exist. Local `main` remains unpromoted at
   `2616fc86f5b1e81ba33ea05c71b561a8f0210e36`.
 - `origin/HEAD` was observed pointing abnormally to

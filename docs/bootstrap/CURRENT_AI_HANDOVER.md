@@ -226,7 +226,31 @@ active. This observation does not identify either recorded Git SHA as deployed.
   It had not been staged, committed, pushed, added to PR #24, or independently
   reviewed. This records a historical preparation snapshot; current delivery
   and Gate state must be re-established from Git, GitHub, and Owner authority.
-- None of the four failed reviews grants candidate approval, commit, push, PR re-review,
+- That fourth candidate subsequently received an Independent Candidate Review
+  verdict of `PASSED` with 0 blocking findings and 0 non-blocking findings. The
+  PASS qualified only its content for an Owner Commit Decision; it was not a PR
+  Review PASS or push, merge, closeout, baseline, main, release, or deployment
+  authority.
+- Under separate Owner authorizations, commit
+  `15fa0fc88b090a3d2856ed5ed3dbde5b757ed661` was created on 2026-08-12 from
+  14:40 through 14:41 (UTC+8), with parent `b3f56130...`, tree `aeb2cb6f...`,
+  message `docs(ingredient): preserve 003c closeout review provenance`, and an
+  exact five-file `+155/-34` scope. It was fast-forward pushed at 19:17 (UTC+8),
+  making the remote branch and PR #24 Head `15fa0fc88...`; the PR remained OPEN,
+  non-Draft, and unmerged.
+- The full-range Independent PR Re-Review on 2026-08-12 from 19:42 through 19:46
+  (UTC+8), over `ea46678...15fa0fc88...`, returned `FAILED` with 1 blocking
+  finding and 0 non-blocking findings. The sole finding was that these five
+  current-state documents omitted Candidate Review PASS, commit, push, and Head
+  provenance; identity, commit chain, 13 paths, statistics, format, containment,
+  and unauthorized-scope checks had no other finding. The reviewer made no
+  repository or GitHub change, and PR #24 did not qualify for Owner Merge Decision.
+- At the later Owner-authorized remediation observation, edits to these same five
+  local working-tree files formed a post-re-review provenance candidate. They
+  had not been staged, committed, pushed, added to PR #24, or independently
+  reviewed. This is a historical observation; later delivery and Gate state
+  require fresh Git/GitHub evidence and Owner authority.
+- No failed review grants candidate approval, commit, push, PR re-review,
   merge, or implementation authority. Candidate review, commit, push, PR
   re-review, and merge are separate Owner Gates; completion or failure of one
   does not authorize the next.

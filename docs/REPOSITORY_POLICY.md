@@ -235,6 +235,27 @@ preparation provenance, not permanent execution state or current authority.
 GitHub clean / Ready to merge was only mechanical mergeability, and 0 remote
 checks meant `NOT CONFIGURED`, not passed.
 
+The fourth candidate subsequently received Independent Candidate Review
+`PASSED` with 0 blocking findings and 0 non-blocking findings. That PASS was
+content qualification for an Owner Commit Decision only, not PR Review PASS or
+push, merge, closeout, baseline, main, release, or deployment authority. Under
+separate Owner authorizations, commit `15fa0fc88b090a3d2856ed5ed3dbde5b757ed661`
+was created on 2026-08-12 from 14:40 through 14:41 (UTC+8), with parent
+`b3f56130...`, tree `aeb2cb6f...`, the approved provenance message, and exact
+five-file `+155/-34` scope; it was fast-forward pushed at 19:17 (UTC+8), making
+the remote branch and PR #24 Head `15fa0fc88...` while the PR remained open,
+non-Draft, and unmerged.
+
+The full-range Independent PR Re-Review at 19:42-19:46 (UTC+8), over
+`ea46678...15fa0fc88...`, returned `FAILED` with 1 blocking finding and
+0 non-blocking findings. The sole finding was that these five documents omitted
+the Candidate Review PASS, commit, push, and current PR Head provenance; all
+other identity, chain, scope, statistics, format, containment, and unauthorized
+scope checks had no finding. At the later authorized remediation observation,
+the same five local working-tree files formed a post-re-review provenance
+candidate that had not been staged, committed, pushed, added to PR #24, or
+independently reviewed. This observation grants no later Gate authority.
+
 Candidate review, commit, push, PR re-review, and merge are separate Owner Gates.
 Completion or failure of one never authorizes the next. Immediate execution
 authority must be established from the latest Owner instruction and fresh

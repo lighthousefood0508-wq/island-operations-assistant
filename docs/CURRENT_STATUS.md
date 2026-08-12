@@ -31,6 +31,27 @@ Last verified: 2026-08-12 (Asia/Taipei)
   They had not been staged, committed, pushed, added to PR #24, or independently
   reviewed. This is a historical preparation snapshot; later delivery and Gate
   state must be established from current Git/GitHub evidence and Owner authority.
+- That fourth candidate subsequently received an Independent Candidate Review
+  verdict of `PASSED` with 0 blocking and 0 non-blocking findings. This qualified
+  only its content for an Owner Commit Decision; it was not PR Review PASS or
+  push, merge, closeout, baseline, main, release, or deployment authority.
+- Under separate Owner authorizations, commit
+  `15fa0fc88b090a3d2856ed5ed3dbde5b757ed661` was created on 2026-08-12 from
+  14:40 through 14:41 (UTC+8), with parent `b3f56130...`, tree `aeb2cb6f...`,
+  the approved provenance message, and five-file `+155/-34` scope. It was
+  fast-forward pushed at 19:17 (UTC+8), making the remote branch and PR #24 Head
+  `15fa0fc88...`; PR #24 remained OPEN, non-Draft, and unmerged.
+- The full-range Independent PR Re-Review at 19:42-19:46 (UTC+8), over
+  `ea46678...15fa0fc88...`, returned `FAILED` with 1 blocking finding and
+  0 non-blocking findings. The sole finding was omission of Candidate Review
+  PASS, commit, push, and current PR Head provenance from these five documents;
+  no other identity, scope, format, containment, or unauthorized-scope finding
+  was reported. PR #24 did not qualify for Owner Merge Decision.
+- At the later Owner-authorized remediation observation, edits to the same five
+  local working-tree files formed a post-re-review provenance candidate. They
+  had not been staged, committed, pushed, added to PR #24, or independently
+  reviewed. This is a historical observation; later state requires fresh
+  Git/GitHub evidence and Owner authority.
 - These review results grant no commit, push, re-review, merge, or implementation
   authority. Each later action requires its own Owner Gate. Immediate branch,
   PR, and authorization state must be established from current Git/GitHub

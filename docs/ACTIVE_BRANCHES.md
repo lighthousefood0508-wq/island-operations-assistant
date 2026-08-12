@@ -13,9 +13,9 @@ worktree was deleted, rebased, moved, or cleaned by this inventory.
   `ea46678cbb955b7aeb093dc34525c52325af9cae`.
 - Current documentation branch:
   `docs/post-pr23-ingredient-003c-closeout`, created from exact Head
-  `ea46678cbb955b7aeb093dc34525c52325af9cae`. Its original closeout commit
-  `b3f56130eb29d477d82849267c0f8bb801e64e7b` is pushed and carried by OPEN,
-  non-Draft, unmerged PR #24.
+  `ea46678cbb955b7aeb093dc34525c52325af9cae`. Its observed remote tip and OPEN,
+  non-Draft, unmerged PR #24 Head are
+  `15fa0fc88b090a3d2856ed5ed3dbde5b757ed661`.
 - Remote `main`: not present.
 - Local `main`: `2616fc86f5b1e81ba33ea05c71b561a8f0210e36`, unpromoted.
 - `origin/HEAD`: observed pointing to `origin/feature/pr-measure-001` at
@@ -40,7 +40,7 @@ material to PR #23; omission of another branch is not deletion authority.
 | `origin/docs/docs-ros-post-pr11-001-phase-b` | `5f6478d27838f386d4f188d4fd453675bf68a55e` | Yes |
 | `origin/docs/post-pr18-ingredient-003b-closeout-task-card` | `7c80fbd13bb196d9c78e938baeb9625a6658e1d3` | Yes |
 | `origin/docs/post-pr18-ingredient-003b-governance-closeout` | `86772c838cc0eb053e0dbc65953fe23d38d24bd5` | Yes |
-| `origin/docs/post-pr23-ingredient-003c-closeout` | `b3f56130eb29d477d82849267c0f8bb801e64e7b` | No — PR #24 open and unmerged |
+| `origin/docs/post-pr23-ingredient-003c-closeout` | `15fa0fc88b090a3d2856ed5ed3dbde5b757ed661` | No — PR #24 open and unmerged |
 | `origin/docs/pr-ingredient-003-proposal-record` | `850dab8265c8a40e956e1dae39a294c35367ee49` | Yes |
 | `origin/docs/pr-ingredient-003a-task-card` | `d115e1e2446b5a6b12098cb449a38a62d7820ffa` | Yes |
 | `origin/docs/pr-ingredient-003b-task-card` | `3de9b2d3012792353707edde478be706341ba05f` | Yes |
@@ -66,11 +66,16 @@ material to PR #23; omission of another branch is not deletion authority.
 | `origin/governance/ros-post-pr7-documentation-task-card` | `70b6dab1159a3e8f10c951aca4a2992691cdf971` | Yes |
 | `origin/integration/architecture-development` | `ea46678cbb955b7aeb093dc34525c52325af9cae` | Yes |
 
-At the recorded integration Head `ea46678cbb955b7aeb093dc34525c52325af9cae`,
-the PR #24 branch Head `b3f56130eb29d477d82849267c0f8bb801e64e7b`
-was not contained: integration was its first parent, the branch was ahead by one
-commit, and PR #24 remained open and unmerged. Mechanical mergeability did not
-change that containment result.
+At the earlier observation when the PR #24 branch Head was
+`b3f56130eb29d477d82849267c0f8bb801e64e7b`, the recorded integration Head
+`ea46678cbb955b7aeb093dc34525c52325af9cae` was its first parent and the branch
+was ahead by one commit. At the later remote-tip observation shown in the table,
+integration remained an ancestor of branch Head
+`15fa0fc88b090a3d2856ed5ed3dbde5b757ed661`; the branch was ahead by two commits
+and behind by zero, while PR #24 remained open and unmerged. Therefore neither
+observed PR Head was contained by integration. Mechanical mergeability did not
+change either containment result and did not predict a merge commit, future
+integration Head, or merge time.
 
 The 2026-08-12 original Independent PR Review of PR #24 returned `FAILED` with
 5 blocking findings and 0 non-blocking findings, all concerning stale
@@ -91,11 +96,38 @@ working-tree files formed a fourth review-provenance remediation candidate. It
 had not been committed, pushed, added to PR #24, or independently reviewed.
 That statement records the preparation observation rather than permanent
 execution state; later state must be verified from Git, GitHub, and the latest
-Owner instruction. Candidate review, commit, push, PR re-review, and merge
-remain separate Owner Gates. Remote checks at the original PR review were
-`NOT CONFIGURED`; GitHub's clean / Ready to merge state recorded mechanical
-mergeability only. Both this closeout branch and the Ingredient 003C feature
-branch remain protected from cleanup.
+Owner instruction.
+
+That fourth candidate then received an Independent Candidate Review verdict of
+`PASSED` with 0 blocking findings and 0 non-blocking findings. The PASS qualified
+only its content for an Owner Commit Decision; it was not a PR Review PASS or
+push, merge, closeout, baseline, main, release, or deployment authority. Under
+separate Owner authorizations, commit
+`15fa0fc88b090a3d2856ed5ed3dbde5b757ed661` was created on 2026-08-12 from
+14:40 through 14:41 (UTC+8), with parent `b3f56130...`, tree `aeb2cb6f...`,
+message `docs(ingredient): preserve 003c closeout review provenance`, and an
+exact five-file `+155/-34` scope; it was then fast-forward pushed at 19:17
+(UTC+8). The remote branch and PR #24 Head became `15fa0fc88...`, while PR #24
+remained open, non-Draft, and unmerged.
+
+The subsequent full-range Independent PR Re-Review, conducted on 2026-08-12
+from 19:42 through 19:46 (UTC+8) over `ea46678...15fa0fc88...`, returned
+`FAILED` with 1 blocking finding and 0 non-blocking findings. Its sole finding
+was that these five current-state documents omitted the Candidate Review PASS,
+commit, push, and Head provenance; identity, chain, 13-path scope, statistics,
+format, containment boundaries, and unauthorized-scope checks had no other
+finding. The reviewer made no repository or GitHub change, and PR #24 did not
+qualify for Owner Merge Decision.
+
+At the later Owner-authorized remediation observation, edits to these same five
+local working-tree files formed a post-re-review provenance candidate. They had
+not been staged, committed, pushed, added to PR #24, or independently reviewed.
+This is a historical observation, not permanent execution state; later state
+must be verified from Git, GitHub, and the latest Owner instruction. Candidate
+review, commit, push, PR re-review, and merge remain separate Owner Gates.
+Remote checks were `NOT CONFIGURED`; GitHub's clean / Ready to merge state
+recorded mechanical mergeability only. Both this closeout branch and the
+Ingredient 003C feature branch remain protected from cleanup.
 
 ## Worktrees actually observed
 

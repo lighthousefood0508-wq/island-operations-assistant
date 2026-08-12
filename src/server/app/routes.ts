@@ -4,6 +4,13 @@ import path from "node:path";
 import { CatalogService } from "../../domains/catalog/index.js";
 import { LifecycleService, OperationsService, OrderService, PaymentService } from "../../domains/operations/index.js";
 import { HttpError } from "../../shared/errors/http-error.js";
+import {
+  CanonicalIngredientReferenceImpactNotFound,
+  CanonicalIngredientReferenceImpactReadFailure,
+  CanonicalIngredientReferenceImpactService,
+  CanonicalIngredientReferenceImpactValidationFailure,
+  type CanonicalIngredientReferenceImpactV1
+} from "../../application/canonical-ingredient-reference-impact-service.js";
 import { SseHub } from "../events/sse.js";
 import { renderAnalysisPlaceholder } from "../../web/analysis/page.js";
 import { renderCatalogAdmin } from "../../web/catalog/page.js";
@@ -29,6 +36,7 @@ type Services = Readonly<{
   payments: PaymentService;
   lifecycle: LifecycleService;
   canonicalIngredients: CanonicalIngredientManagementService;
+  canonicalIngredientReferenceImpact: CanonicalIngredientReferenceImpactService;
   costBackOffice: CostBackOfficeService;
 }>;
 
@@ -87,6 +95,40 @@ function telemetryPart(value: string | null, fallback: string): string {
   return /^[A-Za-z0-9-]{1,32}$/.test(value || "") ? value as string : fallback;
 }
 
+function readReferenceImpact(
+  service: CanonicalIngredientReferenceImpactService,
+  encodedIngredientId: string
+): CanonicalIngredientReferenceImpactV1 {
+  let ingredientId: string;
+  try {
+    ingredientId = decodeURIComponent(encodedIngredientId);
+  } catch {
+    throw new HttpError(
+      422,
+      "CANONICAL_INGREDIENT_REFERENCE_IMPACT_VALIDATION_FAILURE",
+      "Canonical Ingredient Reference Impact identity is invalid."
+    );
+  }
+  try {
+    return service.getByIngredientId(ingredientId);
+  } catch (error) {
+    if (error instanceof CanonicalIngredientReferenceImpactValidationFailure) {
+      throw new HttpError(422, error.code, error.message);
+    }
+    if (error instanceof CanonicalIngredientReferenceImpactNotFound) {
+      throw new HttpError(404, error.code, error.message);
+    }
+    if (error instanceof CanonicalIngredientReferenceImpactReadFailure) {
+      throw new HttpError(500, error.code, error.message);
+    }
+    throw new HttpError(
+      500,
+      "internal_error",
+      "An unexpected server error occurred."
+    );
+  }
+}
+
 export function createRoute(services: Services, events: SseHub): (request: IncomingMessage, response: ServerResponse) => void {
   return (request, response) => { void route(request, response, services, events); };
 }
@@ -141,6 +183,22 @@ async function route(request: IncomingMessage, response: ServerResponse, service
         200,
         services.canonicalIngredients.getById(
           canonicalIngredientDetailMatch[1]
+        )
+      );
+    }
+    const canonicalIngredientReferenceImpactMatch = pathname.match(
+      /^\/api\/admin\/canonical-ingredients\/([^/]+)\/reference-impact$/
+    );
+    if (
+      request.method === "GET"
+      && canonicalIngredientReferenceImpactMatch?.[1]
+    ) {
+      return success(
+        response,
+        200,
+        readReferenceImpact(
+          services.canonicalIngredientReferenceImpact,
+          canonicalIngredientReferenceImpactMatch[1]
         )
       );
     }

@@ -115,3 +115,7 @@ export {
   type RecipeCostEvaluationResultV1
 } from "./domain/recipe-cost-evaluation.js";
 export { RecipeCostEvaluationError } from "./application/recipe-cost-evaluation-errors.js";
+export type {
+  CostIngredientQuoteReferenceImpactReadModelV1,
+  CostIngredientReferenceImpactReadPort
+} from "./domain/ingredient-reference-impact-read-port.js";

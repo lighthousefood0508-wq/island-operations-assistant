@@ -239,3 +239,9 @@ export {
 export {
   CanonicalIngredientManagementReadService
 } from "./ingredient-catalog/application/canonical-ingredient-management-read-service.js";
+export type {
+  RecipeDraftIngredientReferenceV1,
+  RecipeIngredientReferenceImpactReadModelV1,
+  RecipeIngredientReferenceImpactReadPort,
+  RecipePublishedIngredientReferenceV1
+} from "./domain/ingredient-reference-impact-read-port.js";

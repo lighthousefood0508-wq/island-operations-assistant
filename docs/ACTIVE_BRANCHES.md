@@ -11,11 +11,12 @@ worktree was deleted, rebased, moved, or cleaned by this inventory.
 - Owner-Accepted Architecture Development Baseline and remote
   `integration/architecture-development` Head after PR #23:
   `ea46678cbb955b7aeb093dc34525c52325af9cae`.
-- Current documentation branch:
+- Active documentation delivery branch:
   `docs/post-pr23-ingredient-003c-closeout`, created from exact Head
-  `ea46678cbb955b7aeb093dc34525c52325af9cae`. Its observed remote tip and OPEN,
-  non-Draft, unmerged PR #24 Head are
-  `15fa0fc88b090a3d2856ed5ed3dbde5b757ed661`.
+  `ea46678cbb955b7aeb093dc34525c52325af9cae`. This tracked inventory
+  intentionally does not freeze its current remote tip or PR #24 Head: a commit
+  carrying this file necessarily advances that identity. The live tip, PR state,
+  and ahead/behind counts must be read from fresh Git and GitHub evidence.
 - Remote `main`: not present.
 - Local `main`: `2616fc86f5b1e81ba33ea05c71b561a8f0210e36`, unpromoted.
 - `origin/HEAD`: observed pointing to `origin/feature/pr-measure-001` at
@@ -40,7 +41,7 @@ material to PR #23; omission of another branch is not deletion authority.
 | `origin/docs/docs-ros-post-pr11-001-phase-b` | `5f6478d27838f386d4f188d4fd453675bf68a55e` | Yes |
 | `origin/docs/post-pr18-ingredient-003b-closeout-task-card` | `7c80fbd13bb196d9c78e938baeb9625a6658e1d3` | Yes |
 | `origin/docs/post-pr18-ingredient-003b-governance-closeout` | `86772c838cc0eb053e0dbc65953fe23d38d24bd5` | Yes |
-| `origin/docs/post-pr23-ingredient-003c-closeout` | `15fa0fc88b090a3d2856ed5ed3dbde5b757ed661` | No — PR #24 open and unmerged |
+| `origin/docs/post-pr23-ingredient-003c-closeout` | `15fa0fc88b090a3d2856ed5ed3dbde5b757ed661` (historical observation before later correction commits) | No at that observation — PR #24 open and unmerged |
 | `origin/docs/pr-ingredient-003-proposal-record` | `850dab8265c8a40e956e1dae39a294c35367ee49` | Yes |
 | `origin/docs/pr-ingredient-003a-task-card` | `d115e1e2446b5a6b12098cb449a38a62d7820ffa` | Yes |
 | `origin/docs/pr-ingredient-003b-task-card` | `3de9b2d3012792353707edde478be706341ba05f` | Yes |
@@ -69,13 +70,17 @@ material to PR #23; omission of another branch is not deletion authority.
 At the earlier observation when the PR #24 branch Head was
 `b3f56130eb29d477d82849267c0f8bb801e64e7b`, the recorded integration Head
 `ea46678cbb955b7aeb093dc34525c52325af9cae` was its first parent and the branch
-was ahead by one commit. At the later remote-tip observation shown in the table,
+was ahead by one commit. At the later historical observation shown in the table,
 integration remained an ancestor of branch Head
 `15fa0fc88b090a3d2856ed5ed3dbde5b757ed661`; the branch was ahead by two commits
-and behind by zero, while PR #24 remained open and unmerged. Therefore neither
-observed PR Head was contained by integration. Mechanical mergeability did not
-change either containment result and did not predict a merge commit, future
-integration Head, or merge time.
+and behind by zero, while PR #24 remained open and unmerged. At the subsequent
+pre-remediation observation, the remote branch and PR Head were
+`b4fcf0fa0d4998f8ff8bd0ce233374b46df647d1`, integration remained its ancestor,
+and the branch was ahead by three commits and behind by zero. None of these
+historical PR Heads was contained by integration. Mechanical mergeability did
+not change any containment result and did not predict a merge commit, future
+integration Head, or merge time. This document makes no assertion that any one
+of those historical SHAs remains the live tip after its own later commits.
 
 The 2026-08-12 original Independent PR Review of PR #24 returned `FAILED` with
 5 blocking findings and 0 non-blocking findings, all concerning stale
@@ -125,6 +130,27 @@ not been staged, committed, pushed, added to PR #24, or independently reviewed.
 This is a historical observation, not permanent execution state; later state
 must be verified from Git, GitHub, and the latest Owner instruction. Candidate
 review, commit, push, PR re-review, and merge remain separate Owner Gates.
+
+That candidate later received the exact Independent Corrected Candidate Review
+verdict `PASSED` with 0 blocking findings and 0 non-blocking findings. Under
+separate Owner authorizations, commit
+`b4fcf0fa0d4998f8ff8bd0ce233374b46df647d1` was created with parent
+`15fa0fc88...`, tree `8380900e...`, message
+`docs(ingredient): correct closeout post-review provenance`, and the exact five
+reviewed files at `+118/-15`; it was then fast-forward pushed. The next full
+Independent PR Re-Review returned `FAILED` with 1 blocking finding and
+0 non-blocking findings solely because this file still described historical
+Head `15fa0fc88...` as the current remote and PR tip. All other final-range
+identity, commit-chain, 13-document scope, blob, chronology, governance-boundary,
+format, and excluded-scope checks passed.
+
+At the following Owner-authorized remediation observation, the correction was
+limited to this branch inventory. It converts tip identities into explicitly
+historical observations and delegates all live-tip and PR-state decisions to
+fresh Git/GitHub evidence. This statement does not claim that the correction is
+committed, pushed, present in PR #24, reviewed, merged, or effective; those later
+facts remain governed by their separate Gates and current external evidence.
+
 Remote checks were `NOT CONFIGURED`; GitHub's clean / Ready to merge state
 recorded mechanical mergeability only. Both this closeout branch and the
 Ingredient 003C feature branch remain protected from cleanup.

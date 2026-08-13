@@ -7,6 +7,13 @@ import type {
   VersionedRecipeAggregate
 } from "../domain/recipe-repository.js";
 import type {
+  RecipeDraftIngredientReferenceV1,
+  RecipeIngredientReferenceImpactReadModelV1,
+  RecipeIngredientReferenceImpactReadPort,
+  RecipePublishedIngredientReferenceV1
+} from "../domain/ingredient-reference-impact-read-port.js";
+import type {
+  IngredientReferenceId,
   RecipeDraftId,
   RecipeId,
   RecipeVersionId
@@ -281,7 +288,9 @@ function supersessionAudit(
   });
 }
 
-export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
+export class SqliteRecipeRepository implements
+  RecipeBackOfficeRepository,
+  RecipeIngredientReferenceImpactReadPort {
   constructor(
     private readonly database: DatabaseAdapter,
     private readonly mapper = new RecipePersistenceMapper()
@@ -510,6 +519,51 @@ export class SqliteRecipeRepository implements RecipeBackOfficeRepository {
       })));
     } catch (error) {
       return this.mapFailure("list Recipes", error);
+    }
+  }
+
+  findIngredientReferences(
+    ingredientId: IngredientReferenceId
+  ): RecipeIngredientReferenceImpactReadModelV1 {
+    try {
+      const draftReferences = this.database.queryMany<
+        RecipeDraftIngredientReferenceV1
+      >(
+        `SELECT
+           d.recipe_id AS recipeId,
+           l.draft_id AS draftId,
+           l.recipe_line_id AS recipeLineId
+         FROM recipe_draft_lines l
+         JOIN recipe_drafts d
+           ON d.draft_id = l.draft_id
+         WHERE l.ingredient_id = ?
+         ORDER BY d.recipe_id ASC, l.draft_id ASC, l.recipe_line_id ASC`,
+        [ingredientId.value]
+      );
+      const publishedReferences = this.database.queryMany<
+        RecipePublishedIngredientReferenceV1
+      >(
+        `SELECT
+           v.recipe_id AS recipeId,
+           l.recipe_version_id AS recipeVersionId,
+           l.recipe_line_id AS recipeLineId
+         FROM recipe_version_lines l
+         JOIN recipe_versions v
+           ON v.recipe_version_id = l.recipe_version_id
+         WHERE l.ingredient_id = ?
+         ORDER BY v.recipe_id ASC,
+                  l.recipe_version_id ASC,
+                  l.recipe_line_id ASC`,
+        [ingredientId.value]
+      );
+      return Object.freeze({
+        contractName: "RecipeIngredientReferenceImpact",
+        contractVersion: 1,
+        draftReferences: Object.freeze(draftReferences),
+        publishedReferences: Object.freeze(publishedReferences)
+      });
+    } catch (error) {
+      return this.mapFailure("find Recipe Ingredient references", error);
     }
   }
 

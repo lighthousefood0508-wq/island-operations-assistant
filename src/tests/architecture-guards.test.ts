@@ -933,12 +933,24 @@ test("Canonical Ingredient internals remain behind the published contract", () =
   const accepted003BMarker = "export {\n  CanonicalIngredientManagementReadService";
   const accepted003BOffset = publicIndexSource.indexOf(accepted003BMarker);
   assert.notEqual(accepted003BOffset, -1, "Recipe index publishes the 003B read Service.");
+  const accepted003DMarker =
+    "export type {\n  RecipeDraftIngredientReferenceV1,";
+  const accepted003DOffset = publicIndexSource.indexOf(accepted003DMarker);
+  assert.notEqual(
+    accepted003DOffset,
+    -1,
+    "Recipe index publishes the 003D Recipe-owned read boundary."
+  );
   const pre003APublicIndex = publicIndexSource.slice(0, accepted003AOffset);
   const accepted003ASurface = publicIndexSource.slice(
     accepted003AOffset,
     accepted003BOffset
   );
-  const accepted003BSurface = publicIndexSource.slice(accepted003BOffset);
+  const accepted003BSurface = publicIndexSource.slice(
+    accepted003BOffset,
+    accepted003DOffset
+  );
+  const accepted003DSurface = publicIndexSource.slice(accepted003DOffset);
   assert.equal(
     createHash("sha256").update(pre003APublicIndex).digest("hex"),
     "4f55d49ff0c054ff66ba802489f4e5bd832d4405dfe7c4c09470076a0ff8e616",
@@ -974,6 +986,16 @@ export {
     `export {
   CanonicalIngredientManagementReadService
 } from "./ingredient-catalog/application/canonical-ingredient-management-read-service.js";
+`
+  );
+  assert.equal(
+    accepted003DSurface,
+    `export type {
+  RecipeDraftIngredientReferenceV1,
+  RecipeIngredientReferenceImpactReadModelV1,
+  RecipeIngredientReferenceImpactReadPort,
+  RecipePublishedIngredientReferenceV1
+} from "./domain/ingredient-reference-impact-read-port.js";
 `
   );
   assert.match(pre003APublicIndex, /canonical-ingredient-contract/);
@@ -1069,6 +1091,21 @@ export {
     "src/tests/canonical-ingredient-lifecycle-api.integration.test.ts",
     "src/tests/architecture-guards.test.ts"
   ]);
+  const approved003DPaths = new Set([
+    "src/application/canonical-ingredient-reference-impact-service.ts",
+    "src/domains/recipe/domain/ingredient-reference-impact-read-port.ts",
+    "src/domains/recipe/infrastructure/sqlite-recipe-repository.ts",
+    "src/domains/recipe/index.ts",
+    "src/domains/cost/domain/ingredient-reference-impact-read-port.ts",
+    "src/domains/cost/infrastructure/sqlite-cost-repository.ts",
+    "src/domains/cost/index.ts",
+    "src/server/app/routes.ts",
+    "src/server/index.ts",
+    "src/tests/canonical-ingredient-reference-impact-application.test.ts",
+    "src/tests/canonical-ingredient-reference-impact-persistence.integration.test.ts",
+    "src/tests/canonical-ingredient-reference-impact-api.integration.test.ts",
+    "src/tests/architecture-guards.test.ts"
+  ]);
   const approved003BResponsibilities = new Map<string, readonly RegExp[]>([
     [
       "src/domains/recipe/ingredient-catalog/canonical-ingredient-repository.ts",
@@ -1151,6 +1188,7 @@ export {
     const relative = path.relative(projectRoot, filename).replaceAll("\\", "/");
     assert.equal(
       approved003BPaths.has(relative)
+        || approved003DPaths.has(relative)
         || relative === "src/web/ingredients/page.ts",
       true,
       `${relative} contains 003B implementation outside its accepted authority or the authorized 003C UI consumer.`
@@ -1225,13 +1263,13 @@ export {
   const routesSource = readFileSync(routes, "utf8");
   assert.equal(
     Array.from(routesSource.matchAll(/canonical-ingredients/g)).length,
-    4,
-    "Exactly four route registrations own the six accepted management behaviors."
+    5,
+    "Four 003B registrations plus the single 003D Reference Impact registration are allowed."
   );
   assert.equal(
     Array.from(routesSource.matchAll(/ingredients/g)).length,
-    7,
-    "Routes may contain only the four accepted management API registrations, the existing Cost creation route, and the 003C page import plus route."
+    8,
+    "Routes may add only the accepted 003D GET registration to the prior Ingredient routes."
   );
   assert.match(
     routesSource,
@@ -1364,6 +1402,245 @@ export {
       "packageSize"
     ],
     ingredientContract
+  );
+});
+
+test("Ingredient 003D Reference Impact stays read-only behind Domain-owned public ports", () => {
+  const approvedPaths = new Set([
+    "src/application/canonical-ingredient-reference-impact-service.ts",
+    "src/domains/recipe/domain/ingredient-reference-impact-read-port.ts",
+    "src/domains/recipe/infrastructure/sqlite-recipe-repository.ts",
+    "src/domains/recipe/index.ts",
+    "src/domains/cost/domain/ingredient-reference-impact-read-port.ts",
+    "src/domains/cost/infrastructure/sqlite-cost-repository.ts",
+    "src/domains/cost/index.ts",
+    "src/server/app/routes.ts",
+    "src/server/index.ts",
+    "src/tests/canonical-ingredient-reference-impact-application.test.ts",
+    "src/tests/canonical-ingredient-reference-impact-persistence.integration.test.ts",
+    "src/tests/canonical-ingredient-reference-impact-api.integration.test.ts",
+    "src/tests/architecture-guards.test.ts"
+  ]);
+  assert.equal(approvedPaths.size, 13);
+
+  const markerFiles = filesUnder(sourceRoot, [".ts", ".tsx"])
+    .filter((filename) =>
+      /IngredientReferenceImpact|reference-impact/.test(
+        readFileSync(filename, "utf8")
+      )
+    )
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .sort();
+  assert.deepEqual(
+    markerFiles,
+    [...approvedPaths].sort(),
+    "003D implementation markers must remain inside the exact thirteen paths."
+  );
+
+  const applicationRoot = path.join(sourceRoot, "application");
+  const applicationService = path.join(
+    applicationRoot,
+    "canonical-ingredient-reference-impact-service.ts"
+  );
+  assert.deepEqual(filesUnder(applicationRoot, [".ts"]), [applicationService]);
+  const applicationSource = readFileSync(applicationService, "utf8");
+  const recipePublicIndex = path.join(sourceRoot, "domains", "recipe", "index.ts");
+  const costPublicIndex = path.join(sourceRoot, "domains", "cost", "index.ts");
+  assert.deepEqual(
+    importedSpecifiers(applicationService)
+      .map((specifier) => resolveSourceImport(applicationService, specifier))
+      .filter((target): target is string => target !== null)
+      .sort(),
+    [costPublicIndex, recipePublicIndex].sort(),
+    "The neutral coordinator may consume only Recipe and Cost public indexes."
+  );
+  assert.doesNotMatch(
+    applicationSource,
+    /shared\/database|infrastructure|persistence|DatabaseAdapter|SELECT\s|INSERT\s|UPDATE\s|DELETE\s|transaction/i
+  );
+  assert.doesNotMatch(
+    applicationSource,
+    /\bcause\b|rawError|cost_purchases|cost_purchase_items|CostSnapshotRepository/
+  );
+  assert.match(
+    applicationSource,
+    /Pick<[\s\S]*CanonicalIngredientManagementReadService[\s\S]*"getById"/
+  );
+  for (const code of [
+    "CANONICAL_INGREDIENT_REFERENCE_IMPACT_VALIDATION_FAILURE",
+    "CANONICAL_INGREDIENT_REFERENCE_IMPACT_NOT_FOUND",
+    "CANONICAL_INGREDIENT_REFERENCE_IMPACT_READ_FAILURE"
+  ]) assert.match(applicationSource, new RegExp(code));
+  assert.match(applicationSource, /availability: "Unavailable"/);
+  assert.match(applicationSource, /status: "Indeterminate"/);
+  assert.match(applicationSource, /blocked: true/);
+
+  const recipePort = path.join(
+    sourceRoot,
+    "domains",
+    "recipe",
+    "domain",
+    "ingredient-reference-impact-read-port.ts"
+  );
+  const costPort = path.join(
+    sourceRoot,
+    "domains",
+    "cost",
+    "domain",
+    "ingredient-reference-impact-read-port.ts"
+  );
+  assert.deepEqual(importedSpecifiers(recipePort), ["./identities.js"]);
+  assert.deepEqual(importedSpecifiers(costPort), ["./identities.js"]);
+  assertNoTerms(
+    readFileSync(recipePort, "utf8"),
+    ["domains/cost", "sqlite", "database", "purchase", "snapshot"],
+    recipePort
+  );
+  assertNoTerms(
+    readFileSync(costPort, "utf8"),
+    ["domains/recipe", "sqlite", "database", "purchase", "snapshot"],
+    costPort
+  );
+
+  const recipeSqlite = path.join(
+    sourceRoot,
+    "domains",
+    "recipe",
+    "infrastructure",
+    "sqlite-recipe-repository.ts"
+  );
+  const costSqlite = path.join(
+    sourceRoot,
+    "domains",
+    "cost",
+    "infrastructure",
+    "sqlite-cost-repository.ts"
+  );
+  const recipeSqliteSource = readFileSync(recipeSqlite, "utf8").replaceAll(
+    "\r\n",
+    "\n"
+  );
+  const costSqliteSource = readFileSync(costSqlite, "utf8").replaceAll(
+    "\r\n",
+    "\n"
+  );
+  assert.match(
+    recipeSqliteSource,
+    /implements[\s\S]{0,100}RecipeIngredientReferenceImpactReadPort/
+  );
+  assert.match(
+    costSqliteSource,
+    /implements[\s\S]{0,100}CostIngredientReferenceImpactReadPort/
+  );
+  const recipeRead = recipeSqliteSource.match(
+    /findIngredientReferences\([\s\S]*?\n  }\n\n  private rawRecipe/
+  )?.[0] ?? "";
+  const costRead = costSqliteSource.match(
+    /findIngredientQuoteReferences\([\s\S]*?\n  }\n\n  findEffectiveQuoteAt/
+  )?.[0] ?? "";
+  assert.match(recipeRead, /recipe_draft_lines/);
+  assert.match(recipeRead, /recipe_version_lines/);
+  assert.equal(Array.from(recipeRead.matchAll(/queryMany</g)).length, 2);
+  assert.doesNotMatch(recipeRead, /cost_|purchase|snapshot/i);
+  assert.match(costRead, /cost_ingredient_cost_quotes/);
+  assert.equal(Array.from(costRead.matchAll(/queryMany</g)).length, 1);
+  assert.doesNotMatch(costRead, /recipe_|cost_purchases|cost_purchase_items/);
+
+  const recipeIndexSource = readFileSync(recipePublicIndex, "utf8")
+    .replaceAll("\r\n", "\n");
+  assert.match(
+    recipeIndexSource,
+    /RecipeIngredientReferenceImpactReadPort[\s\S]*ingredient-reference-impact-read-port/
+  );
+  assert.doesNotMatch(recipeIndexSource, /SqliteRecipeRepository/);
+  const costIndexSource = readFileSync(costPublicIndex, "utf8")
+    .replaceAll("\r\n", "\n");
+  const cost003DMarker =
+    "export type {\n  CostIngredientQuoteReferenceImpactReadModelV1,";
+  const cost003DOffset = costIndexSource.indexOf(cost003DMarker);
+  assert.notEqual(cost003DOffset, -1);
+  assert.equal(
+    createHash("sha256")
+      .update(costIndexSource.slice(0, cost003DOffset))
+      .digest("hex"),
+    "1291045098fda42d9e1001cdbb2fecf02710fcd6afced7b3a3c628c4d34d4aba",
+    "003D must preserve the complete pre-existing Cost public index."
+  );
+  assert.equal(
+    costIndexSource.slice(cost003DOffset),
+    `export type {
+  CostIngredientQuoteReferenceImpactReadModelV1,
+  CostIngredientReferenceImpactReadPort
+} from "./domain/ingredient-reference-impact-read-port.js";
+`
+  );
+
+  const routes = path.join(sourceRoot, "server", "app", "routes.ts");
+  const serverIndex = path.join(sourceRoot, "server", "index.ts");
+  const routeSource = readFileSync(routes, "utf8");
+  const serverSource = readFileSync(serverIndex, "utf8");
+  assert.equal(
+    routeSource
+      .split(/\r?\n/)
+      .filter(
+        (line) => line.trim()
+          === String.raw`/^\/api\/admin\/canonical-ingredients\/([^/]+)\/reference-impact$/`
+      ).length,
+    1,
+    "Exactly one production Reference Impact route is authorized."
+  );
+  assert.match(
+    routeSource,
+    /request\.method === "GET"[\s\S]{0,180}canonicalIngredientReferenceImpactMatch/
+  );
+  assert.doesNotMatch(
+    routeSource,
+    /request\.method === "(?:POST|PUT|PATCH|DELETE)"[\s\S]{0,180}reference-impact/
+  );
+  assert.match(serverSource, /new CanonicalIngredientReferenceImpactService/);
+  assert.match(serverSource, /new SqliteRecipeRepository/);
+  assert.match(serverSource, /new SqliteCostRepository/);
+  assertNoTerms(
+    routeSource,
+    ["better-sqlite3", "SELECT ", "INSERT ", "UPDATE ", "DELETE FROM"],
+    routes
+  );
+
+  const webFiles = filesUnder(path.join(sourceRoot, "web"), [".ts", ".tsx"]);
+  for (const filename of webFiles) {
+    assert.doesNotMatch(
+      readFileSync(filename, "utf8"),
+      /reference-impact|ReferenceImpact/,
+      "003D must not add Reference Impact UI or navigation."
+    );
+  }
+
+  for (const filename of [applicationService, recipePort, costPort, routes, serverIndex]) {
+    assert.doesNotMatch(
+      readFileSync(filename, "utf8"),
+      /cost_purchases|cost_purchase_items|reactivate|aliases|mergeIngredient|deleteIngredient/i
+    );
+  }
+
+  const migration017 = Buffer.from(
+    readFileSync(
+      path.join(
+        projectRoot,
+        "migrations",
+        "017_recipe_persistence_line_identity_and_publication_uow.sql"
+      ),
+      "utf8"
+    ).replaceAll("\r\n", "\n"),
+    "utf8"
+  );
+  const migration017Blob = createHash("sha1")
+    .update(`blob ${migration017.byteLength}\0`)
+    .update(migration017)
+    .digest("hex");
+  assert.equal(
+    migration017Blob,
+    "15deca8cba48a2ce342561d0faf78e3f89d3ae4c",
+    "Ingredient 003D must not change Migration 017."
   );
 });
 

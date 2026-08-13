@@ -10,6 +10,9 @@ import {
   CanonicalIngredientLifecycleService,
   CanonicalIngredientManagementReadService
 } from "../domains/recipe/index.js";
+import { SqliteRecipeRepository } from "../domains/recipe/infrastructure/sqlite-recipe-repository.js";
+import { SqliteCostRepository } from "../domains/cost/infrastructure/sqlite-cost-repository.js";
+import { CanonicalIngredientReferenceImpactService } from "../application/canonical-ingredient-reference-impact-service.js";
 import {
   SqliteCanonicalIngredientRepository
 } from "../domains/recipe/ingredient-catalog/infrastructure/sqlite-canonical-ingredient-repository.js";
@@ -31,12 +34,19 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
   const lifecycle = new LifecycleService(new LifecycleRepository(database));
   const canonicalIngredientRepository =
     new SqliteCanonicalIngredientRepository(database);
+  const canonicalIngredientReads = new CanonicalIngredientManagementReadService(
+    canonicalIngredientRepository
+  );
   const canonicalIngredients = new CanonicalIngredientManagementService(
-    new CanonicalIngredientManagementReadService(
-      canonicalIngredientRepository
-    ),
+    canonicalIngredientReads,
     new CanonicalIngredientLifecycleService(canonicalIngredientRepository)
   );
+  const canonicalIngredientReferenceImpact =
+    new CanonicalIngredientReferenceImpactService(
+      canonicalIngredientReads,
+      new SqliteRecipeRepository(database),
+      new SqliteCostRepository(database)
+    );
   const costBackOffice = new CostBackOfficeService(database);
   const events = new SseHub();
   const server = createServer(createRoute({
@@ -46,6 +56,7 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
     payments,
     lifecycle,
     canonicalIngredients,
+    canonicalIngredientReferenceImpact,
     costBackOffice
   }, events));
   server.on("close", () => database.close());

@@ -4,6 +4,10 @@ import {
   type CostRepository,
   type EffectiveIngredientCostQuoteLookup
 } from "../domain/cost-repository.js";
+import type {
+  CostIngredientQuoteReferenceImpactReadModelV1,
+  CostIngredientReferenceImpactReadPort
+} from "../domain/ingredient-reference-impact-read-port.js";
 import { CostDomainError, IngredientCostQuoteVersionConflict } from "../domain/errors.js";
 import { IngredientCostQuote } from "../domain/ingredient-cost-quote.js";
 import { IngredientCostQuoteId, IngredientId } from "../domain/identities.js";
@@ -84,7 +88,9 @@ function mapTechnicalFailure(operation: string, error: unknown): never {
   throw new CostPersistenceFailure(operation, error);
 }
 
-export class SqliteCostRepository implements CostRepository {
+export class SqliteCostRepository implements
+  CostRepository,
+  CostIngredientReferenceImpactReadPort {
   constructor(private readonly database: DatabaseAdapter) {}
 
   save(quote: IngredientCostQuote): void {
@@ -226,6 +232,30 @@ export class SqliteCostRepository implements CostRepository {
       return Object.freeze(rows.map((row) => this.hydrate(row, new Set())));
     } catch (error) {
       return mapTechnicalFailure("find Ingredient Cost Quote history", error);
+    }
+  }
+
+  findIngredientQuoteReferences(
+    ingredientId: IngredientId
+  ): CostIngredientQuoteReferenceImpactReadModelV1 {
+    try {
+      const rows = this.database.queryMany<{ quoteId: string }>(
+        `SELECT quote_id AS quoteId
+           FROM cost_ingredient_cost_quotes
+          WHERE ingredient_id = ?
+          ORDER BY quote_id ASC`,
+        [ingredientId.value]
+      );
+      return Object.freeze({
+        contractName: "CostIngredientQuoteReferenceImpact",
+        contractVersion: 1,
+        quoteIds: Object.freeze(rows.map((row) => row.quoteId))
+      });
+    } catch (error) {
+      return mapTechnicalFailure(
+        "find Ingredient Cost Quote references",
+        error
+      );
     }
   }
 

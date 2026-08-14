@@ -22,6 +22,30 @@
 
 ## Approval Register
 
+- **DECISIONS #072 - Canonical Ingredient Creation Application Boundary**
+  - **Date**: 2026-08-14.
+  - **Status**: APPROVED by Architecture Owner for the Ingredient 003F architecture and Task Card boundary. Implementation remains separately gated.
+  - **Single responsibility**:
+    - Canonical Ingredient Identity Authority owns one synchronous creation Application use case.
+    - The existing `POST /api/admin/cost/ingredients` remains the sole existing creation-composition facade. Cost Back Office may orchestrate that endpoint, but must delegate creation and must not own or rewrite Canonical Ingredient creation business rules.
+  - **Application boundary**:
+    - The Creation Service may coordinate input validation, Canonical Ingredient UUID identity creation, Aggregate construction, `saveNew`, and typed Application result or failure.
+    - It must not depend on SQLite, BetterSqlite3, infrastructure-specific error types, or Cost-domain business authority.
+    - Cost Back Office must not create a Canonical Ingredient UUID, construct the Canonical Ingredient Aggregate, or directly call Canonical Ingredient `saveNew`.
+  - **Behavior and failure boundary**:
+    - Creation produces one new immutable `ing_<uuid>` identity in `Active` status through existing Canonical Ingredient validation and invariants.
+    - Equal or normalized names remain allowed duplicate candidates only; they establish no identity, uniqueness, merge, alias, or automatic identity-resolution rule.
+    - Validation failure writes nothing. Persistence failure crosses only the typed safe boundary; raw SQLite, Database, stack, cause, or persistence detail must not enter an HTTP response.
+    - The existing Cost creation HTTP contract remains unchanged. No `POST /api/admin/canonical-ingredients` route is approved.
+  - **Exact implementation boundary**:
+    - The Owner-approved PR-INGREDIENT-003F Task Card fixes an exact nine-path allowlist: Creation Service, Creation errors, Recipe public export, Cost Back Office delegation, composition, focused Application and Cost API tests, Architecture Guard, and existing Cost Back Office E2E evidence.
+    - No Repository Port redesign, Aggregate redesign, SQLite adapter redesign, migration, schema, package, UI, navigation, API route, or Roadmap/status synchronization is approved.
+  - **Explicitly excluded**:
+    - Delete, Reactivate, Merge, aliases, lifecycle mutation, Reference Impact semantics, Purchase authority, Cost Snapshot persistence, legacy `cost_purchases` promotion, Recipe or Cost calculation, authentication, authorization, 003G, `main` promotion, release, and deployment.
+  - **Authorization boundary**:
+    - This Decision authorizes recording this Decision and the dedicated PR-INGREDIENT-003F Task Card only.
+    - Implementation branch creation, production or test modification, staging, implementation commit, push, PR creation, merge, other Ingredient work, `main` promotion, release, and deployment require later, explicit Owner authorization.
+
 - **DECISIONS #071 - Canonical Ingredient Reference Impact Read Model**
   - **Date**: 2026-08-13.
   - **Status**: APPROVED by Architecture Owner for the Ingredient 003D architecture and Task Card boundary. Implementation remains separately gated.

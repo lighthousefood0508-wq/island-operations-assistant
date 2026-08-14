@@ -7,6 +7,7 @@ import { runMigrations } from "../shared/database/migrate.js";
 import { CatalogRepository, CatalogService } from "../domains/catalog/index.js";
 import { LifecycleRepository, LifecycleService, OperationsRepository, OperationsService, OrderRepository, OrderService, PaymentRepository, PaymentService } from "../domains/operations/index.js";
 import {
+  CanonicalIngredientCreationService,
   CanonicalIngredientLifecycleService,
   CanonicalIngredientManagementReadService
 } from "../domains/recipe/index.js";
@@ -47,7 +48,13 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
       new SqliteRecipeRepository(database),
       new SqliteCostRepository(database)
     );
-  const costBackOffice = new CostBackOfficeService(database);
+  const canonicalIngredientCreation = new CanonicalIngredientCreationService(
+    canonicalIngredientRepository
+  );
+  const costBackOffice = new CostBackOfficeService(
+    database,
+    canonicalIngredientCreation
+  );
   const events = new SseHub();
   const server = createServer(createRoute({
     catalog,

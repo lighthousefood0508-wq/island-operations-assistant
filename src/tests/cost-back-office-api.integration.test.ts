@@ -356,3 +356,61 @@ test("Cost Back Office API rejects invalid cross-dimension Profile input", async
     cleanup(databasePath);
   }
 });
+
+test("Cost Canonical Ingredient creation keeps the existing facade and safe validation response", async () => {
+  const databasePath = path.resolve(
+    "data",
+    `cost-back-office-creation-${randomUUID()}.sqlite`
+  );
+  const running = await start(databasePath);
+  try {
+    const invalid = await request(
+      running.baseUrl,
+      "/api/admin/cost/ingredients",
+      "POST",
+      {
+        name: "  ",
+        categoryCode: "sauce",
+        occurredAt: AT,
+        actor: "owner"
+      }
+    );
+    assert.equal(invalid.status, 422);
+    assert.equal(invalid.body.error.code, "invalid_cost_input");
+    assert.doesNotMatch(
+      invalid.body.error.message,
+      /sqlite|database|repository|stack|cause/i
+    );
+
+    const created = await request(
+      running.baseUrl,
+      "/api/admin/cost/ingredients",
+      "POST",
+      {
+        name: "Duplicate permitted",
+        categoryCode: "sauce",
+        occurredAt: AT,
+        actor: "owner"
+      }
+    );
+    assert.equal(created.status, 201);
+    assert.match(created.body.data.ingredientId, /^ing_[0-9a-f-]{36}$/);
+    assert.equal(created.body.data.status, "Active");
+
+    const noManagementCreate = await request(
+      running.baseUrl,
+      "/api/admin/canonical-ingredients",
+      "POST",
+      {
+        name: "Must not create",
+        categoryCode: "sauce",
+        occurredAt: AT,
+        actor: "owner"
+      }
+    );
+    assert.equal(noManagementCreate.status, 404);
+  } finally {
+    await stop(running.server);
+    cleanup(databasePath);
+  }
+});

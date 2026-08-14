@@ -22,6 +22,8 @@ import { RecipeCanonicalProjectionService } from "../../domains/recipe/applicati
 import { RecipeCostingContractV2Service } from "../../domains/recipe/application/recipe-costing-contract-v2-service.js";
 import { RecipePublishService } from "../../domains/recipe/application/recipe-publish-service.js";
 import type {
+  CanonicalIngredientContractV1,
+  CanonicalIngredientCreationService,
   IngredientMeasurementProfileContractV1,
   MeasurementDimensionV1,
   StableMeasurementUnitCodeV1
@@ -36,9 +38,7 @@ import {
   Unit,
   VersionNumber
 } from "../../domains/recipe/index.js";
-import { CanonicalIngredient } from "../../domains/recipe/ingredient-catalog/canonical-ingredient.js";
 import { CanonicalIngredientId } from "../../domains/recipe/ingredient-catalog/identities.js";
-import { IngredientCategory } from "../../domains/recipe/ingredient-catalog/ingredient-category.js";
 import { SqliteCanonicalIngredientRepository } from "../../domains/recipe/ingredient-catalog/infrastructure/sqlite-canonical-ingredient-repository.js";
 import { SqliteRecipeRepository } from "../../domains/recipe/infrastructure/sqlite-recipe-repository.js";
 import { MeasurementNormalizer } from "../../domains/recipe/measurement/measurement-normalizer.js";
@@ -153,7 +153,13 @@ export class CostBackOfficeService {
   private readonly quoteLifecycle: CostQuoteLifecycleService;
   private readonly evaluator: RecipeCostEvaluationService;
 
-  constructor(private readonly database: DatabaseAdapter) {
+  constructor(
+    private readonly database: DatabaseAdapter,
+    private readonly canonicalIngredientCreation: Pick<
+      CanonicalIngredientCreationService,
+      "create"
+    >
+  ) {
     this.ingredientRepository =
       new SqliteCanonicalIngredientRepository(database);
     this.profileRepository =
@@ -185,7 +191,7 @@ export class CostBackOfficeService {
   }
 
   getSetup(): Readonly<{
-    ingredients: readonly ReturnType<CanonicalIngredient["toContract"]>[];
+    ingredients: readonly CanonicalIngredientContractV1[];
     profiles: readonly IngredientMeasurementProfileContractV1[];
     recipes: ReturnType<SqliteRecipeRepository["listRecipes"]>;
   }> {
@@ -201,15 +207,12 @@ export class CostBackOfficeService {
 
   createIngredient(input: JsonObject) {
     try {
-      const ingredient = CanonicalIngredient.create({
-        ingredientId: CanonicalIngredientId.fromUuid(randomUUID()),
+      return this.canonicalIngredientCreation.create({
         name: text(input, "name"),
-        category: IngredientCategory.parse(text(input, "categoryCode")),
-        createdAt: text(input, "occurredAt"),
-        createdBy: text(input, "actor")
+        categoryCode: text(input, "categoryCode"),
+        occurredAt: text(input, "occurredAt"),
+        actor: text(input, "actor")
       });
-      this.ingredientRepository.saveNew(ingredient);
-      return ingredient.toContract();
     } catch (error) {
       throw this.invalidOperation("ingredient_invalid", error);
     }

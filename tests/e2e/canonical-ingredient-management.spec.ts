@@ -104,6 +104,48 @@ function managementRecord(
   };
 }
 
+function referenceImpactRecord(ingredientId: string) {
+  return {
+    contractName: "CanonicalIngredientReferenceImpact",
+    contractVersion: 1,
+    ingredientId,
+    recipeDrafts: {
+      availability: "Available",
+      uniqueRecipeCount: 2,
+      draftCount: 3,
+      lineOccurrenceCount: 3,
+      recipeIds: ["recipe-z", "recipe-a"],
+      draftIds: ["draft-3", "draft-1", "draft-2"],
+      references: [
+        { recipeId: "recipe-z", draftId: "draft-3", recipeLineId: "line-3" },
+        { recipeId: "recipe-a", draftId: "draft-1", recipeLineId: "line-1" },
+        { recipeId: "recipe-z", draftId: "draft-2", recipeLineId: "line-2" }
+      ]
+    },
+    recipePublishedVersions: {
+      availability: "Available",
+      uniqueRecipeCount: 2,
+      publishedVersionCount: 3,
+      lineOccurrenceCount: 3,
+      recipeIds: ["recipe-published-z", "recipe-published-a"],
+      recipeVersionIds: ["version-9", "version-2", "version-7"],
+      references: [
+        { recipeId: "recipe-published-z", recipeVersionId: "version-9", recipeLineId: "published-line-9" },
+        { recipeId: "recipe-published-a", recipeVersionId: "version-2", recipeLineId: "published-line-2" },
+        { recipeId: "recipe-published-z", recipeVersionId: "version-7", recipeLineId: "published-line-7" }
+      ]
+    },
+    costQuotes: {
+      availability: "Available",
+      quoteCount: 3,
+      quoteIds: ["quote-superseded", "quote-recorded", "quote-history"]
+    },
+    acceptedPurchases: { availability: "Unavailable" },
+    costSnapshots: { availability: "Unavailable" },
+    deletionEligibility: { status: "Indeterminate", blocked: true }
+  };
+}
+
 test("Canonical Ingredient management UI completes Rename, warning and Archive", async ({ page }) => {
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 10_000)}`;
   const sourceName = `UI source ${suffix}`;
@@ -1002,6 +1044,262 @@ test("Canonical Ingredient UI encodes a transport-only identity as one path segm
   expect(decodeURIComponent(renameIdentitySegment)).toBe(rawTransportIdentity);
   expect(detailUrl?.pathname).not.toContain(doubleEncodedTransportIdentity);
   expect(renameUrl?.pathname).not.toContain(doubleEncodedTransportIdentity);
+});
+
+test("Canonical Ingredient management UI loads Reference Impact only on explicit demand", async ({ page }) => {
+  const active: Ingredient = {
+    ingredientId: "ing_11111111-1111-4111-8111-111111111111",
+    name: "Impact active",
+    status: "Active",
+    aggregateVersion: 2
+  };
+  const availableZero: Ingredient = {
+    ingredientId: "ing_22222222-2222-4222-8222-222222222222",
+    name: "Impact available zero",
+    status: "Active",
+    aggregateVersion: 3
+  };
+  const archived: Ingredient = {
+    ingredientId: "ing_33333333-3333-4333-8333-333333333333",
+    name: "Impact archived",
+    status: "Archived",
+    aggregateVersion: 4
+  };
+  const records = new Map([
+    [active.ingredientId, managementRecord(active)],
+    [availableZero.ingredientId, managementRecord(availableZero)],
+    [archived.ingredientId, managementRecord(archived)]
+  ]);
+  const zeroImpact = referenceImpactRecord(availableZero.ingredientId);
+  zeroImpact.recipeDrafts = {
+    availability: "Available",
+    uniqueRecipeCount: 0,
+    draftCount: 0,
+    lineOccurrenceCount: 0,
+    recipeIds: [],
+    draftIds: [],
+    references: []
+  };
+  zeroImpact.recipePublishedVersions = {
+    availability: "Available",
+    uniqueRecipeCount: 0,
+    publishedVersionCount: 0,
+    lineOccurrenceCount: 0,
+    recipeIds: [],
+    recipeVersionIds: [],
+    references: []
+  };
+  zeroImpact.costQuotes = { availability: "Available", quoteCount: 0, quoteIds: [] };
+  let impactRequests = 0;
+  const impactMethods: string[] = [];
+  const impactPaths: string[] = [];
+
+  for (const lifecycle of ["all", "active", "archived"]) {
+    await page.route(`**/api/admin/canonical-ingredients?lifecycle=${lifecycle}`, (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        data: lifecycle === "all"
+          ? [...records.values()]
+          : [...records.values()].filter((record) => record.status === (lifecycle === "active" ? "Active" : "Archived"))
+      })
+    }));
+  }
+  await page.route("**/api/admin/canonical-ingredients/**", async (route) => {
+    const request = route.request();
+    const pathname = new URL(request.url()).pathname;
+    if (pathname.endsWith("/reference-impact")) {
+      impactRequests += 1;
+      impactMethods.push(request.method());
+      impactPaths.push(pathname);
+      const encodedIdentity = pathname.split("/").filter(Boolean).at(-2)!;
+      const ingredientId = decodeURIComponent(encodedIdentity);
+      const data = ingredientId === availableZero.ingredientId
+        ? zeroImpact
+        : referenceImpactRecord(ingredientId);
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, data }) });
+      return;
+    }
+    const ingredientId = decodeURIComponent(pathname.split("/").at(-1)!);
+    const data = records.get(ingredientId);
+    expect(request.method()).toBe("GET");
+    expect(data).toBeDefined();
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, data }) });
+  });
+
+  await page.goto("/admin/ingredients");
+  expect(impactRequests).toBe(0);
+  await page.locator("#refresh-list").click();
+  expect(impactRequests).toBe(0);
+  await page.locator("#lifecycle-filter").selectOption("active");
+  expect(impactRequests).toBe(0);
+  await openIngredient(page, active.name);
+  expect(impactRequests).toBe(0);
+  await expect(page.locator("#reference-impact-state")).toHaveText("尚未查看引用影響。");
+
+  await page.getByRole("button", { name: "查看引用影響", exact: true }).click();
+  await expect.poll(() => impactRequests).toBe(1);
+  expect(impactMethods).toEqual(["GET"]);
+  expect(impactPaths).toEqual([
+    `/api/admin/canonical-ingredients/${encodeURIComponent(active.ingredientId)}/reference-impact`
+  ]);
+  await expect(page.locator("#reference-impact-result")).toBeVisible();
+  await expect(page.locator("#reference-impact-result")).toContainText("Unique Recipe count: 2");
+  await expect(page.locator("#reference-impact-result")).toContainText("Recipe IDs: recipe-z, recipe-a");
+  await expect(page.locator("#reference-impact-result")).toContainText("Reference: recipe-z / draft-3 / line-3");
+  await expect(page.locator("#reference-impact-result")).toContainText("Published Version count: 3");
+  await expect(page.locator("#reference-impact-result")).toContainText("Quote IDs: quote-superseded, quote-recorded, quote-history");
+  await expect(page.locator("#reference-impact-result")).toContainText("Accepted Purchase: Unavailable");
+  await expect(page.locator("#reference-impact-result")).toContainText("Cost Snapshot: Unavailable");
+  await expect(page.locator("#reference-impact-result")).toContainText("Deletion eligibility: Indeterminate — blocked.");
+  await page.waitForTimeout(80);
+  expect(impactRequests).toBe(1);
+
+  await openIngredient(page, availableZero.name);
+  expect(impactRequests).toBe(1);
+  await expect(page.locator("#reference-impact-state")).toHaveText("尚未查看引用影響。");
+  await page.getByRole("button", { name: "查看引用影響", exact: true }).click();
+  await expect.poll(() => impactRequests).toBe(2);
+  await expect(page.locator("#reference-impact-result")).toContainText("Availability: Available");
+  await expect(page.locator("#reference-impact-result")).toContainText("Unique Recipe count: 0");
+  await expect(page.locator("#reference-impact-result")).toContainText("Accepted Purchase: Unavailable");
+
+  await page.locator("#lifecycle-filter").selectOption("archived");
+  expect(impactRequests).toBe(2);
+  await openIngredient(page, archived.name);
+  expect(impactRequests).toBe(2);
+  await page.getByRole("button", { name: "查看引用影響", exact: true }).click();
+  await expect.poll(() => impactRequests).toBe(3);
+  await expect(page.locator("#reference-impact-result")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Delete|Reactivate|Merge/i })).toHaveCount(0);
+});
+
+test("Canonical Ingredient management UI fails Reference Impact closed and ignores stale responses", async ({ page }) => {
+  const ingredientA: Ingredient = {
+    ingredientId: "ing_44444444-4444-4444-8444-444444444444",
+    name: "Impact stale A",
+    status: "Active",
+    aggregateVersion: 5
+  };
+  const ingredientB: Ingredient = {
+    ingredientId: "ing_55555555-5555-4555-8555-555555555555",
+    name: "Impact stale B",
+    status: "Active",
+    aggregateVersion: 6
+  };
+  const records = new Map([
+    [ingredientA.ingredientId, managementRecord(ingredientA)],
+    [ingredientB.ingredientId, managementRecord(ingredientB)]
+  ]);
+  await page.route("**/api/admin/canonical-ingredients?lifecycle=all", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ ok: true, data: [...records.values()] })
+  }));
+  await page.route("**/api/admin/canonical-ingredients/**", async (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    if (!pathname.endsWith("/reference-impact")) {
+      const data = records.get(decodeURIComponent(pathname.split("/").at(-1)!));
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, data }) });
+      return;
+    }
+    await route.fallback();
+  });
+  await page.goto("/admin/ingredients");
+  await openIngredient(page, ingredientA.name);
+
+  const failureCases = [
+    { status: 422, body: { ok: false, error: { code: "CANONICAL_INGREDIENT_REFERENCE_IMPACT_VALIDATION_FAILURE", message: "raw validation detail" } } },
+    { status: 404, body: { ok: false, error: { code: "CANONICAL_INGREDIENT_REFERENCE_IMPACT_NOT_FOUND", message: "raw missing detail" } } },
+    { status: 500, body: { ok: false, error: { code: "CANONICAL_INGREDIENT_REFERENCE_IMPACT_READ_FAILURE", message: "SELECT cost_purchase_items raw stack" } } },
+    { status: 200, body: { ok: true, data: {} } },
+    { status: 200, body: { ok: true, data: referenceImpactRecord(ingredientB.ingredientId) } }
+  ];
+  let failureIndex = 0;
+  await page.route(`**/api/admin/canonical-ingredients/${ingredientA.ingredientId}/reference-impact`, async (route) => {
+    const current = failureCases[failureIndex++]!;
+    await route.fulfill({ status: current.status, contentType: "application/json", body: JSON.stringify(current.body) });
+  });
+  for (const raw of ["raw validation detail", "raw missing detail", "SELECT cost_purchase_items raw stack"]) {
+    await page.getByRole("button", { name: /查看引用影響|重新查看引用影響/ }).click();
+    await expect(page.locator("#reference-impact-error")).toBeVisible();
+    await expect(page.locator("#reference-impact-error")).not.toContainText(raw);
+    await expect(page.locator("#reference-impact-result")).toBeHidden();
+    await expect(page.locator("#reference-impact-load")).toBeEnabled();
+  }
+  await page.getByRole("button", { name: /查看引用影響|重新查看引用影響/ }).click();
+  await expect(page.locator("#reference-impact-error")).toContainText("無法安全使用");
+  await expect(page.locator("#reference-impact-result")).toBeHidden();
+  await page.getByRole("button", { name: /查看引用影響|重新查看引用影響/ }).click();
+  await expect(page.locator("#reference-impact-error")).toContainText("無法安全使用");
+
+  await page.unroute(`**/api/admin/canonical-ingredients/${ingredientA.ingredientId}/reference-impact`);
+  await page.route(`**/api/admin/canonical-ingredients/${ingredientA.ingredientId}/reference-impact`, (route) => route.abort(), { times: 1 });
+  await page.getByRole("button", { name: /查看引用影響|重新查看引用影響/ }).click();
+  await expect(page.locator("#reference-impact-error")).toContainText("離線或網路");
+  await expect(page.locator("#reference-impact-result")).toBeHidden();
+
+  await page.unroute(`**/api/admin/canonical-ingredients/${ingredientA.ingredientId}/reference-impact`);
+  await page.route(`**/api/admin/canonical-ingredients/${ingredientA.ingredientId}/reference-impact`, (route) => route.fulfill({
+    status: 200,
+    contentType: "text/plain",
+    body: "not json"
+  }), { times: 1 });
+  await page.getByRole("button", { name: /查看引用影響|重新查看引用影響/ }).click();
+  await expect(page.locator("#reference-impact-error")).toContainText("無法安全使用");
+  await expect(page.locator("#reference-impact-result")).toBeHidden();
+
+  await page.unroute(`**/api/admin/canonical-ingredients/${ingredientA.ingredientId}/reference-impact`);
+  let releaseA!: () => void;
+  const aGate = new Promise<void>((resolve) => { releaseA = resolve; });
+  let releaseFailureA!: () => void;
+  const aFailureGate = new Promise<void>((resolve) => { releaseFailureA = resolve; });
+  let aRequests = 0;
+  let bRequests = 0;
+  await page.route("**/api/admin/canonical-ingredients/*/reference-impact", async (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    const ingredientId = decodeURIComponent(pathname.split("/").filter(Boolean).at(-2)!);
+    if (ingredientId === ingredientA.ingredientId) {
+      aRequests += 1;
+      if (aRequests === 1) {
+        await aGate;
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, data: referenceImpactRecord(ingredientA.ingredientId) }) });
+      } else {
+        await aFailureGate;
+        await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ ok: false, error: { code: "CANONICAL_INGREDIENT_REFERENCE_IMPACT_READ_FAILURE", message: "raw stale persistence detail" } }) });
+      }
+      return;
+    }
+    bRequests += 1;
+    const data = referenceImpactRecord(ingredientB.ingredientId);
+    data.recipeDrafts.recipeIds = ["recipe-b-current"];
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, data }) });
+  });
+  await page.getByRole("button", { name: /查看引用影響|重新查看引用影響/ }).click();
+  await expect.poll(() => aRequests).toBe(1);
+  await openIngredient(page, ingredientB.name);
+  await expect(page.locator("#reference-impact-state")).toHaveText("尚未查看引用影響。");
+  await page.getByRole("button", { name: "查看引用影響", exact: true }).click();
+  await expect.poll(() => bRequests).toBe(1);
+  await expect(page.locator("#reference-impact-result")).toContainText("recipe-b-current");
+  releaseA();
+  await page.waitForTimeout(80);
+  await expect(page.locator("#reference-impact-result")).toContainText("recipe-b-current");
+  await expect(page.locator("#reference-impact-result")).not.toContainText("recipe-z, recipe-a");
+  await openIngredient(page, ingredientA.name);
+  expect(aRequests).toBe(1);
+  await expect(page.locator("#reference-impact-state")).toHaveText("尚未查看引用影響。");
+  await page.getByRole("button", { name: "查看引用影響", exact: true }).click();
+  await expect.poll(() => aRequests).toBe(2);
+  await openIngredient(page, ingredientB.name);
+  await page.getByRole("button", { name: "查看引用影響", exact: true }).click();
+  await expect.poll(() => bRequests).toBe(2);
+  await expect(page.locator("#reference-impact-result")).toContainText("recipe-b-current");
+  releaseFailureA();
+  await page.waitForTimeout(80);
+  await expect(page.locator("#reference-impact-error")).toBeHidden();
+  await expect(page.locator("#reference-impact-result")).toContainText("recipe-b-current");
 });
 
 test("Canonical Ingredient management UI remains operable on a representative mobile viewport", async ({ page }) => {

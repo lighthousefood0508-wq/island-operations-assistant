@@ -1,10 +1,26 @@
 # Current Status
 
-Last verified: 2026-08-12 (Asia/Taipei)
+Last synchronized: 2026-08-14 (Asia/Taipei)
 
-## Governance and Git state
+## Current architecture and live-state policy
 
-- Owner-Accepted Architecture Development Baseline and verified remote
+- Ingredient 003A through 003F are closed workstreams. Their dated integration
+  provenance ends with PR #27 merge `f9e71b5378de00c8ffdb63833282327d256e6edd`.
+- Canonical Ingredient now provides Creation Application authority, management
+  list/detail reads, Rename, Archive, management UI, Reference Impact API, and
+  an explicit on-demand Reference Impact UI.
+- Accepted Purchase and persisted Cost Snapshot impact are still unavailable.
+  Deletion eligibility is exactly `Indeterminate / blocked`; zero Recipe or
+  Quote references do not override that state.
+- Reactivate, permanent Delete, Merge, aliases, identity resolution, and
+  duplicate-name uniqueness remain unapproved.
+- This document does not freeze a live branch or PR identity. Current branch,
+  integration Head, ahead/behind, PR state, checks, and working-tree state must
+  be re-established from fresh Git/GitHub evidence and the current Owner order.
+
+## Historical governance and Git provenance (through 2026-08-12)
+
+- Then Owner-Accepted Architecture Development Baseline and verified remote
   `integration/architecture-development` Head after PR #23:
   `ea46678cbb955b7aeb093dc34525c52325af9cae`.
 - At the 2026-08-12 original PR review, the Ingredient 003C closeout candidate

@@ -1,6 +1,6 @@
 # Current AI Handover
 
-Last verified reality check: 2026-08-11 (Asia/Taipei)
+Last synchronized: 2026-08-14 (Asia/Taipei)
 
 This is operational handover material. `CONSTITUTION.md`, accepted ADRs, and
 Architecture Owner Decisions remain higher authority.
@@ -16,7 +16,23 @@ Architecture Owner Decisions remain higher authority.
   and Cost authorities.
 - Legacy remains separate and was not modified.
 
-## 2. Baseline identities
+## 2. Current architecture and live-state policy
+
+- Ingredient 003A through 003F are closed. The dated PR #27 merge
+  `f9e71b5378de00c8ffdb63833282327d256e6edd` records the Architecture
+  Development Baseline through the Canonical Ingredient Creation Application
+  Boundary.
+- Canonical Ingredient capability includes Creation Application authority,
+  management reads/API/UI, Rename, Archive, Reference Impact API, and explicit
+  on-demand Reference Impact UI.
+- Accepted Purchase and persisted Cost Snapshot impact remain unavailable;
+  deletion eligibility is `Indeterminate / blocked`. Reactivate, Delete, Merge,
+  aliases, identity resolution, and duplicate-name uniqueness are not approved.
+- This handover does not assert a permanent live branch tip, PR state, check
+  result, or next Gate. Obtain those from fresh Git/GitHub evidence and the
+  latest Owner authorization before acting.
+
+## 3. Historical baseline identities (2026-08-11 observation)
 
 | Identity | SHA | Meaning |
 | --- | --- | --- |
@@ -27,7 +43,7 @@ Neither identity means remote
 `main`, main promotion, deployment provenance, a running process, a production
 database, or a formal product release.
 
-## 3. Verified Git provenance
+## 4. Historical Git provenance
 
 - Current closeout preparation branch:
   `docs/post-pr23-ingredient-003c-closeout`, created from exact remote
@@ -45,7 +61,7 @@ database, or a formal product release.
 See [Repository Status](../REPOSITORY_STATUS.md) and
 [Active Branches](../ACTIVE_BRANCHES.md) for the dated inventory.
 
-## 4. Governance closeout chronology
+## 5. Historical governance chronology through PR #23
 
 - Recipe 001A and 001B are completed and merged. Recipe 001C through 001E
   remain unauthorized.
@@ -80,14 +96,14 @@ See [Repository Status](../REPOSITORY_STATUS.md) and
 The [Ingredient 003B Closeout Record](../reviews/PR-INGREDIENT-003B_CLOSEOUT_RECORD.md)
 contains the detailed authority, finding, remediation, test, and merge history.
 
-The prepared 003C closeout creates no DECISIONS number and does not rewrite
-DECISIONS #069, the Ingredient Proposal, or historical Task Cards. Ingredient
-003C is technically complete, but governance closure awaits independent review
-and separately authorized commit, push, PR, and merge Gates.
+The prepared 003C closeout created no DECISIONS number and did not rewrite
+DECISIONS #069, the Ingredient Proposal, or historical Task Cards. At this
+observation, 003C was technically complete and its governance closeout still
+awaited separate review and Git Gates.
 
-## 5. Canonical Ingredient capability and boundaries
+## 6. Historical Canonical Ingredient capability through 003C
 
-The current integration ancestry contains:
+That historical integration ancestry contained:
 
 - immutable `ing_<uuid>` identity;
 - `Active -> Archived` lifecycle only;

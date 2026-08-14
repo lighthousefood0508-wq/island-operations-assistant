@@ -1,12 +1,17 @@
 # ROS Branch and Worktree Observations
 
-Reality check: 2026-08-12 (Asia/Taipei)
+Historical inventory observation: 2026-08-12 (Asia/Taipei)
 
 This document records only refs and worktrees actually observed. It assigns no
 new governance, retention, evidence, cleanup, or deletion status. No branch or
 worktree was deleted, rebased, moved, or cleaned by this inventory.
 
-## Controlling integration identities
+## Historical integration identities and live lookup policy
+
+This inventory ends before the 003D, 003E, and 003F merges. Its SHAs and
+containment results are dated historical observations only. Before acting on a
+branch, PR, or integration baseline, obtain the live ref, ancestry,
+ahead/behind, PR state, and checks from fresh Git/GitHub evidence.
 
 - Owner-Accepted Architecture Development Baseline and remote
   `integration/architecture-development` Head after PR #23:
@@ -22,13 +27,14 @@ worktree was deleted, rebased, moved, or cleaned by this inventory.
 - `origin/HEAD`: observed pointing to `origin/feature/pr-measure-001` at
   `8b80e9723d55c1e6dc0e30a6c83cb9e52effe20e`. The pointer was not changed.
 
-The accepted baseline and current integration Git Head currently identify the
-same PR #23 merge. That does not make it `main`, release, deployment, or runtime
-provenance.
+At this historical observation, the accepted baseline and integration Git Head
+identified the same PR #23 merge. That did not make it `main`, release,
+deployment, or runtime provenance.
 
 ## Observed remote branches and containment
 
-Containment means only that the observed branch tip was reachable from
+Containment means only that the observed branch tip was reachable from the
+historical integration identity
 `ea46678cbb955b7aeb093dc34525c52325af9cae`. It does not authorize deletion or
 cleanup. The table retains the earlier complete inventory and adds the refs
 material to PR #23; omission of another branch is not deletion authority.

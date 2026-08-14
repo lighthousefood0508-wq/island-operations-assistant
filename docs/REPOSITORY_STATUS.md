@@ -1,15 +1,30 @@
 # ROS Repository Status
 
-Last verified: 2026-08-12 (Asia/Taipei)
+Last synchronized: 2026-08-14 (Asia/Taipei)
 
 Governance basis: DECISIONS #055, #058, #059, #064, #065, #066,
-#069, and #070.
+#069, #070, #071, and #072.
 
-## Status summary
+## Current architecture and live-state policy
+
+The dated PR #27 merge `f9e71b5378de00c8ffdb63833282327d256e6edd` contains
+closed Ingredient 003A--003F capability. It is a historical Architecture
+Development Baseline observation, not a permanent remote-tip assertion.
+Fresh Git/GitHub evidence is required for live integration, branch, PR, check,
+and working-tree identity.
+
+Canonical Ingredient capability now includes Creation Application authority,
+management reads/API/UI, Rename, Archive, Reference Impact API, and explicit
+on-demand Reference Impact UI. Reactivate, permanent Delete, Merge, aliases,
+identity resolution, and name uniqueness remain unapproved. Accepted Purchase
+and persisted Cost Snapshot impact remain unavailable, so deletion eligibility
+is `Indeterminate / blocked` even when available reference counts are zero.
+
+## Historical status summary (through 2026-08-12)
 
 | Area | Verified state |
 | --- | --- |
-| Owner-Accepted Architecture Development Baseline | `ea46678cbb955b7aeb093dc34525c52325af9cae` |
+| Then Owner-Accepted Architecture Development Baseline | `ea46678cbb955b7aeb093dc34525c52325af9cae` |
 | Remote integration Head after PR #23 | `ea46678cbb955b7aeb093dc34525c52325af9cae` |
 | Original PR #24 review snapshot (2026-08-12) | `docs/post-pr23-ingredient-003c-closeout` at `b3f56130eb29d477d82849267c0f8bb801e64e7b`; the PR was OPEN and unmerged; review `FAILED` with 5 blocking and 0 non-blocking findings |
 | First remediation review snapshot (2026-08-12) | The five-file candidate review `FAILED` with 2 blocking and 0 non-blocking findings: lifecycle-unsafe delivery-state wording and an obsolete PR #20-era Current documentation Gate |
@@ -37,11 +52,12 @@ Governance basis: DECISIONS #055, #058, #059, #064, #065, #066,
 | Main promotion / deployment / release | Not authorized; not started |
 | Cleanup | Not authorized; not performed |
 
-## Baseline identity
+## Historical baseline identity
 
-The Owner-Accepted Architecture Development Baseline and current integration
-Head currently coincide at `ea46678cbb955b7aeb093dc34525c52325af9cae`, the
-PR #23 merge accepted after post-merge validation. This SHA does not identify
+At that historical observation, the Owner-Accepted Architecture Development
+Baseline and integration Head coincided at
+`ea46678cbb955b7aeb093dc34525c52325af9cae`, the PR #23 merge accepted after
+post-merge validation. This SHA does not identify
 `main`, deployment provenance, a production database, or a product release.
 
 The [Ingredient 003B Closeout Record](reviews/PR-INGREDIENT-003B_CLOSEOUT_RECORD.md)

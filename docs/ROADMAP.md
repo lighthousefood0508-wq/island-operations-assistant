@@ -1,6 +1,6 @@
 # Roadmap
 
-Last synchronized: 2026-08-11
+Last synchronized: 2026-08-14 (Asia/Taipei).
 
 Roadmap entries describe planning and verified completion state. They do not
 grant implementation, Git, release, deployment, or cleanup authority.
@@ -58,27 +58,43 @@ grant implementation, Git, release, deployment, or cleanup authority.
    - PR #22 recorded the PR-INGREDIENT-003C Task Card.
    - PR #23 completed the six-file implementation through six remediation
      rounds and passed independent and post-merge validation.
-   - Ingredient 003C governance closeout is prepared but remains ineffective
-     until independent review and a separately authorized documentation merge.
+   - Ingredient 003C governance closeout was completed separately by PR #24.
+15. Canonical Ingredient Reference Impact read model:
+   - PR #25 completed the Recipe/Cost public-read coordination slice.
+   - Recipe Draft/Published/Superseded and Cost Quote history are available;
+     Accepted Purchase and Cost Snapshot remain explicitly `Unavailable`.
+16. Canonical Ingredient Reference Impact UI:
+   - PR #26 completed the explicit on-demand management-panel consumer.
+17. Canonical Ingredient Creation Application boundary:
+   - DECISIONS #072 recorded the ownership boundary and PR #27 completed it.
+   - The existing Cost creation endpoint remains a facade; Canonical Ingredient
+     creation, identity generation, Aggregate construction, and persistence
+     coordination are owned by the Recipe-hosted Application Service.
 
-## Current baseline identities
+## Architecture and live-state policy
 
-- Owner-Accepted Architecture Development Baseline and verified remote
-  integration Head after PR #23:
-  `ea46678cbb955b7aeb093dc34525c52325af9cae`.
+- Ingredient 003A through 003F are closed implementation workstreams.
+- The Architecture Development Baseline through 003F is the dated PR #27 merge
+  observation `f9e71b5378de00c8ffdb63833282327d256e6edd`.
+- This SHA is historical provenance, not a permanent assertion of the live
+  integration tip. Before any new work, obtain the branch, HEAD, ahead/behind,
+  PR state, and working-tree status from fresh Git/GitHub evidence.
 
-This identifies accepted development capability through PR #23. It is not
-remote `main`, a deployment, or a product release.
+Neither a recorded baseline nor a completed Ingredient slice means remote
+`main`, a deployment, or a product release.
 
 ## Unauthorized or separately gated
 
 - Recipe 001C: formal Recipe management Application contracts/orchestration.
 - Recipe 001D: Recipe management API and Runtime composition.
 - Recipe 001E: Back Office Recipe management UI.
-- Ingredient 003D, Reference Impact coordination, reactivation, deletion, and
-  merge/alias behavior. Ingredient 003A/003B are closed and 003C is technically
-  complete pending governance closeout.
-- Cost Snapshot persistence and reporting history.
+- Ingredient Measurement Profile creation authority remains a separately gated
+  boundary: the current Cost Profile facade still performs that orchestration.
+- Reactivation, permanent deletion, merge/alias behavior, identity resolution,
+  and duplicate-name uniqueness remain unauthorized.
+- Accepted Purchase authority and Cost Snapshot persistence/reporting history
+  remain unavailable. Deletion eligibility is therefore `Indeterminate` and
+  blocked even when available Recipe and Quote reference counts are zero.
 - Customer/Kiosk/Preorder, Inventory, package conversion, Supplier/Purchase,
   external integration, and AI work beyond existing accepted capability.
 - Remote `main` creation, main promotion, deployment, and product release.

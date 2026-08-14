@@ -22,6 +22,35 @@
 
 ## Approval Register
 
+- **DECISIONS #073 - Ingredient Measurement Profile Creation Application Boundary**
+  - **Date**: 2026-08-14.
+  - **Status**: APPROVED by Architecture Owner for architecture and Task Card preparation. Implementation remains separately gated.
+  - **Single responsibility**:
+    - Ingredient Measurement Profile creation authority belongs to a Recipe-hosted Ingredient / Measurement Profile Application boundary.
+    - The established `POST /api/admin/cost/profiles` remains the Cost Back Office HTTP facade. It delegates to the Application Service and does not own Profile creation business authority.
+  - **Application authority**:
+    - The Service may coordinate command validation, Canonical Ingredient lookup and Active-state enforcement, Profile and Profile Version identity creation, Aggregate construction, the existing Draft-to-Active sequence, Measurement unit resolution, narrow creation persistence, and typed safe results or failures.
+    - Existing Aggregate invariants, one-active-profile semantics, source/audit evidence, exact unit semantics, activation rules, and historical Profile evidence remain authoritative and are not redesigned.
+  - **Cost Back Office boundary**:
+    - Cost Back Office retains only endpoint facade, delegation, and existing safe HTTP response mapping.
+    - It must not generate Profile or Profile Version IDs, construct or activate a Profile Aggregate, directly call `saveNew`, own Profile validation or lifecycle rules, or hard-code Measurement unit semantics.
+  - **Measurement and persistence boundary**:
+    - Measurement semantics use only the existing formal Measurement unit-resolution contract. No copied unit table, hard-coded valid-unit set, generic shared Measurement authority, or Cost-owned Measurement authority is approved.
+    - The Application Service must not import a SQLite repository, `DatabaseAdapter`, BetterSqlite3, or infrastructure-specific error types. It may use a narrow Recipe-owned structural creation dependency, a narrow Ingredient Active-state lookup, and the formal Measurement contract.
+    - This Decision does not authorize widening a public mutable Profile Repository Port. If implementation proves that a public Port expansion is required, work stops for Owner architecture scope review.
+  - **Failure boundary**:
+    - Invalid command, missing Ingredient, archived/inactive Ingredient, invalid Measurement unit, Aggregate validation, and persistence failure remain distinct typed Application outcomes.
+    - Missing, inactive, or validation failure writes nothing. Persistence failure is a stable safe typed error; raw SQLite/DB messages, causes, stacks, and raw-message business classification must not cross the Application or serialized HTTP boundary.
+    - The existing Cost Profile HTTP contract remains in force. No new error namespace is authorized unless safe preservation proves impossible and Owner reopens scope.
+  - **Exact implementation boundary**:
+    - The dedicated PR-INGREDIENT-003G Task Card fixes an exact nine-path implementation maximum: Service, errors, Recipe export, Cost Back Office delegation, server composition, focused Application and Cost API tests, Architecture Guard, and existing Cost Back Office E2E coverage.
+    - No routes, SQLite adapter, migration, schema, package, Cost UI/navigation, new API route, or tenth implementation path is authorized.
+  - **Explicitly excluded**:
+    - Profile revision, deprecation, or supersession redesign; Ingredient Reactivate, Delete, Merge, aliases, or identity resolution; Reference Impact change; Accepted Purchase authority; Cost Snapshot persistence; migration, schema, package, UI/navigation redesign, authentication, authorization, 003H, main promotion, release, and deployment.
+  - **Authorization boundary**:
+    - This Decision authorizes recording this Decision and the dedicated PR-INGREDIENT-003G Task Card only.
+    - Implementation branch creation, production or test modification, staging, implementation commit, push, PR creation, merge, other Ingredient work, main promotion, release, and deployment require later explicit Owner authorization.
+
 - **DECISIONS #072 - Canonical Ingredient Creation Application Boundary**
   - **Date**: 2026-08-14.
   - **Status**: APPROVED by Architecture Owner for the Ingredient 003F architecture and Task Card boundary. Implementation remains separately gated.

@@ -1315,8 +1315,37 @@ export {
   );
   assert.doesNotMatch(
     ingredientPageSource,
-    /\/(?:create|reactivate|delete|merge|reference-impact)(?:[/'"]|$)|建立食材|重新啟用|刪除|合併|Reference Impact/,
+    /\/(?:create|reactivate|delete|merge)(?:[/'"]|$)|建立食材|重新啟用|刪除|合併/,
     "003C must not expose out-of-scope lifecycle controls or routes."
+  );
+  const referenceImpactLoad = ingredientPageSource.match(
+    /async function loadReferenceImpact\(\)[\s\S]*?(?=\n  const renderDetailBase)/
+  )?.[0] ?? "";
+  assert.match(ingredientPageSource, /id="reference-impact-load"/);
+  assert.match(ingredientPageSource, /查看引用影響/);
+  assert.match(
+    referenceImpactLoad,
+    /api\(API_ROOT\+'\/'\+encodeURIComponent\(context\.ingredientId\)\+'\/reference-impact',undefined,isReferenceImpact\)/,
+    "003E must use the exact encoded Canonical Ingredient Reference Impact GET path."
+  );
+  assert.doesNotMatch(
+    referenceImpactLoad,
+    /method\s*:/,
+    "003E may consume Reference Impact only with the default GET request."
+  );
+  assert.match(
+    ingredientPageSource,
+    /byId\('reference-impact-load'\)\.addEventListener\('click',\(\)=>\{void loadReferenceImpact\(\)\}\)/
+  );
+  assert.equal(
+    Array.from(ingredientPageSource.matchAll(/loadReferenceImpact\(/g)).length,
+    2,
+    "Only the function declaration and explicit operator click may invoke Reference Impact."
+  );
+  assert.doesNotMatch(
+    ingredientPageSource,
+    /setInterval|setTimeout|requestAnimationFrame|indexedDB|Cache API|serviceWorker/,
+    "003E must not add polling, automatic refresh, or browser persistence."
   );
   assert.match(ingredientPageSource, /encodeURIComponent\(state\.detail\.ingredientId\)/);
   assert.match(ingredientPageSource, /expectedVersion:state\.detail\.aggregateVersion/);
@@ -1422,6 +1451,68 @@ test("Ingredient 003D Reference Impact stays read-only behind Domain-owned publi
     "src/tests/architecture-guards.test.ts"
   ]);
   assert.equal(approvedPaths.size, 13);
+  const approved003EPaths = new Set([
+    "src/web/ingredients/page.ts",
+    "tests/e2e/canonical-ingredient-management.spec.ts",
+    "src/tests/architecture-guards.test.ts"
+  ]);
+  assert.equal(approved003EPaths.size, 3);
+  const approved003EResponsibilities = new Map<string, readonly RegExp[]>([
+    [
+      "src/web/ingredients/page.ts",
+      [
+        /id="reference-impact-load"/,
+        /API_ROOT\+'\/'\+encodeURIComponent\(context\.ingredientId\)\+'\/reference-impact'/
+      ]
+    ],
+    [
+      "tests/e2e/canonical-ingredient-management.spec.ts",
+      [/loads Reference Impact only on explicit demand/, /fails Reference Impact closed and ignores stale responses/]
+    ],
+    [
+      "src/tests/architecture-guards.test.ts",
+      [/approved003EPaths/, /approved003EResponsibilities/]
+    ]
+  ]);
+  assert.deepEqual(
+    [...approved003EResponsibilities.keys()].sort(),
+    [...approved003EPaths].sort(),
+    "Every path in the exact 003E allowlist must own an explicit guarded responsibility."
+  );
+  for (const [relative, patterns] of approved003EResponsibilities) {
+    const filename = path.join(projectRoot, ...relative.split("/"));
+    assert.equal(existsSync(filename), true, `${relative} is required by the 003E boundary.`);
+    const source = readFileSync(filename, "utf8");
+    for (const pattern of patterns) {
+      assert.match(source, pattern, `${relative} lost an accepted 003E responsibility.`);
+    }
+  }
+
+  const is003EReferenceImpactResponsibility = (source: string): boolean =>
+    /canonical-ingredients|API_ROOT/.test(source)
+    && /reference-impact|ReferenceImpact/.test(source);
+  assert.equal(
+    is003EReferenceImpactResponsibility(
+      "fetch('/api/admin/canonical-ingredients/'+encodeURIComponent(ingredientId)+'/reference-impact')"
+    ),
+    true,
+    "A simulated fourth UI responsibility that reuses the endpoint must be detected."
+  );
+  const referenceImpactUiResponsibilityFiles = [
+    ...filesUnder(path.join(projectRoot, "src"), [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"])
+  ]
+    .filter((filename) =>
+      is003EReferenceImpactResponsibility(readFileSync(filename, "utf8"))
+    )
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => !approvedPaths.has(relative) || approved003EPaths.has(relative))
+    .sort();
+  assert.deepEqual(
+    referenceImpactUiResponsibilityFiles,
+    [...approved003EPaths].sort(),
+    "003E Reference Impact UI responsibilities must remain inside the exact three approved paths; 003D's authorized evidence is excluded."
+  );
 
   const markerFiles = filesUnder(sourceRoot, [".ts", ".tsx"])
     .filter((filename) =>
@@ -1433,10 +1524,9 @@ test("Ingredient 003D Reference Impact stays read-only behind Domain-owned publi
     .sort();
   assert.deepEqual(
     markerFiles,
-    [...approvedPaths].sort(),
-    "003D implementation markers must remain inside the exact thirteen paths."
+    [...new Set([...approvedPaths, "src/web/ingredients/page.ts"])].sort(),
+    "003D markers and the exact 003E UI consumers must remain inside their accepted paths."
   );
-
   const applicationRoot = path.join(sourceRoot, "application");
   const applicationService = path.join(
     applicationRoot,
@@ -1606,12 +1696,14 @@ test("Ingredient 003D Reference Impact stays read-only behind Domain-owned publi
     routes
   );
 
+  const ingredientManagementPage = path.join(sourceRoot, "web", "ingredients", "page.ts");
   const webFiles = filesUnder(path.join(sourceRoot, "web"), [".ts", ".tsx"]);
   for (const filename of webFiles) {
+    if (filename === ingredientManagementPage) continue;
     assert.doesNotMatch(
       readFileSync(filename, "utf8"),
       /reference-impact|ReferenceImpact/,
-      "003D must not add Reference Impact UI or navigation."
+      "003E may not add Reference Impact UI or navigation outside the existing Ingredient page."
     );
   }
 

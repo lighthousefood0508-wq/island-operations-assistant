@@ -103,3 +103,19 @@ test("Cost Back Office is responsive and exposes the exact-value policy", async 
   expect(second).not.toBeNull();
   expect(second!.y).toBeGreaterThan(first!.y + first!.height - 2);
 });
+
+test("Cost Back Office keeps CanonicalIngredientCreation on its existing facade", async ({ page }) => {
+  await page.goto("/admin/cost");
+  const creationResponse = page.waitForResponse((response) =>
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/admin/cost/ingredients"
+  );
+  await page.locator("#ingredient-name").fill("003F facade ingredient");
+  await page.locator("#ingredient-form button[type=submit]").click();
+  const response = await creationResponse;
+  expect(response.status()).toBe(201);
+  const body = await response.json();
+  expect(body.data.ingredientId).toMatch(/^ing_[0-9a-f-]{36}$/);
+  expect(body.data.status).toBe("Active");
+  await expect(page.locator("#ingredient-list")).toContainText("003F facade ingredient");
+});

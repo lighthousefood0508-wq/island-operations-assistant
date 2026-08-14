@@ -239,6 +239,14 @@ export {
 export {
   CanonicalIngredientManagementReadService
 } from "./ingredient-catalog/application/canonical-ingredient-management-read-service.js";
+export {
+  CanonicalIngredientCreationPersistenceFailure,
+  CanonicalIngredientCreationValidationFailure
+} from "./ingredient-catalog/application/canonical-ingredient-creation-errors.js";
+export {
+  CanonicalIngredientCreationService,
+  type CanonicalIngredientCreationCommand
+} from "./ingredient-catalog/application/canonical-ingredient-creation-service.js";
 export type {
   RecipeDraftIngredientReferenceV1,
   RecipeIngredientReferenceImpactReadModelV1,

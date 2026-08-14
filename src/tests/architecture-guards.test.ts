@@ -856,14 +856,20 @@ test("Canonical Ingredient internals remain behind the published contract", () =
       const isInfrastructure = filename.startsWith(
         `${ingredientInfrastructureRoot}${path.sep}`
       );
+      const isApproved003FCreationUuid =
+        filename.endsWith(
+          `${path.sep}application${path.sep}canonical-ingredient-creation-service.ts`
+        )
+        && specifier === "node:crypto";
       assert.ok(
-        target !== null
+        isApproved003FCreationUuid
+          || (target !== null
           && (
             target.startsWith(`${ingredientRoot}${path.sep}`)
             || target === ingredientContract
             || target === ingredientManagementContract
             || (isInfrastructure && target === databaseAdapter)
-          ),
+          )),
         `${filename} imports outside Canonical Ingredient or its published contract: ${specifier}`
       );
       if (
@@ -933,6 +939,14 @@ test("Canonical Ingredient internals remain behind the published contract", () =
   const accepted003BMarker = "export {\n  CanonicalIngredientManagementReadService";
   const accepted003BOffset = publicIndexSource.indexOf(accepted003BMarker);
   assert.notEqual(accepted003BOffset, -1, "Recipe index publishes the 003B read Service.");
+  const accepted003FMarker =
+    "export {\n  CanonicalIngredientCreationPersistenceFailure,";
+  const accepted003FOffset = publicIndexSource.indexOf(accepted003FMarker);
+  assert.notEqual(
+    accepted003FOffset,
+    -1,
+    "Recipe index publishes the 003F Creation Service surface."
+  );
   const accepted003DMarker =
     "export type {\n  RecipeDraftIngredientReferenceV1,";
   const accepted003DOffset = publicIndexSource.indexOf(accepted003DMarker);
@@ -948,6 +962,10 @@ test("Canonical Ingredient internals remain behind the published contract", () =
   );
   const accepted003BSurface = publicIndexSource.slice(
     accepted003BOffset,
+    accepted003FOffset
+  );
+  const accepted003FSurface = publicIndexSource.slice(
+    accepted003FOffset,
     accepted003DOffset
   );
   const accepted003DSurface = publicIndexSource.slice(accepted003DOffset);
@@ -986,6 +1004,18 @@ export {
     `export {
   CanonicalIngredientManagementReadService
 } from "./ingredient-catalog/application/canonical-ingredient-management-read-service.js";
+`
+  );
+  assert.equal(
+    accepted003FSurface,
+    `export {
+  CanonicalIngredientCreationPersistenceFailure,
+  CanonicalIngredientCreationValidationFailure
+} from "./ingredient-catalog/application/canonical-ingredient-creation-errors.js";
+export {
+  CanonicalIngredientCreationService,
+  type CanonicalIngredientCreationCommand
+} from "./ingredient-catalog/application/canonical-ingredient-creation-service.js";
 `
   );
   assert.equal(
@@ -1189,6 +1219,7 @@ export {
     assert.equal(
       approved003BPaths.has(relative)
         || approved003DPaths.has(relative)
+        || relative === "src/tests/cost-back-office-api.integration.test.ts"
         || relative === "src/web/ingredients/page.ts",
       true,
       `${relative} contains 003B implementation outside its accepted authority or the authorized 003C UI consumer.`
@@ -1199,6 +1230,7 @@ export {
     .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
     .sort();
   assert.deepEqual(repositoryReferenceFiles, [
+    "src/domains/recipe/ingredient-catalog/application/canonical-ingredient-creation-service.ts",
     "src/domains/recipe/ingredient-catalog/application/canonical-ingredient-lifecycle-service.ts",
     "src/domains/recipe/ingredient-catalog/application/canonical-ingredient-management-read-service.ts",
     "src/domains/recipe/ingredient-catalog/canonical-ingredient-repository.ts",
@@ -1768,6 +1800,147 @@ test("Cost Back Office is the only approved runtime composition of Cost foundati
     readFileSync(routes, "utf8"),
     ["better-sqlite3", "SELECT ", "INSERT ", "UPDATE ", "DELETE "],
     routes
+  );
+});
+
+test("Ingredient 003F keeps Canonical Ingredient creation behind its Application boundary", () => {
+  const approved003FPaths = new Set([
+    "src/domains/recipe/ingredient-catalog/application/canonical-ingredient-creation-service.ts",
+    "src/domains/recipe/ingredient-catalog/application/canonical-ingredient-creation-errors.ts",
+    "src/domains/recipe/index.ts",
+    "src/server/app/cost-back-office-service.ts",
+    "src/server/index.ts",
+    "src/tests/canonical-ingredient-creation-application.test.ts",
+    "src/tests/cost-back-office-api.integration.test.ts",
+    "src/tests/architecture-guards.test.ts",
+    "tests/e2e/cost-back-office.spec.ts"
+  ]);
+  assert.equal(approved003FPaths.size, 9);
+  const approved003FResponsibilities = new Map<string, readonly RegExp[]>([
+    [
+      "src/domains/recipe/ingredient-catalog/application/canonical-ingredient-creation-service.ts",
+      [/class CanonicalIngredientCreationService/, /Pick<[\s\S]*"saveNew"/, /CanonicalIngredientId\.fromUuid\(randomUUID\(\)\)/]
+    ],
+    [
+      "src/domains/recipe/ingredient-catalog/application/canonical-ingredient-creation-errors.ts",
+      [/CanonicalIngredientCreationValidationFailure/, /CanonicalIngredientCreationPersistenceFailure/]
+    ],
+    [
+      "src/domains/recipe/index.ts",
+      [/CanonicalIngredientCreationService/, /CanonicalIngredientCreationCommand/]
+    ],
+    [
+      "src/server/app/cost-back-office-service.ts",
+      [/canonicalIngredientCreation\.create\(/]
+    ],
+    [
+      "src/server/index.ts",
+      [/new CanonicalIngredientCreationService\(/, /new CostBackOfficeService\([\s\S]*canonicalIngredientCreation/]
+    ],
+    [
+      "src/tests/canonical-ingredient-creation-application.test.ts",
+      [/Creation Service creates one Active immutable Canonical Ingredient/, /persistence failures to one safe boundary/]
+    ],
+    [
+      "src/tests/cost-back-office-api.integration.test.ts",
+      [/Cost Canonical Ingredient creation keeps the existing facade/]
+    ],
+    [
+      "src/tests/architecture-guards.test.ts",
+      [/approved003FPaths/, /approved003FResponsibilities/]
+    ],
+    [
+      "tests/e2e/cost-back-office.spec.ts",
+      [/CanonicalIngredientCreation on its existing facade/]
+    ]
+  ]);
+  assert.deepEqual(
+    [...approved003FResponsibilities.keys()].sort(),
+    [...approved003FPaths].sort(),
+    "Every path in the exact 003F allowlist must own an explicit guarded responsibility."
+  );
+  for (const [relative, patterns] of approved003FResponsibilities) {
+    const filename = path.join(projectRoot, ...relative.split("/"));
+    assert.equal(existsSync(filename), true, `${relative} is required by the 003F boundary.`);
+    const source = readFileSync(filename, "utf8");
+    for (const pattern of patterns) assert.match(source, pattern);
+  }
+
+  const creationResponsibility = /CanonicalIngredientCreation|canonicalIngredientCreation|Cost Canonical Ingredient creation/;
+  const creationResponsibilityFiles = [
+    ...filesUnder(path.join(projectRoot, "src"), [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"])
+  ]
+    .filter((filename) => creationResponsibility.test(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .sort();
+  assert.deepEqual(
+    creationResponsibilityFiles,
+    [...approved003FPaths].sort(),
+    "A tenth Canonical Ingredient Creation responsibility path is not authorized."
+  );
+  assert.equal(
+    creationResponsibility.test("const canonicalIngredientCreation = createService();"),
+    true,
+    "A simulated tenth Creation responsibility must be detected."
+  );
+
+  const creationService = path.join(
+    sourceRoot,
+    "domains",
+    "recipe",
+    "ingredient-catalog",
+    "application",
+    "canonical-ingredient-creation-service.ts"
+  );
+  const creationErrors = path.join(
+    sourceRoot,
+    "domains",
+    "recipe",
+    "ingredient-catalog",
+    "application",
+    "canonical-ingredient-creation-errors.ts"
+  );
+  const costBackOffice = path.join(
+    sourceRoot,
+    "server",
+    "app",
+    "cost-back-office-service.ts"
+  );
+  const serverIndex = path.join(sourceRoot, "server", "index.ts");
+  const creationSource = readFileSync(creationService, "utf8");
+  const errorSource = readFileSync(creationErrors, "utf8");
+  const costSource = readFileSync(costBackOffice, "utf8");
+  const serverSource = readFileSync(serverIndex, "utf8");
+  assertNoTerms(
+    creationSource,
+    ["sqlite", "better-sqlite3", "database-adapter", "domains/cost", "cause", "stack"],
+    creationService
+  );
+  assertNoTerms(errorSource, ["sqlite", "database", "cause", "stack"], creationErrors);
+  const createIngredientStart = costSource.indexOf("  createIngredient(");
+  const createIngredientEnd = costSource.indexOf(
+    "\n  createProfile(",
+    createIngredientStart
+  );
+  const createIngredientSource = costSource.slice(
+    createIngredientStart,
+    createIngredientEnd
+  );
+  assert.match(createIngredientSource, /canonicalIngredientCreation\.create\(/);
+  assert.doesNotMatch(
+    createIngredientSource,
+    /randomUUID|CanonicalIngredient\.create|CanonicalIngredientId\.fromUuid|saveNew/
+  );
+  assert.equal(
+    Array.from(serverSource.matchAll(/new CanonicalIngredientCreationService\(/g)).length,
+    1,
+    "server/index.ts is the sole 003F Creation Service composition site."
+  );
+  assert.doesNotMatch(
+    readFileSync(path.join(sourceRoot, "server", "app", "routes.ts"), "utf8"),
+    /POST \/api\/admin\/canonical-ingredients|canonicalIngredientCreation/,
+    "003F must retain Cost Back Office as the sole existing creation facade."
   );
 });
 

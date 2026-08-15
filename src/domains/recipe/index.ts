@@ -253,3 +253,11 @@ export type {
   RecipeIngredientReferenceImpactReadPort,
   RecipePublishedIngredientReferenceV1
 } from "./domain/ingredient-reference-impact-read-port.js";
+export type {
+  MeasurementProfileFactsResolutionContractV1,
+  MeasurementProfileFactsResolutionFailureCodeV1,
+  MeasurementProfileFactsResolutionRequestV1,
+  MeasurementProfileFactsResolutionResultV1,
+  ResolvedMeasurementProfileFactsV1
+} from "./contracts/measurement-foundation-contract.js";
+export { MeasurementProfileFactsResolver } from "./measurement/measurement-profile-facts-resolver.js";

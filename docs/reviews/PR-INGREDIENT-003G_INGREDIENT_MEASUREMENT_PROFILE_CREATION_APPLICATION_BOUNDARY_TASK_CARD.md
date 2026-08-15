@@ -2,12 +2,12 @@
 
 > **OWNER-APPROVED TASK CARD — IMPLEMENTATION NOT AUTHORIZED**
 
-Status: Owner-approved architecture and Task Card preparation; implementation remains separately authorized.
+Status: Owner-amended after the Measurement prerequisite merge; implementation remains separately authorized and must be rebuilt from a clean later baseline.
 
 ## 1. Authority and recording baseline
 
 - Decision: **DECISIONS #073 — Ingredient Measurement Profile Creation Application Boundary**.
-- Recording baseline: `5f984540979b7412d918fd5244d9b64fdfc83994` on `integration/architecture-development`.
+- Required implementation baseline: `integration/architecture-development` must contain `1c931b82c3990d40bdbc6092b470013c6355edcf` (the PR-MEASUREMENT-001 merge) or a later Owner-authorized integration descendant that contains it.
 - This is an Architecture Development integration identity only. It is not `main`, release, deployment, runtime provenance, or implementation authorization.
 - DECISIONS #069, #071, and #072, accepted Ingredient 003A–003F Task Cards, and existing Measurement Profile Aggregate invariants remain authoritative unless this Card expressly and narrowly adds a boundary.
 
@@ -37,14 +37,14 @@ It must:
 2. look up the Canonical Ingredient and require `Active` state;
 3. create one Profile identity and one Profile Version identity;
 4. construct the existing Profile Aggregate and execute its existing Draft-to-Active sequence;
-5. use the existing formal Measurement unit-resolution contract; and
+5. forward raw dimension, canonical-unit, and ordered allowed-unit command values to `MeasurementProfileFactsResolutionContractV1`, consume its typed Measurement-owned facts and stable failure result; and
 6. persist once through a narrow creation dependency and return a typed safe result.
 
-Existing one-active-profile, profile history, source/audit, unit, and activation invariants remain unchanged. This Card establishes no duplicate, alias, merge, identity-resolution, revision, deprecation, or supersession rule.
+Existing one-active-profile, profile history, source/audit, unit, and activation invariants remain unchanged. This Card establishes no duplicate, alias, merge, identity-resolution, revision, deprecation, or supersession rule. The Application Service must not maintain a dimension/unit whitelist, raw-unit parser, caller-side cast, or compatibility validation; Measurement owns those semantics.
 
 ## 5. Typed failure and write boundary
 
-The Application boundary must distinguish safe typed outcomes for invalid command, Ingredient not found, Ingredient archived/inactive, invalid unit, Aggregate validation, and persistence failure.
+The Application boundary must distinguish safe typed outcomes for invalid command, Ingredient not found, Ingredient archived/inactive, formal Measurement-resolution failure, Aggregate validation, and persistence failure.
 
 - Missing, inactive, invalid-unit, and validation outcomes make **zero writes**.
 - A persistence fault becomes a stable safe Application failure; it is not success, a zero-result, or a raw technical exception.
@@ -58,11 +58,11 @@ The Service may use only:
 - existing Recipe Measurement Profile Aggregate/value types;
 - a narrow Recipe-owned structural dependency for `saveNew` creation persistence;
 - a narrow Canonical Ingredient lookup/Active-state dependency; and
-- the existing formal Measurement unit-resolution contract.
+- `MeasurementProfileFactsResolutionContractV1`, which in turn retains formal raw-dimension and unit-resolution authority.
 
 The Service must not import SQLite implementations, `DatabaseAdapter`, BetterSqlite3, infrastructure-specific error types, or Cost business authority. It must not broadly widen the public mutable Profile Repository Port merely for this slice.
 
-`src/server/index.ts` is the sole new composition site. It supplies the existing repositories and formal unit resolver structurally to the new Service, then supplies that Service to Cost Back Office. Cost Back Office delegates and maps its established facade only; it must not create IDs, construct/activate Aggregates, call `saveNew`, apply creation/lifecycle rules, or hard-code unit semantics.
+`src/server/index.ts` is the sole new composition site. It supplies the existing repositories and formal Measurement Profile Facts resolver structurally to the new Service, then supplies that Service to Cost Back Office. Cost Back Office delegates and maps its established facade only; it must not create IDs, construct/activate Aggregates, call `saveNew`, apply creation/lifecycle rules, resolve Measurement facts, or hard-code Measurement semantics.
 
 ## 7. Exact nine-path implementation allowlist
 
@@ -93,8 +93,9 @@ The final Guard set must prove all of the following rather than merely count an 
 3. `src/server/index.ts` is the sole new composition site;
 4. the existing Cost POST remains and no second/Profile-management creation route exists;
 5. Application code imports no SQLite, Database Adapter, infrastructure implementation/error type, or Cost business authority;
-6. the exact nine-path responsibility map detects an unauthorized tenth Profile-creation responsibility path; and
-7. existing Ingredient lifecycle, Reference Impact, and 003F Creation boundaries are not weakened.
+6. Application code consumes the formal Measurement Profile Facts contract and contains no local Measurement whitelist, parser, resolver replacement, unsafe raw-to-typed cast, or compatibility authority;
+7. the exact nine-path responsibility map uses meaningful repository scanning/classification and detects a simulated unauthorized tenth Profile-creation responsibility path with narrow exclusions only; and
+8. existing Ingredient lifecycle, Reference Impact, 003F Creation, and PR-MEASUREMENT-001 Measurement boundaries are not weakened.
 
 ## 10. Required focused tests
 
@@ -102,7 +103,9 @@ The final Guard set must prove all of the following rather than merely count an 
 
 - valid Active-Ingredient creation with one persistence call;
 - missing Ingredient and archived Ingredient outcomes with zero write;
-- malformed/invalid command and invalid Measurement unit with zero write;
+- malformed/invalid command and formal Measurement-resolution failure with zero write;
+- raw Measurement forwarding to a fake formal resolver, including a controlled raw token unknown to the Application Service, and typed Measurement-owned fact consumption;
+- no local Measurement filtering, whitelist, parser, compatibility decision, or unsafe cast;
 - Aggregate validation preservation;
 - recognized and unexpected persistence failures mapped safely without raw detail; and
 - no reliance on SQLite, Cost authority, or a broad mutable public Repository contract.
@@ -155,9 +158,10 @@ Stop and return to Owner if any of the following is required:
 4. any inability to preserve the existing Cost Profile HTTP contract;
 5. Aggregate/lifecycle redesign rather than delegation to existing invariants;
 6. raw persistence detail that cannot be safely contained;
-7. a copied/hard-coded Measurement unit authority;
+7. a copied/hard-coded Measurement unit/dimension authority, local raw parser, compatibility decision, resolver replacement, or unsafe raw-to-typed cast;
 8. a second Profile creation route or composition site; or
-9. any excluded Ingredient, Purchase, Snapshot, release, deployment, or 003H scope.
+9. any excluded Ingredient, Purchase, Snapshot, release, deployment, or 003H scope; or
+10. an integration baseline that does not contain the PR-MEASUREMENT-001 prerequisite merge.
 
 ## 14. Governance and implementation gates
 

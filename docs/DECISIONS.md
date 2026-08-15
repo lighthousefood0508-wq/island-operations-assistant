@@ -55,27 +55,34 @@
 
 - **DECISIONS #073 - Ingredient Measurement Profile Creation Application Boundary**
   - **Date**: 2026-08-14.
-  - **Status**: APPROVED by Architecture Owner for architecture and Task Card preparation. Implementation remains separately gated.
+  - **Status**: AMENDED by Architecture Owner after the prerequisite governed by DECISIONS #074 and PR-MEASUREMENT-001 was merged. Implementation remains separately gated.
+  - **Prerequisite dependency**:
+    - This Decision depends on **DECISIONS #074 - Measurement Profile Facts Resolution Boundary** and the merged `PR-MEASUREMENT-001` capability. The required integration baseline is `1c931b82c3990d40bdbc6092b470013c6355edcf` or a later Owner-authorized integration descendant that contains it.
+    - `IngredientMeasurementProfileCreationService` must consume `MeasurementProfileFactsResolutionContractV1`: it forwards raw Profile dimension, canonical-unit, and ordered allowed-unit command values to Measurement and receives typed Measurement-owned facts with stable typed failure outcomes.
   - **Single responsibility**:
     - Ingredient Measurement Profile creation authority belongs to a Recipe-hosted Ingredient / Measurement Profile Application boundary.
     - The established `POST /api/admin/cost/profiles` remains the Cost Back Office HTTP facade. It delegates to the Application Service and does not own Profile creation business authority.
   - **Application authority**:
-    - The Service may coordinate command validation, Canonical Ingredient lookup and Active-state enforcement, Profile and Profile Version identity creation, Aggregate construction, the existing Draft-to-Active sequence, Measurement unit resolution, narrow creation persistence, and typed safe results or failures.
+    - The Service may coordinate command validation, Canonical Ingredient lookup and Active-state enforcement, Profile and Profile Version identity creation, Aggregate construction, the existing Draft-to-Active sequence, narrow creation persistence, and typed safe results or failures.
+    - It may structurally assemble the Measurement-owned typed facts with other already-validated Profile creation fields into the Profile-owned `CompleteMeasurementProfileFactsV1` (or equivalent input structure), but it must not decide whether those Measurement facts are valid.
+    - It must not hard-code `MeasurementDimensionV1` values, maintain dimension/canonical-unit whitelists, parse raw units locally, decide dimension/unit compatibility, replace the formal resolver, or use unsafe casts to treat raw values as typed Measurement facts.
     - Existing Aggregate invariants, one-active-profile semantics, source/audit evidence, exact unit semantics, activation rules, and historical Profile evidence remain authoritative and are not redesigned.
   - **Cost Back Office boundary**:
     - Cost Back Office retains only endpoint facade, delegation, and existing safe HTTP response mapping.
     - It must not generate Profile or Profile Version IDs, construct or activate a Profile Aggregate, directly call `saveNew`, own Profile validation or lifecycle rules, or hard-code Measurement unit semantics.
   - **Measurement and persistence boundary**:
-    - Measurement semantics use only the existing formal Measurement unit-resolution contract. No copied unit table, hard-coded valid-unit set, generic shared Measurement authority, or Cost-owned Measurement authority is approved.
+    - Measurement semantics use the formal `MeasurementProfileFactsResolutionContractV1`, whose implementation retains runtime raw-dimension resolution and delegates raw-unit lookup to `MeasurementUnitResolutionContractV1`. No copied unit table, hard-coded valid-unit set, caller-local resolver, generic shared Measurement authority, or Cost-owned Measurement authority is approved.
+    - The 003G Application boundary consumes the formal Measurement contract; it does not duplicate PR-MEASUREMENT-001 internals or create new Measurement semantics.
     - The Application Service must not import a SQLite repository, `DatabaseAdapter`, BetterSqlite3, or infrastructure-specific error types. It may use a narrow Recipe-owned structural creation dependency, a narrow Ingredient Active-state lookup, and the formal Measurement contract.
     - This Decision does not authorize widening a public mutable Profile Repository Port. If implementation proves that a public Port expansion is required, work stops for Owner architecture scope review.
   - **Failure boundary**:
-    - Invalid command, missing Ingredient, archived/inactive Ingredient, invalid Measurement unit, Aggregate validation, and persistence failure remain distinct typed Application outcomes.
+    - Invalid command, missing Ingredient, archived/inactive Ingredient, formal Measurement-resolution failure, Aggregate validation, and persistence failure remain distinct typed Application outcomes.
     - Missing, inactive, or validation failure writes nothing. Persistence failure is a stable safe typed error; raw SQLite/DB messages, causes, stacks, and raw-message business classification must not cross the Application or serialized HTTP boundary.
     - The existing Cost Profile HTTP contract remains in force. No new error namespace is authorized unless safe preservation proves impossible and Owner reopens scope.
   - **Exact implementation boundary**:
     - The dedicated PR-INGREDIENT-003G Task Card fixes an exact nine-path implementation maximum: Service, errors, Recipe export, Cost Back Office delegation, server composition, focused Application and Cost API tests, Architecture Guard, and existing Cost Back Office E2E coverage.
     - No routes, SQLite adapter, migration, schema, package, Cost UI/navigation, new API route, or tenth implementation path is authorized.
+    - The 003G Architecture Guard must use an exact approved responsibility map, meaningful repository scanning/classification with narrow exclusions, and a simulated unauthorized tenth-responsibility-path rejection. It must protect creation authority, Cost delegation, the single composition site, persistence isolation, absence of a second Profile creation route, and absence of Application-local Measurement semantics. Measurement prerequisite internals remain protected by PR-MEASUREMENT-001's own Guard.
   - **Explicitly excluded**:
     - Profile revision, deprecation, or supersession redesign; Ingredient Reactivate, Delete, Merge, aliases, or identity resolution; Reference Impact change; Accepted Purchase authority; Cost Snapshot persistence; migration, schema, package, UI/navigation redesign, authentication, authorization, 003H, main promotion, release, and deployment.
   - **Authorization boundary**:

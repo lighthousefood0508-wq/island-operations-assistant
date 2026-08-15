@@ -49,7 +49,7 @@ function resolveUnit(
 
 function freezeFacts(input: {
   dimension: MeasurementDimensionV1;
-  canonicalUnitCode: StableMeasurementUnitCodeV1;
+  canonicalUnitCode: "g" | "ml" | "each";
   allowedUnitCodes: readonly StableMeasurementUnitCodeV1[];
 }): MeasurementProfileFactsResolutionResultV1 {
   return Object.freeze({
@@ -126,7 +126,7 @@ export class MeasurementProfileFactsResolver
     }
     return freezeFacts({
       dimension,
-      canonicalUnitCode: canonical.unitCode,
+      canonicalUnitCode: canonical.canonicalUnitCode,
       allowedUnitCodes
     });
   }

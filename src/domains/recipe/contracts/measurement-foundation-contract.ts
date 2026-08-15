@@ -96,7 +96,7 @@ export type MeasurementProfileFactsResolutionRequestV1 = Readonly<{
 
 export type ResolvedMeasurementProfileFactsV1 = Readonly<{
   dimension: MeasurementDimensionV1;
-  canonicalUnitCode: StableMeasurementUnitCodeV1;
+  canonicalUnitCode: "g" | "ml" | "each";
   allowedUnitCodes: readonly StableMeasurementUnitCodeV1[];
 }>;
 

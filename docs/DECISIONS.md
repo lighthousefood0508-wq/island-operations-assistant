@@ -22,6 +22,37 @@
 
 ## Approval Register
 
+- **DECISIONS #074 - Measurement Profile Facts Resolution Boundary**
+  - **Date**: 2026-08-15.
+  - **Status**: APPROVED by Architecture Owner for prerequisite governance recording and the dedicated PR-MEASUREMENT-001 Task Card only. Prerequisite implementation remains separately gated.
+  - **Context**:
+    - The paused PR-INGREDIENT-003G diagnostic candidate exposed a missing formal runtime authority: callers can receive raw Profile dimension, canonical-unit, and allowed-unit values, but `MeasurementDimensionV1` alone is a TypeScript type rather than a Measurement-owned raw-dimension resolver.
+    - Local narrowing, copied unit lists, unsafe casts, Cost validation, or a 003G Application whitelist would create a second Measurement authority. This Decision creates a reusable Measurement-owned prerequisite, not an Ingredient 003G-owned capability.
+  - **Single responsibility**:
+    - Establish one formal `MeasurementProfileFactsResolutionContractV1` (or repository-convention-equivalent name) that turns raw Profile measurement-definition values into typed, compatible Measurement facts.
+    - Its raw input includes a raw dimension, raw canonical-unit value, and ordered raw allowed-unit values. Its output contains only Measurement-owned typed facts: `MeasurementDimensionV1`, a stable canonical unit code, and ordered stable allowed unit codes. It must not return the Profile-owned `CompleteMeasurementProfileFactsV1` type.
+  - **Measurement authority**:
+    - Measurement Foundation owns supported dimensions, runtime raw-dimension resolution, stable unit codes, canonical-unit semantics, raw unit resolution, dimension/unit compatibility, and raw-to-typed Measurement Profile facts resolution.
+    - The resolver delegates each raw-unit lookup to the existing `MeasurementUnitResolutionContractV1`, which remains the sole formal unit-resolution truth. The prerequisite must not add a second registry, copied conversion table, copied canonical mapping, caller-maintained literal union, or Cost-local validation.
+    - The resolver owns compatibility questions only: whether canonical and allowed resolved units belong to the resolved dimension and whether the resulting Measurement facts are compatible. It does not own Profile lifecycle, Active uniqueness, source/audit evidence, historical Profile behavior, or persistence.
+  - **Dependency direction**:
+    - `measurement-foundation contracts -> measurement-unit resolver -> measurement-profile-facts resolver -> typed Measurement-owned facts -> future 003G Application Service -> Profile Aggregate`.
+    - Measurement implementation must not import the Profile Aggregate or Profile lifecycle types where avoidable, Cost, server, HTTP, persistence infrastructure, SQLite, or Database Adapter.
+    - A later 003G Application Service may structurally assemble its Profile-owned input from the typed result, but must not revalidate or reinterpret Measurement truth.
+  - **Typed failures**:
+    - The formal boundary defines stable typed resolution outcomes for malformed raw input, unsupported dimension, unresolved canonical unit, unresolved allowed unit, canonical-unit/dimension mismatch, allowed-unit/dimension mismatch, and incompatible Profile measurement facts.
+    - Duplicate allowed-unit behavior must preserve existing formal Profile truth; this Decision does not invent a duplicate rule. Resolver implementation messages, stacks, causes, and technical detail must not become public Application or HTTP detail.
+  - **Implementation boundary**:
+    - The expected PR-MEASUREMENT-001 implementation allowlist is exactly five paths: `src/domains/recipe/contracts/measurement-foundation-contract.ts`; `src/domains/recipe/measurement/measurement-profile-facts-resolver.ts`; `src/domains/recipe/index.ts`; `src/tests/measurement-profile-facts-resolver.test.ts`; and `src/tests/architecture-guards.test.ts`.
+    - The prerequisite has zero HTTP behavior change. It must not modify Ingredient 003G Application code, Cost Back Office, server composition, routes, Profile Aggregate or persistence, Cost persistence, SQLite adapters, migrations, schema, package files, UI, navigation, lifecycle behavior, Reference Impact, Accepted Purchase, Cost Snapshot, Reactivate, Delete, Merge, aliases, or 003H.
+  - **003G relationship**:
+    - PR-MEASUREMENT-001 is a prerequisite for continuation of Ingredient 003G. It does not complete, resume, or automatically authorize 003G.
+    - The current rejected 003G diagnostic candidate remains frozen: it must not be staged, committed, pushed, reset, discarded, cleaned, or amended by this Decision.
+    - Only after the prerequisite merge may the Owner separately authorize a Decision #073 amendment, a 003G Task Card amendment, disposal of the rejected candidate, and a rebuild from the new integration baseline.
+  - **Authorization boundary**:
+    - This Decision authorizes recording this Decision and the dedicated PR-MEASUREMENT-001 Task Card, including their isolated governance commit and normal push to `integration/architecture-development`.
+    - Prerequisite implementation, 003G continuation, any 003G cleanup, branch manipulation, source/test change, migration, schema, PR, merge, main promotion, release, and deployment require later explicit Owner authorization.
+
 - **DECISIONS #073 - Ingredient Measurement Profile Creation Application Boundary**
   - **Date**: 2026-08-14.
   - **Status**: APPROVED by Architecture Owner for architecture and Task Card preparation. Implementation remains separately gated.

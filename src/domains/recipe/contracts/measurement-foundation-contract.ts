@@ -87,3 +87,38 @@ export interface MeasurementUnitResolutionContractV1 {
     request: MeasurementUnitResolutionRequestV1
   ): MeasurementUnitResolutionResultV1;
 }
+
+export type MeasurementProfileFactsResolutionRequestV1 = Readonly<{
+  rawDimension: unknown;
+  rawCanonicalUnit: unknown;
+  rawAllowedUnitValues: readonly unknown[];
+}>;
+
+export type ResolvedMeasurementProfileFactsV1 = Readonly<{
+  dimension: MeasurementDimensionV1;
+  canonicalUnitCode: StableMeasurementUnitCodeV1;
+  allowedUnitCodes: readonly StableMeasurementUnitCodeV1[];
+}>;
+
+export type MeasurementProfileFactsResolutionFailureCodeV1 =
+  | "INVALID_MEASUREMENT_PROFILE_FACTS_REQUEST"
+  | "UNSUPPORTED_MEASUREMENT_DIMENSION"
+  | "UNRESOLVED_CANONICAL_MEASUREMENT_UNIT"
+  | "UNRESOLVED_ALLOWED_MEASUREMENT_UNIT"
+  | "CANONICAL_MEASUREMENT_UNIT_DIMENSION_MISMATCH"
+  | "ALLOWED_MEASUREMENT_UNIT_DIMENSION_MISMATCH"
+  | "INCOMPATIBLE_MEASUREMENT_PROFILE_FACTS"
+  | "DUPLICATE_ALLOWED_MEASUREMENT_UNIT";
+
+export type MeasurementProfileFactsResolutionResultV1 =
+  | Readonly<{ status: "resolved"; facts: ResolvedMeasurementProfileFactsV1 }>
+  | Readonly<{
+    status: "failed";
+    code: MeasurementProfileFactsResolutionFailureCodeV1;
+  }>;
+
+export interface MeasurementProfileFactsResolutionContractV1 {
+  resolveProfileFacts(
+    request: MeasurementProfileFactsResolutionRequestV1
+  ): MeasurementProfileFactsResolutionResultV1;
+}

@@ -123,6 +123,99 @@ test("Measurement Foundation internals remain isolated behind the published cont
   assert.match(publicIndexSource, /measurement-foundation-contract/);
 });
 
+test("PR-MEASUREMENT-001 keeps Measurement Profile Facts resolution inside its exact five-path boundary", () => {
+  const recipeRoot = path.join(sourceRoot, "domains", "recipe");
+  const measurementRoot = path.join(recipeRoot, "measurement");
+  const profileRoot = path.join(recipeRoot, "measurement-profile");
+  const contract = path.join(recipeRoot, "contracts", "measurement-foundation-contract.ts");
+  const resolver = path.join(measurementRoot, "measurement-profile-facts-resolver.ts");
+  const approvedMeasurement001Paths = new Set([
+    "src/domains/recipe/contracts/measurement-foundation-contract.ts",
+    "src/domains/recipe/measurement/measurement-profile-facts-resolver.ts",
+    "src/domains/recipe/index.ts",
+    "src/tests/measurement-profile-facts-resolver.test.ts",
+    "src/tests/architecture-guards.test.ts"
+  ]);
+  assert.equal(approvedMeasurement001Paths.size, 5);
+  const approvedMeasurement001Responsibilities = new Map<string, readonly RegExp[]>([
+    [
+      "src/domains/recipe/contracts/measurement-foundation-contract.ts",
+      [/MeasurementProfileFactsResolutionContractV1/, /rawDimension/, /ResolvedMeasurementProfileFactsV1/]
+    ],
+    [
+      "src/domains/recipe/measurement/measurement-profile-facts-resolver.ts",
+      [/class MeasurementProfileFactsResolver/, /function resolveDimension/, /unitResolver\.resolveUnit/]
+    ],
+    [
+      "src/domains/recipe/index.ts",
+      [/MeasurementProfileFactsResolutionContractV1/, /MeasurementProfileFactsResolver/]
+    ],
+    [
+      "src/tests/measurement-profile-facts-resolver.test.ts",
+      [/Measurement Profile Facts resolver/, /delegates every raw unit lookup/]
+    ],
+    [
+      "src/tests/architecture-guards.test.ts",
+      [/approvedMeasurement001Paths/, /approvedMeasurement001Responsibilities/]
+    ]
+  ]);
+  assert.deepEqual(
+    [...approvedMeasurement001Responsibilities.keys()].sort(),
+    [...approvedMeasurement001Paths].sort(),
+    "Every PR-MEASUREMENT-001 allowlisted path must own an explicit guarded responsibility."
+  );
+  for (const [relative, patterns] of approvedMeasurement001Responsibilities) {
+    const filename = path.join(projectRoot, ...relative.split("/"));
+    assert.equal(existsSync(filename), true, `${relative} is required by PR-MEASUREMENT-001.`);
+    const content = readFileSync(filename, "utf8");
+    for (const pattern of patterns) assert.match(content, pattern);
+  }
+
+  const factsResolutionResponsibility = /MeasurementProfileFactsResolution|MeasurementProfileFactsResolver|Measurement Profile Facts resolver/;
+  const factsResolutionFiles = [
+    ...filesUnder(path.join(projectRoot, "src"), [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"])
+  ]
+    .filter((filename) => factsResolutionResponsibility.test(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .sort();
+  assert.deepEqual(
+    factsResolutionFiles,
+    [...approvedMeasurement001Paths].sort(),
+    "An unauthorized sixth Measurement Profile Facts responsibility path is not allowed."
+  );
+  assert.equal(
+    factsResolutionResponsibility.test("const extra = new MeasurementProfileFactsResolver();"),
+    true,
+    "A simulated sixth Measurement Profile Facts responsibility must be detected."
+  );
+
+  const resolverSource = readFileSync(resolver, "utf8");
+  assertNoTerms(
+    resolverSource,
+    ["sqlite", "better-sqlite3", "database-adapter", "domains/cost", "server/", "http", "unit_catalog", "unit_definitions", "new map"],
+    resolver
+  );
+  for (const specifier of importedSpecifiers(resolver)) {
+    const target = resolveSourceImport(resolver, specifier);
+    assert.equal(
+      target?.startsWith(`${profileRoot}${path.sep}`) ?? false,
+      false,
+      "Measurement Profile Facts resolution must not import Profile internals."
+    );
+    assert.equal(
+      target !== null && (target === contract || target.startsWith(`${measurementRoot}${path.sep}`)),
+      true,
+      `Measurement Profile Facts resolver imports outside Measurement authority: ${specifier}`
+    );
+  }
+  assert.doesNotMatch(
+    resolverSource,
+    /MeasurementDimensionV1\s*\)|as\s+MeasurementDimensionV1|as\s+any/,
+    "Raw dimension must be resolved by Measurement without unsafe caller-style narrowing."
+  );
+});
+
 test("Ingredient Measurement Profile internals remain behind versioned contracts", () => {
   const recipeRoot = path.join(sourceRoot, "domains", "recipe");
   const profileRoot = path.join(recipeRoot, "measurement-profile");
@@ -955,6 +1048,14 @@ test("Canonical Ingredient internals remain behind the published contract", () =
     -1,
     "Recipe index publishes the 003D Recipe-owned read boundary."
   );
+  const measurement001Marker =
+    "export type {\n  MeasurementProfileFactsResolutionContractV1,";
+  const measurement001Offset = publicIndexSource.indexOf(measurement001Marker);
+  assert.notEqual(
+    measurement001Offset,
+    -1,
+    "Recipe index publishes the PR-MEASUREMENT-001 formal Measurement boundary."
+  );
   const pre003APublicIndex = publicIndexSource.slice(0, accepted003AOffset);
   const accepted003ASurface = publicIndexSource.slice(
     accepted003AOffset,
@@ -968,7 +1069,11 @@ test("Canonical Ingredient internals remain behind the published contract", () =
     accepted003FOffset,
     accepted003DOffset
   );
-  const accepted003DSurface = publicIndexSource.slice(accepted003DOffset);
+  const accepted003DSurface = publicIndexSource.slice(
+    accepted003DOffset,
+    measurement001Offset
+  );
+  const measurement001Surface = publicIndexSource.slice(measurement001Offset);
   assert.equal(
     createHash("sha256").update(pre003APublicIndex).digest("hex"),
     "4f55d49ff0c054ff66ba802489f4e5bd832d4405dfe7c4c09470076a0ff8e616",
@@ -1026,6 +1131,18 @@ export {
   RecipeIngredientReferenceImpactReadPort,
   RecipePublishedIngredientReferenceV1
 } from "./domain/ingredient-reference-impact-read-port.js";
+`
+  );
+  assert.equal(
+    measurement001Surface,
+    `export type {
+  MeasurementProfileFactsResolutionContractV1,
+  MeasurementProfileFactsResolutionFailureCodeV1,
+  MeasurementProfileFactsResolutionRequestV1,
+  MeasurementProfileFactsResolutionResultV1,
+  ResolvedMeasurementProfileFactsV1
+} from "./contracts/measurement-foundation-contract.js";
+export { MeasurementProfileFactsResolver } from "./measurement/measurement-profile-facts-resolver.js";
 `
   );
   assert.match(pre003APublicIndex, /canonical-ingredient-contract/);

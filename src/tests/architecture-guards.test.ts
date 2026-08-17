@@ -261,7 +261,8 @@ test("Ingredient Measurement Profile internals remain behind versioned contracts
       const target = resolveSourceImport(filename, specifier);
       const isApproved003GCreationDependency =
         (filename === approved003GCreationService
-          || filename.endsWith(`${path.sep}ingredient-measurement-profile-supersession-service.ts`))
+          || filename.endsWith(`${path.sep}ingredient-measurement-profile-supersession-service.ts`)
+          || filename.endsWith(`${path.sep}ingredient-measurement-profile-deprecation-service.ts`))
         && (specifier === "node:crypto" || target === canonicalIngredientIdentity);
       assert.ok(
         isApproved003GCreationDependency
@@ -1051,7 +1052,8 @@ test("Canonical Ingredient internals remain behind the published contract", () =
         && target === sqliteIngredientRepository;
       const isApproved003GIngredientLookup =
         (filename === approved003GCreationService
-          || filename.endsWith(`${path.sep}ingredient-measurement-profile-supersession-service.ts`))
+          || filename.endsWith(`${path.sep}ingredient-measurement-profile-supersession-service.ts`)
+          || filename.endsWith(`${path.sep}ingredient-measurement-profile-deprecation-service.ts`))
         && target?.endsWith(`${path.sep}ingredient-catalog${path.sep}identities.ts`);
       assert.equal(
         (target?.startsWith(`${ingredientRoot}${path.sep}`) ?? false)
@@ -1111,6 +1113,14 @@ test("Canonical Ingredient internals remain behind the published contract", () =
     -1,
     "Recipe index publishes the 003H Supersession Service surface."
   );
+  const accepted003IMarker =
+    "export {\n  IngredientMeasurementProfileDeprecationExpectedVersionConflict,";
+  const accepted003IOffset = publicIndexSource.indexOf(accepted003IMarker);
+  assert.notEqual(
+    accepted003IOffset,
+    -1,
+    "Recipe index publishes the 003I Deprecation Service surface."
+  );
   const pre003APublicIndex = publicIndexSource.slice(0, accepted003AOffset);
   const accepted003ASurface = publicIndexSource.slice(
     accepted003AOffset,
@@ -1136,7 +1146,11 @@ test("Canonical Ingredient internals remain behind the published contract", () =
     accepted003GOffset,
     accepted003HOffset
   );
-  const accepted003HSurface = publicIndexSource.slice(accepted003HOffset);
+  const accepted003HSurface = publicIndexSource.slice(
+    accepted003HOffset,
+    accepted003IOffset
+  );
+  const accepted003ISurface = publicIndexSource.slice(accepted003IOffset);
   assert.equal(
     createHash("sha256").update(pre003APublicIndex).digest("hex"),
     "4f55d49ff0c054ff66ba802489f4e5bd832d4405dfe7c4c09470076a0ff8e616",
@@ -1237,6 +1251,21 @@ export {
   IngredientMeasurementProfileSupersessionService,
   type IngredientMeasurementProfileSupersessionCommand
 } from "./measurement-profile/application/ingredient-measurement-profile-supersession-service.js";
+`
+  );
+  assert.equal(
+    accepted003ISurface,
+    `export {
+  IngredientMeasurementProfileDeprecationExpectedVersionConflict,
+  IngredientMeasurementProfileDeprecationIngredientInactive,
+  IngredientMeasurementProfileDeprecationNotFound,
+  IngredientMeasurementProfileDeprecationPersistenceFailure,
+  IngredientMeasurementProfileDeprecationValidationFailure
+} from "./measurement-profile/application/ingredient-measurement-profile-deprecation-errors.js";
+export {
+  IngredientMeasurementProfileDeprecationService,
+  type IngredientMeasurementProfileDeprecationCommand
+} from "./measurement-profile/application/ingredient-measurement-profile-deprecation-service.js";
 `
   );
   assert.match(pre003APublicIndex, /canonical-ingredient-contract/);
@@ -2362,6 +2391,86 @@ test("Ingredient 003H keeps Active Profile supersession behind its Application b
   assert.equal(Array.from(serverSource.matchAll(/new IngredientMeasurementProfileSupersessionService\(/g)).length, 1);
   const routeSource = readFileSync(path.join(sourceRoot, "server", "app", "routes.ts"), "utf8");
   assert.match(routeSource, /\^\\\/api\\\/admin\\\/cost\\\/profiles\\\/\(\[\^\/\]\+\)\\\/supersessions\$/);
+  assert.doesNotMatch(routeSource, /POST \/api\/admin\/canonical-ingredients\/profiles/);
+});
+
+test("Ingredient 003I keeps standalone Profile deprecation behind its Application boundary", () => {
+  const approved003IPaths = new Set([
+    "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-deprecation-service.ts",
+    "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-deprecation-errors.ts",
+    "src/domains/recipe/index.ts",
+    "src/server/app/cost-back-office-service.ts",
+    "src/server/app/routes.ts",
+    "src/server/index.ts",
+    "src/tests/ingredient-measurement-profile-deprecation-application.test.ts",
+    "src/tests/cost-back-office-api.integration.test.ts",
+    "src/tests/architecture-guards.test.ts",
+    "tests/e2e/cost-back-office.spec.ts"
+  ]);
+  assert.equal(approved003IPaths.size, 10);
+  const approved003IResponsibilities = new Map<string, readonly RegExp[]>([
+    [
+      "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-deprecation-service.ts",
+      [/class IngredientMeasurementProfileDeprecationService/, /deprecateActive\(/, /saveWithExpectedVersion/]
+    ],
+    [
+      "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-deprecation-errors.ts",
+      [/DeprecationExpectedVersionConflict/, /DeprecationPersistenceFailure/]
+    ],
+    ["src/domains/recipe/index.ts", [/IngredientMeasurementProfileDeprecationService/, /IngredientMeasurementProfileDeprecationCommand/]],
+    ["src/server/app/cost-back-office-service.ts", [/profileDeprecation\.deprecate\(/, /deprecationOperation/]],
+    ["src/server/app/routes.ts", [/deprecations/, /deprecateProfile/]],
+    ["src/server/index.ts", [/new IngredientMeasurementProfileDeprecationService\(/, /new CostBackOfficeService\([\s\S]*profileDeprecation/]],
+    ["src/tests/ingredient-measurement-profile-deprecation-application.test.ts", [/Profile Deprecation Service creates an intentional no-Active Profile state/, /contains persistence detail/]],
+    ["src/tests/cost-back-office-api.integration.test.ts", [/Cost Back Office deprecates an Active Profile/]],
+    ["src/tests/architecture-guards.test.ts", [/approved003IPaths/, /approved003IResponsibilities/]],
+    ["tests/e2e/cost-back-office.spec.ts", [/delegates Active Profile deprecation/]]
+  ]);
+  assert.deepEqual(
+    [...approved003IResponsibilities.keys()].sort(),
+    [...approved003IPaths].sort(),
+    "Every path in the exact 003I allowlist must own an explicit guarded responsibility."
+  );
+  for (const [relative, patterns] of approved003IResponsibilities) {
+    const source = readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8");
+    for (const pattern of patterns) assert.match(source, pattern, `${relative} lost a 003I responsibility.`);
+  }
+
+  const deprecationResponsibility = /IngredientMeasurementProfileDeprecation|profileDeprecation|deprecateProfile|\/deprecations/;
+  const deprecationFiles = [
+    ...filesUnder(path.join(projectRoot, "src"), [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"])
+  ]
+    .filter((filename) => deprecationResponsibility.test(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .sort();
+  assert.deepEqual(
+    deprecationFiles,
+    [...approved003IPaths].sort(),
+    "An unauthorized eleventh Profile deprecation responsibility path is not allowed."
+  );
+  assert.equal(
+    deprecationResponsibility.test("const profileDeprecation = createService();"),
+    true,
+    "A simulated eleventh deprecation responsibility path must be detected."
+  );
+
+  const servicePath = path.join(sourceRoot, "domains", "recipe", "measurement-profile", "application", "ingredient-measurement-profile-deprecation-service.ts");
+  const errorPath = path.join(sourceRoot, "domains", "recipe", "measurement-profile", "application", "ingredient-measurement-profile-deprecation-errors.ts");
+  const serviceSource = readFileSync(servicePath, "utf8");
+  const errorSource = readFileSync(errorPath, "utf8");
+  const costSource = readFileSync(path.join(sourceRoot, "server", "app", "cost-back-office-service.ts"), "utf8");
+  const serverSource = readFileSync(path.join(sourceRoot, "server", "index.ts"), "utf8");
+  assertNoTerms(serviceSource, ["sqlite", "better-sqlite3", "database-adapter", "domains/cost", "measurement-profile-facts", "measurement-unit-resolver", "MeasurementProfileFactsResolver", "MeasurementUnitResolver", "cause", "stack"], servicePath);
+  assertNoTerms(errorSource, ["sqlite", "database", "cause", "stack"], errorPath);
+  const deprecateStart = costSource.indexOf("  deprecateProfile(");
+  const deprecateEnd = costSource.indexOf("\n  createAndPublishRecipe(", deprecateStart);
+  const deprecateSource = costSource.slice(deprecateStart, deprecateEnd);
+  assert.match(deprecateSource, /profileDeprecation\.deprecate\(/);
+  assert.doesNotMatch(deprecateSource, /randomUUID|IngredientMeasurementProfile\.create|deprecateActive|saveWithExpectedVersion|MeasurementProfileFactsResolver|MeasurementUnitResolver/);
+  assert.equal(Array.from(serverSource.matchAll(/new IngredientMeasurementProfileDeprecationService\(/g)).length, 1);
+  const routeSource = readFileSync(path.join(sourceRoot, "server", "app", "routes.ts"), "utf8");
+  assert.match(routeSource, /\^\\\/api\\\/admin\\\/cost\\\/profiles\\\/\(\[\^\/\]\+\)\\\/deprecations\$/);
   assert.doesNotMatch(routeSource, /POST \/api\/admin\/canonical-ingredients\/profiles/);
 });
 

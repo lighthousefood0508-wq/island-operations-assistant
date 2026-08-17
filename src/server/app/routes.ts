@@ -259,6 +259,19 @@ async function route(request: IncomingMessage, response: ServerResponse, service
         )
       );
     }
+    const profileDeprecationMatch = pathname.match(
+      /^\/api\/admin\/cost\/profiles\/([^/]+)\/deprecations$/
+    );
+    if (request.method === "POST" && profileDeprecationMatch?.[1]) {
+      return success(
+        response,
+        200,
+        services.costBackOffice.deprecateProfile(
+          decodeURIComponent(profileDeprecationMatch[1]),
+          await readJson(request)
+        )
+      );
+    }
     if (request.method === "POST" && pathname === "/api/admin/cost/recipes") {
       return success(
         response,

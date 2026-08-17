@@ -25,12 +25,17 @@ import type {
   CanonicalIngredientContractV1,
   CanonicalIngredientCreationService,
   IngredientMeasurementProfileCreationService,
+  IngredientMeasurementProfileDeprecationService,
   IngredientMeasurementProfileSupersessionService,
   IngredientMeasurementProfileContractV1,
   MeasurementDimensionV1,
   StableMeasurementUnitCodeV1
 } from "../../domains/recipe/index.js";
 import {
+  IngredientMeasurementProfileDeprecationExpectedVersionConflict,
+  IngredientMeasurementProfileDeprecationIngredientInactive,
+  IngredientMeasurementProfileDeprecationNotFound,
+  IngredientMeasurementProfileDeprecationPersistenceFailure,
   IngredientMeasurementProfileSupersessionExpectedVersionConflict,
   IngredientMeasurementProfileSupersessionIngredientInactive,
   IngredientMeasurementProfileSupersessionMeasurementFailure,
@@ -173,7 +178,8 @@ export class CostBackOfficeService {
     private readonly database: DatabaseAdapter,
     private readonly canonicalIngredientCreation: Pick<CanonicalIngredientCreationService, "create">,
     private readonly profileCreation: Pick<IngredientMeasurementProfileCreationService, "create">,
-    private readonly profileSupersession: Pick<IngredientMeasurementProfileSupersessionService, "supersede">
+    private readonly profileSupersession: Pick<IngredientMeasurementProfileSupersessionService, "supersede">,
+    private readonly profileDeprecation: Pick<IngredientMeasurementProfileDeprecationService, "deprecate">
   ) {
     this.ingredientRepository =
       new SqliteCanonicalIngredientRepository(database);
@@ -265,6 +271,21 @@ export class CostBackOfficeService {
       });
     } catch (error) {
       throw this.supersessionOperation(error);
+    }
+  }
+
+  deprecateProfile(profileId: string, input: JsonObject): IngredientMeasurementProfileContractV1 {
+    try {
+      const reason = optionalText(input, "reason");
+      return this.profileDeprecation.deprecate({
+        profileId,
+        expectedVersion: integer(input, "expectedVersion"),
+        occurredAt: text(input, "occurredAt"),
+        actor: text(input, "actor"),
+        ...(reason === undefined ? {} : { reason })
+      });
+    } catch (error) {
+      throw this.deprecationOperation(error);
     }
   }
 
@@ -535,5 +556,29 @@ export class CostBackOfficeService {
       return new HttpError(500, "measurement_profile_supersession_persistence_failed", "Measurement Profile supersession could not be persisted.");
     }
     return new HttpError(422, "measurement_profile_supersession_invalid", "Measurement Profile supersession command is not valid for the current Profile state.");
+  }
+
+  private deprecationOperation(error: unknown): HttpError {
+    if (error instanceof HttpError) {
+      if (error.code !== "invalid_cost_input") return error;
+      return new HttpError(
+        422,
+        "measurement_profile_deprecation_invalid",
+        "Measurement Profile deprecation command is not valid for the current Profile state."
+      );
+    }
+    if (error instanceof IngredientMeasurementProfileDeprecationNotFound) {
+      return new HttpError(404, "measurement_profile_not_found", "Ingredient Measurement Profile was not found.");
+    }
+    if (error instanceof IngredientMeasurementProfileDeprecationExpectedVersionConflict) {
+      return new HttpError(409, "measurement_profile_expected_version_conflict", "Measurement Profile changed before deprecation could be persisted.");
+    }
+    if (error instanceof IngredientMeasurementProfileDeprecationIngredientInactive) {
+      return new HttpError(422, "measurement_profile_ingredient_inactive", "Canonical Ingredient must be Active to deprecate its Measurement Profile.");
+    }
+    if (error instanceof IngredientMeasurementProfileDeprecationPersistenceFailure) {
+      return new HttpError(500, "measurement_profile_deprecation_persistence_failed", "Measurement Profile deprecation could not be persisted.");
+    }
+    return new HttpError(422, "measurement_profile_deprecation_invalid", "Measurement Profile deprecation command is not valid for the current Profile state.");
   }
 }

@@ -246,6 +246,19 @@ async function route(request: IncomingMessage, response: ServerResponse, service
         services.costBackOffice.createProfile(await readJson(request))
       );
     }
+    const profileSupersessionMatch = pathname.match(
+      /^\/api\/admin\/cost\/profiles\/([^/]+)\/supersessions$/
+    );
+    if (request.method === "POST" && profileSupersessionMatch?.[1]) {
+      return success(
+        response,
+        201,
+        services.costBackOffice.supersedeProfile(
+          decodeURIComponent(profileSupersessionMatch[1]),
+          await readJson(request)
+        )
+      );
+    }
     if (request.method === "POST" && pathname === "/api/admin/cost/recipes") {
       return success(
         response,

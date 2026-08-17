@@ -11,6 +11,7 @@ import {
   CanonicalIngredientLifecycleService,
   CanonicalIngredientManagementReadService,
   IngredientMeasurementProfileCreationService,
+  IngredientMeasurementProfileSupersessionService,
   MeasurementProfileFactsResolver
 } from "../domains/recipe/index.js";
 import { SqliteRecipeRepository } from "../domains/recipe/infrastructure/sqlite-recipe-repository.js";
@@ -62,10 +63,17 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
     new MeasurementProfileFactsResolver(measurementUnits),
     measurementUnits
   );
+  const profileSupersession = new IngredientMeasurementProfileSupersessionService(
+    canonicalIngredientRepository,
+    new SqliteIngredientMeasurementProfileRepository(database, measurementUnits),
+    new MeasurementProfileFactsResolver(measurementUnits),
+    measurementUnits
+  );
   const costBackOffice = new CostBackOfficeService(
     database,
     canonicalIngredientCreation,
-    profileCreation
+    profileCreation,
+    profileSupersession
   );
   const events = new SseHub();
   const server = createServer(createRoute({

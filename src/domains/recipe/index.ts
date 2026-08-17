@@ -272,3 +272,15 @@ export {
   IngredientMeasurementProfileCreationService,
   type IngredientMeasurementProfileCreationCommand
 } from "./measurement-profile/application/ingredient-measurement-profile-creation-service.js";
+export {
+  IngredientMeasurementProfileSupersessionExpectedVersionConflict,
+  IngredientMeasurementProfileSupersessionIngredientInactive,
+  IngredientMeasurementProfileSupersessionMeasurementFailure,
+  IngredientMeasurementProfileSupersessionNotFound,
+  IngredientMeasurementProfileSupersessionPersistenceFailure,
+  IngredientMeasurementProfileSupersessionValidationFailure
+} from "./measurement-profile/application/ingredient-measurement-profile-supersession-errors.js";
+export {
+  IngredientMeasurementProfileSupersessionService,
+  type IngredientMeasurementProfileSupersessionCommand
+} from "./measurement-profile/application/ingredient-measurement-profile-supersession-service.js";

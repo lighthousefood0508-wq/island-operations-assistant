@@ -25,11 +25,17 @@ import type {
   CanonicalIngredientContractV1,
   CanonicalIngredientCreationService,
   IngredientMeasurementProfileCreationService,
+  IngredientMeasurementProfileSupersessionService,
   IngredientMeasurementProfileContractV1,
   MeasurementDimensionV1,
   StableMeasurementUnitCodeV1
 } from "../../domains/recipe/index.js";
 import {
+  IngredientMeasurementProfileSupersessionExpectedVersionConflict,
+  IngredientMeasurementProfileSupersessionIngredientInactive,
+  IngredientMeasurementProfileSupersessionMeasurementFailure,
+  IngredientMeasurementProfileSupersessionNotFound,
+  IngredientMeasurementProfileSupersessionPersistenceFailure,
   IngredientReference,
   Quantity,
   RecipeDraftId,
@@ -166,7 +172,8 @@ export class CostBackOfficeService {
   constructor(
     private readonly database: DatabaseAdapter,
     private readonly canonicalIngredientCreation: Pick<CanonicalIngredientCreationService, "create">,
-    private readonly profileCreation: Pick<IngredientMeasurementProfileCreationService, "create">
+    private readonly profileCreation: Pick<IngredientMeasurementProfileCreationService, "create">,
+    private readonly profileSupersession: Pick<IngredientMeasurementProfileSupersessionService, "supersede">
   ) {
     this.ingredientRepository =
       new SqliteCanonicalIngredientRepository(database);
@@ -238,6 +245,26 @@ export class CostBackOfficeService {
       });
     } catch (error) {
       throw this.invalidOperation("measurement_profile_invalid", error);
+    }
+  }
+
+  supersedeProfile(profileId: string, input: JsonObject): IngredientMeasurementProfileContractV1 {
+    try {
+      const reason = optionalText(input, "reason");
+      return this.profileSupersession.supersede({
+        profileId,
+        expectedVersion: integer(input, "expectedVersion"),
+        dimension: text(input, "dimension"),
+        canonicalUnitCode: text(input, "canonicalUnitCode"),
+        allowedUnitCodes: rawTextValues(input, "allowedUnitCodes"),
+        occurredAt: text(input, "occurredAt"),
+        actor: text(input, "actor"),
+        ...(reason === undefined
+          ? {}
+          : { reason })
+      });
+    } catch (error) {
+      throw this.supersessionOperation(error);
     }
   }
 
@@ -481,5 +508,32 @@ export class CostBackOfficeService {
       return new HttpError(status, error.code, error.message);
     }
     return new HttpError(422, code, errorMessage(error));
+  }
+
+  private supersessionOperation(error: unknown): HttpError {
+    if (error instanceof HttpError) {
+      if (error.code !== "invalid_cost_input") return error;
+      return new HttpError(
+        422,
+        "measurement_profile_supersession_invalid",
+        "Measurement Profile supersession command is not valid for the current Profile state."
+      );
+    }
+    if (error instanceof IngredientMeasurementProfileSupersessionNotFound) {
+      return new HttpError(404, "measurement_profile_not_found", "Ingredient Measurement Profile was not found.");
+    }
+    if (error instanceof IngredientMeasurementProfileSupersessionExpectedVersionConflict) {
+      return new HttpError(409, "measurement_profile_expected_version_conflict", "Measurement Profile changed before supersession could be persisted.");
+    }
+    if (error instanceof IngredientMeasurementProfileSupersessionIngredientInactive) {
+      return new HttpError(422, "measurement_profile_ingredient_inactive", "Canonical Ingredient must be Active to supersede its Measurement Profile.");
+    }
+    if (error instanceof IngredientMeasurementProfileSupersessionMeasurementFailure) {
+      return new HttpError(422, "measurement_profile_measurement_resolution_failed", "Replacement Measurement Profile facts could not be resolved.");
+    }
+    if (error instanceof IngredientMeasurementProfileSupersessionPersistenceFailure) {
+      return new HttpError(500, "measurement_profile_supersession_persistence_failed", "Measurement Profile supersession could not be persisted.");
+    }
+    return new HttpError(422, "measurement_profile_supersession_invalid", "Measurement Profile supersession command is not valid for the current Profile state.");
   }
 }

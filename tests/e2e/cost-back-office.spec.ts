@@ -136,3 +136,22 @@ test("Cost Back Office keeps IngredientMeasurementProfileCreation on its existin
   expect(body.data.versions[0].state).toBe("Active");
   await expect(page.locator("#profile-list")).toContainText("mass → g");
 });
+
+test("Cost Back Office delegates Active Profile supersession without UI expansion", async ({ page }) => {
+  const ingredient = await page.request.post("/api/admin/cost/ingredients", {
+    data: { name: "003H facade ingredient", categoryCode: "sauce", occurredAt: "2026-08-17T01:00:00.000Z", actor: "owner" }
+  });
+  const ingredientId = (await ingredient.json()).data.ingredientId;
+  const created = await page.request.post("/api/admin/cost/profiles", {
+    data: { ingredientId, dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g", "kg"], occurredAt: "2026-08-17T01:00:00.000Z", actor: "owner" }
+  });
+  const profileId = (await created.json()).data.profileId as string;
+  const response = await page.request.post(
+    `/api/admin/cost/profiles/${encodeURIComponent(profileId)}/supersessions`,
+    { data: { expectedVersion: 0, dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g"], occurredAt: "2026-08-18T01:00:00.000Z", actor: "owner" } }
+  );
+  expect(response.status()).toBe(201);
+  const body = await response.json();
+  expect(body.data.versions.find((version: { state: string }) => version.state === "Superseded").effectiveTo).toBe("2026-08-18T01:00:00.000Z");
+  expect(body.data.versions.find((version: { state: string }) => version.state === "Active").effectiveFrom).toBe("2026-08-18T01:00:00.000Z");
+});

@@ -173,10 +173,12 @@ test("PR-MEASUREMENT-001 keeps Measurement Profile Facts resolution inside its e
     for (const pattern of patterns) assert.match(content, pattern);
   }
 
-  const approved003GFactsConsumers = new Set([
+  const approvedMeasurementFactsConsumers = new Set([
     "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-creation-service.ts",
     "src/server/index.ts",
-    "src/tests/ingredient-measurement-profile-creation-application.test.ts"
+    "src/tests/ingredient-measurement-profile-creation-application.test.ts",
+    "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-supersession-service.ts",
+    "src/tests/ingredient-measurement-profile-supersession-application.test.ts"
   ]);
   const factsResolutionResponsibility = /MeasurementProfileFactsResolution|MeasurementProfileFactsResolver|Measurement Profile Facts resolver/;
   const factsResolutionFiles = [
@@ -184,7 +186,7 @@ test("PR-MEASUREMENT-001 keeps Measurement Profile Facts resolution inside its e
     ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"])
   ]
     .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
-    .filter((relative) => !approved003GFactsConsumers.has(relative))
+    .filter((relative) => !approvedMeasurementFactsConsumers.has(relative))
     .filter((relative) => factsResolutionResponsibility.test(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8")))
     .sort();
   assert.deepEqual(
@@ -258,7 +260,8 @@ test("Ingredient Measurement Profile internals remain behind versioned contracts
     for (const specifier of importedSpecifiers(filename)) {
       const target = resolveSourceImport(filename, specifier);
       const isApproved003GCreationDependency =
-        filename === approved003GCreationService
+        (filename === approved003GCreationService
+          || filename.endsWith(`${path.sep}ingredient-measurement-profile-supersession-service.ts`))
         && (specifier === "node:crypto" || target === canonicalIngredientIdentity);
       assert.ok(
         isApproved003GCreationDependency
@@ -1047,7 +1050,8 @@ test("Canonical Ingredient internals remain behind the published contract", () =
         filename === serverComposition
         && target === sqliteIngredientRepository;
       const isApproved003GIngredientLookup =
-        filename === approved003GCreationService
+        (filename === approved003GCreationService
+          || filename.endsWith(`${path.sep}ingredient-measurement-profile-supersession-service.ts`))
         && target?.endsWith(`${path.sep}ingredient-catalog${path.sep}identities.ts`);
       assert.equal(
         (target?.startsWith(`${ingredientRoot}${path.sep}`) ?? false)
@@ -1099,6 +1103,14 @@ test("Canonical Ingredient internals remain behind the published contract", () =
     -1,
     "Recipe index publishes the 003G Creation Service surface."
   );
+  const accepted003HMarker =
+    "export {\n  IngredientMeasurementProfileSupersessionExpectedVersionConflict,";
+  const accepted003HOffset = publicIndexSource.indexOf(accepted003HMarker);
+  assert.notEqual(
+    accepted003HOffset,
+    -1,
+    "Recipe index publishes the 003H Supersession Service surface."
+  );
   const pre003APublicIndex = publicIndexSource.slice(0, accepted003AOffset);
   const accepted003ASurface = publicIndexSource.slice(
     accepted003AOffset,
@@ -1120,7 +1132,11 @@ test("Canonical Ingredient internals remain behind the published contract", () =
     measurement001Offset,
     accepted003GOffset
   );
-  const accepted003GSurface = publicIndexSource.slice(accepted003GOffset);
+  const accepted003GSurface = publicIndexSource.slice(
+    accepted003GOffset,
+    accepted003HOffset
+  );
+  const accepted003HSurface = publicIndexSource.slice(accepted003HOffset);
   assert.equal(
     createHash("sha256").update(pre003APublicIndex).digest("hex"),
     "4f55d49ff0c054ff66ba802489f4e5bd832d4405dfe7c4c09470076a0ff8e616",
@@ -1205,6 +1221,22 @@ export {
   IngredientMeasurementProfileCreationService,
   type IngredientMeasurementProfileCreationCommand
 } from "./measurement-profile/application/ingredient-measurement-profile-creation-service.js";
+`
+  );
+  assert.equal(
+    accepted003HSurface,
+    `export {
+  IngredientMeasurementProfileSupersessionExpectedVersionConflict,
+  IngredientMeasurementProfileSupersessionIngredientInactive,
+  IngredientMeasurementProfileSupersessionMeasurementFailure,
+  IngredientMeasurementProfileSupersessionNotFound,
+  IngredientMeasurementProfileSupersessionPersistenceFailure,
+  IngredientMeasurementProfileSupersessionValidationFailure
+} from "./measurement-profile/application/ingredient-measurement-profile-supersession-errors.js";
+export {
+  IngredientMeasurementProfileSupersessionService,
+  type IngredientMeasurementProfileSupersessionCommand
+} from "./measurement-profile/application/ingredient-measurement-profile-supersession-service.js";
 `
   );
   assert.match(pre003APublicIndex, /canonical-ingredient-contract/);
@@ -2251,6 +2283,86 @@ test("Ingredient 003G keeps Measurement Profile creation behind its Application 
     /POST \/api\/admin\/canonical-ingredients\/profiles|IngredientMeasurementProfileCreation/,
     "003G must retain Cost Back Office as the sole existing Profile creation facade."
   );
+});
+
+test("Ingredient 003H keeps Active Profile supersession behind its Application boundary", () => {
+  const approved003HPaths = new Set([
+    "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-supersession-service.ts",
+    "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-supersession-errors.ts",
+    "src/domains/recipe/index.ts",
+    "src/server/app/cost-back-office-service.ts",
+    "src/server/app/routes.ts",
+    "src/server/index.ts",
+    "src/tests/ingredient-measurement-profile-supersession-application.test.ts",
+    "src/tests/cost-back-office-api.integration.test.ts",
+    "src/tests/architecture-guards.test.ts",
+    "tests/e2e/cost-back-office.spec.ts"
+  ]);
+  assert.equal(approved003HPaths.size, 10);
+  const approved003HResponsibilities = new Map<string, readonly RegExp[]>([
+    [
+      "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-supersession-service.ts",
+      [/class IngredientMeasurementProfileSupersessionService/, /supersedeActive\(/, /measurementFacts\.resolveProfileFacts/]
+    ],
+    [
+      "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-supersession-errors.ts",
+      [/SupersessionExpectedVersionConflict/, /SupersessionPersistenceFailure/]
+    ],
+    ["src/domains/recipe/index.ts", [/IngredientMeasurementProfileSupersessionService/, /IngredientMeasurementProfileSupersessionCommand/]],
+    ["src/server/app/cost-back-office-service.ts", [/profileSupersession\.supersede\(/, /supersessionOperation/]],
+    ["src/server/app/routes.ts", [/supersessions/, /supersedeProfile/]],
+    ["src/server/index.ts", [/new IngredientMeasurementProfileSupersessionService\(/, /new CostBackOfficeService\([\s\S]*profileSupersession/]],
+    ["src/tests/ingredient-measurement-profile-supersession-application.test.ts", [/Profile Supersession Service preserves one continuous Active version/, /contains persistence detail/]],
+    ["src/tests/cost-back-office-api.integration.test.ts", [/Cost Back Office supersedes an Active Profile/]],
+    ["src/tests/architecture-guards.test.ts", [/approved003HPaths/, /approved003HResponsibilities/]],
+    ["tests/e2e/cost-back-office.spec.ts", [/delegates Active Profile supersession/]]
+  ]);
+  assert.deepEqual(
+    [...approved003HResponsibilities.keys()].sort(),
+    [...approved003HPaths].sort(),
+    "Every path in the exact 003H allowlist must own an explicit guarded responsibility."
+  );
+  for (const [relative, patterns] of approved003HResponsibilities) {
+    const source = readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8");
+    for (const pattern of patterns) assert.match(source, pattern, `${relative} lost a 003H responsibility.`);
+  }
+
+  const supersessionResponsibility = /IngredientMeasurementProfileSupersession|profileSupersession|supersedeProfile|\/supersessions/;
+  const supersessionFiles = [
+    ...filesUnder(path.join(projectRoot, "src"), [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"])
+  ]
+    .filter((filename) => supersessionResponsibility.test(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .sort();
+  assert.deepEqual(
+    supersessionFiles,
+    [...approved003HPaths].sort(),
+    "An unauthorized eleventh Profile supersession responsibility path is not allowed."
+  );
+  assert.equal(
+    supersessionResponsibility.test("const profileSupersession = createService();"),
+    true,
+    "A simulated eleventh supersession responsibility path must be detected."
+  );
+
+  const servicePath = path.join(sourceRoot, "domains", "recipe", "measurement-profile", "application", "ingredient-measurement-profile-supersession-service.ts");
+  const errorPath = path.join(sourceRoot, "domains", "recipe", "measurement-profile", "application", "ingredient-measurement-profile-supersession-errors.ts");
+  const serviceSource = readFileSync(servicePath, "utf8");
+  const errorSource = readFileSync(errorPath, "utf8");
+  const costSource = readFileSync(path.join(sourceRoot, "server", "app", "cost-back-office-service.ts"), "utf8");
+  const serverSource = readFileSync(path.join(sourceRoot, "server", "index.ts"), "utf8");
+  assertNoTerms(serviceSource, ["sqlite", "better-sqlite3", "database-adapter", "domains/cost", "cause", "stack"], servicePath);
+  assertNoTerms(errorSource, ["sqlite", "database", "cause", "stack"], errorPath);
+  const supersedeStart = costSource.indexOf("  supersedeProfile(");
+  const supersedeEnd = costSource.indexOf("\n  createAndPublishRecipe(", supersedeStart);
+  const supersedeSource = costSource.slice(supersedeStart, supersedeEnd);
+  assert.match(supersedeSource, /profileSupersession\.supersede\(/);
+  assert.doesNotMatch(supersedeSource, /randomUUID|IngredientMeasurementProfile\.create|supersedeActive|saveWithExpectedVersion|MeasurementProfileFactsResolver|MeasurementUnitResolver/);
+  assert.equal(Array.from(serverSource.matchAll(/new IngredientMeasurementProfileSupersessionService\(/g)).length, 1);
+  const routeSource = readFileSync(path.join(sourceRoot, "server", "app", "routes.ts"), "utf8");
+  assert.match(routeSource, /\^\\\/api\\\/admin\\\/cost\\\/profiles\\\/\(\[\^\/\]\+\)\\\/supersessions\$/);
+  assert.doesNotMatch(routeSource, /POST \/api\/admin\/canonical-ingredients\/profiles/);
 });
 
 test("Recipe SQLite persistence uses the shared database boundary and stays private", () => {

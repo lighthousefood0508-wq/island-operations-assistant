@@ -24,6 +24,7 @@ import { RecipePublishService } from "../../domains/recipe/application/recipe-pu
 import type {
   CanonicalIngredientContractV1,
   CanonicalIngredientCreationService,
+  IngredientMeasurementProfileCreationService,
   IngredientMeasurementProfileContractV1,
   MeasurementDimensionV1,
   StableMeasurementUnitCodeV1
@@ -44,7 +45,6 @@ import { SqliteRecipeRepository } from "../../domains/recipe/infrastructure/sqli
 import { MeasurementNormalizer } from "../../domains/recipe/measurement/measurement-normalizer.js";
 import { MeasurementUnitResolver } from "../../domains/recipe/measurement/measurement-unit-resolver.js";
 import { IngredientMeasurementNormalizationService } from "../../domains/recipe/measurement-profile/ingredient-normalization-service.js";
-import { IngredientMeasurementProfile } from "../../domains/recipe/measurement-profile/ingredient-measurement-profile.js";
 import { SqliteIngredientMeasurementProfileRepository } from "../../domains/recipe/measurement-profile/infrastructure/sqlite-ingredient-measurement-profile-repository.js";
 
 type JsonObject = Record<string, unknown>;
@@ -116,6 +116,16 @@ function unitCodes(input: JsonObject): readonly StableMeasurementUnitCodeV1[] {
   }));
 }
 
+function rawTextValues(input: JsonObject, field: string): readonly string[] {
+  const value = input[field];
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
+    throw new HttpError(422, "invalid_cost_input", `${field} must contain text values.`, {
+      field
+    });
+  }
+  return Object.freeze(value);
+}
+
 function objectArray(input: JsonObject, field: string): readonly JsonObject[] {
   const value = input[field];
   if (
@@ -155,10 +165,8 @@ export class CostBackOfficeService {
 
   constructor(
     private readonly database: DatabaseAdapter,
-    private readonly canonicalIngredientCreation: Pick<
-      CanonicalIngredientCreationService,
-      "create"
-    >
+    private readonly canonicalIngredientCreation: Pick<CanonicalIngredientCreationService, "create">,
+    private readonly profileCreation: Pick<IngredientMeasurementProfileCreationService, "create">
   ) {
     this.ingredientRepository =
       new SqliteCanonicalIngredientRepository(database);
@@ -220,43 +228,14 @@ export class CostBackOfficeService {
 
   createProfile(input: JsonObject): IngredientMeasurementProfileContractV1 {
     try {
-      const ingredientId = text(input, "ingredientId");
-      const ingredient = this.ingredientRepository.findById(
-        CanonicalIngredientId.parse(ingredientId)
-      );
-      if (ingredient === undefined || ingredient.status !== "Active") {
-        throw new Error("Choose an active Canonical Ingredient.");
-      }
-      const occurredAt = text(input, "occurredAt");
-      const actor = text(input, "actor");
-      const profileId = `measurement_profile_${randomUUID()}`;
-      const profileVersionId =
-        `measurement_profile_version_${randomUUID()}`;
-      const profileDimension = dimension(input, "dimension");
-      const profile = IngredientMeasurementProfile.createDraft({
-        identity: { profileId, profileVersionId, ingredientId },
-        createdAt: occurredAt,
-        createdBy: actor
-      }).activateDraft(
-        profileVersionId,
-        {
-          dimension: profileDimension,
-          canonicalUnitCode: text(input, "canonicalUnitCode") as
-            "g" | "ml" | "each",
-          allowedUnitCodes: unitCodes(input),
-          profileAliases: [],
-          source: {
-            sourceType: "MANUAL",
-            referenceId: "cost-back-office",
-            recordedAt: occurredAt,
-            recordedBy: actor
-          }
-        },
-        { occurredAt, actorId: actor },
-        this.unitResolver
-      );
-      this.profileRepository.saveNew(profile);
-      return profile.toContract();
+      return this.profileCreation.create({
+        ingredientId: text(input, "ingredientId"),
+        dimension: text(input, "dimension"),
+        canonicalUnitCode: text(input, "canonicalUnitCode"),
+        allowedUnitCodes: rawTextValues(input, "allowedUnitCodes"),
+        occurredAt: text(input, "occurredAt"),
+        actor: text(input, "actor")
+      });
     } catch (error) {
       throw this.invalidOperation("measurement_profile_invalid", error);
     }

@@ -83,6 +83,7 @@ test("Measurement Foundation internals remain isolated behind the published cont
     "measurement-foundation-contract.ts"
   );
   const recipePublicIndex = path.join(recipeRoot, "index.ts");
+  const approved003GComposition = path.join(sourceRoot, "server", "index.ts");
 
   for (const filename of filesUnder(measurementRoot, [".ts"])) {
     for (const specifier of importedSpecifiers(filename)) {
@@ -100,6 +101,7 @@ test("Measurement Foundation internals remain isolated behind the published cont
     .filter((filename) => !filename.startsWith(`${measurementRoot}${path.sep}`))
     .filter((filename) =>
       filename !== recipePublicIndex
+      && filename !== approved003GComposition
       && !filename.endsWith(
         `${path.sep}server${path.sep}app${path.sep}cost-back-office-service.ts`
       )
@@ -171,13 +173,19 @@ test("PR-MEASUREMENT-001 keeps Measurement Profile Facts resolution inside its e
     for (const pattern of patterns) assert.match(content, pattern);
   }
 
+  const approved003GFactsConsumers = new Set([
+    "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-creation-service.ts",
+    "src/server/index.ts",
+    "src/tests/ingredient-measurement-profile-creation-application.test.ts"
+  ]);
   const factsResolutionResponsibility = /MeasurementProfileFactsResolution|MeasurementProfileFactsResolver|Measurement Profile Facts resolver/;
   const factsResolutionFiles = [
     ...filesUnder(path.join(projectRoot, "src"), [".ts", ".tsx"]),
     ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"])
   ]
-    .filter((filename) => factsResolutionResponsibility.test(readFileSync(filename, "utf8")))
     .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => !approved003GFactsConsumers.has(relative))
+    .filter((relative) => factsResolutionResponsibility.test(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8")))
     .sort();
   assert.deepEqual(
     factsResolutionFiles,
@@ -230,6 +238,16 @@ test("Ingredient Measurement Profile internals remain behind versioned contracts
     "measurement-foundation-contract.ts"
   );
   const recipePublicIndex = path.join(recipeRoot, "index.ts");
+  const approved003GCreationService = path.join(
+    profileRoot,
+    "application",
+    "ingredient-measurement-profile-creation-service.ts"
+  );
+  const canonicalIngredientIdentity = path.join(
+    recipeRoot,
+    "ingredient-catalog",
+    "identities.ts"
+  );
 
   const profileDomainFiles = filesUnder(profileRoot, [".ts"])
     .filter((filename) =>
@@ -239,13 +257,17 @@ test("Ingredient Measurement Profile internals remain behind versioned contracts
   for (const filename of profileDomainFiles) {
     for (const specifier of importedSpecifiers(filename)) {
       const target = resolveSourceImport(filename, specifier);
+      const isApproved003GCreationDependency =
+        filename === approved003GCreationService
+        && (specifier === "node:crypto" || target === canonicalIngredientIdentity);
       assert.ok(
-        target !== null
+        isApproved003GCreationDependency
+          || (target !== null
           && (
             target.startsWith(`${profileRoot}${path.sep}`)
             || target === profileContract
             || target === measurementContract
-          ),
+          )),
         `${filename} imports outside Ingredient Measurement Profile contracts: ${specifier}`
       );
     }
@@ -329,6 +351,8 @@ test("Ingredient Measurement Profile internals remain behind versioned contracts
     .filter((filename) => !filename.startsWith(`${profileRoot}${path.sep}`))
     .filter((filename) =>
       filename !== recipePublicIndex
+      && filename !== approved003GCreationService
+      && filename !== path.join(sourceRoot, "server", "index.ts")
       && !filename.endsWith(
         `${path.sep}server${path.sep}app${path.sep}cost-back-office-service.ts`
       )
@@ -928,6 +952,12 @@ test("Canonical Ingredient internals remain behind the published contract", () =
     "canonical-ingredient-management-read-service.ts"
   );
   const serverComposition = path.join(sourceRoot, "server", "index.ts");
+  const approved003GCreationService = path.join(
+    recipeRoot,
+    "measurement-profile",
+    "application",
+    "ingredient-measurement-profile-creation-service.ts"
+  );
   const managementServerAdapter = path.join(
     sourceRoot,
     "server",
@@ -1005,6 +1035,7 @@ test("Canonical Ingredient internals remain behind the published contract", () =
     .filter((filename) => !filename.startsWith(`${ingredientRoot}${path.sep}`))
     .filter((filename) =>
       filename !== recipePublicIndex
+      && filename !== path.join(sourceRoot, "server", "index.ts")
       && !filename.endsWith(
         `${path.sep}server${path.sep}app${path.sep}cost-back-office-service.ts`
       )
@@ -1015,9 +1046,13 @@ test("Canonical Ingredient internals remain behind the published contract", () =
       const isApproved003BCompositionImport =
         filename === serverComposition
         && target === sqliteIngredientRepository;
+      const isApproved003GIngredientLookup =
+        filename === approved003GCreationService
+        && target?.endsWith(`${path.sep}ingredient-catalog${path.sep}identities.ts`);
       assert.equal(
         (target?.startsWith(`${ingredientRoot}${path.sep}`) ?? false)
-          && !isApproved003BCompositionImport,
+          && !isApproved003BCompositionImport
+          && !isApproved003GIngredientLookup,
         false,
         `${filename} imports Canonical Ingredient internals outside the exact server/index.ts composition exception.`
       );
@@ -1056,6 +1091,14 @@ test("Canonical Ingredient internals remain behind the published contract", () =
     -1,
     "Recipe index publishes the PR-MEASUREMENT-001 formal Measurement boundary."
   );
+  const accepted003GMarker =
+    "export {\n  IngredientMeasurementProfileCreationIngredientInactive,";
+  const accepted003GOffset = publicIndexSource.indexOf(accepted003GMarker);
+  assert.notEqual(
+    accepted003GOffset,
+    -1,
+    "Recipe index publishes the 003G Creation Service surface."
+  );
   const pre003APublicIndex = publicIndexSource.slice(0, accepted003AOffset);
   const accepted003ASurface = publicIndexSource.slice(
     accepted003AOffset,
@@ -1073,7 +1116,11 @@ test("Canonical Ingredient internals remain behind the published contract", () =
     accepted003DOffset,
     measurement001Offset
   );
-  const measurement001Surface = publicIndexSource.slice(measurement001Offset);
+  const measurement001Surface = publicIndexSource.slice(
+    measurement001Offset,
+    accepted003GOffset
+  );
+  const accepted003GSurface = publicIndexSource.slice(accepted003GOffset);
   assert.equal(
     createHash("sha256").update(pre003APublicIndex).digest("hex"),
     "4f55d49ff0c054ff66ba802489f4e5bd832d4405dfe7c4c09470076a0ff8e616",
@@ -1143,6 +1190,21 @@ export {
   ResolvedMeasurementProfileFactsV1
 } from "./contracts/measurement-foundation-contract.js";
 export { MeasurementProfileFactsResolver } from "./measurement/measurement-profile-facts-resolver.js";
+`
+  );
+  assert.equal(
+    accepted003GSurface,
+    `export {
+  IngredientMeasurementProfileCreationIngredientInactive,
+  IngredientMeasurementProfileCreationIngredientNotFound,
+  IngredientMeasurementProfileCreationMeasurementFailure,
+  IngredientMeasurementProfileCreationPersistenceFailure,
+  IngredientMeasurementProfileCreationValidationFailure
+} from "./measurement-profile/application/ingredient-measurement-profile-creation-errors.js";
+export {
+  IngredientMeasurementProfileCreationService,
+  type IngredientMeasurementProfileCreationCommand
+} from "./measurement-profile/application/ingredient-measurement-profile-creation-service.js";
 `
   );
   assert.match(pre003APublicIndex, /canonical-ingredient-contract/);
@@ -2058,6 +2120,136 @@ test("Ingredient 003F keeps Canonical Ingredient creation behind its Application
     readFileSync(path.join(sourceRoot, "server", "app", "routes.ts"), "utf8"),
     /POST \/api\/admin\/canonical-ingredients|canonicalIngredientCreation/,
     "003F must retain Cost Back Office as the sole existing creation facade."
+  );
+});
+
+test("Ingredient 003G keeps Measurement Profile creation behind its Application boundary", () => {
+  const approved003GPaths = new Set([
+    "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-creation-service.ts",
+    "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-creation-errors.ts",
+    "src/domains/recipe/index.ts",
+    "src/server/app/cost-back-office-service.ts",
+    "src/server/index.ts",
+    "src/tests/ingredient-measurement-profile-creation-application.test.ts",
+    "src/tests/cost-back-office-api.integration.test.ts",
+    "src/tests/architecture-guards.test.ts",
+    "tests/e2e/cost-back-office.spec.ts"
+  ]);
+  assert.equal(approved003GPaths.size, 9);
+  const approved003GResponsibilities = new Map<string, readonly RegExp[]>([
+    [
+      "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-creation-service.ts",
+      [/class IngredientMeasurementProfileCreationService/, /type ProfileCreationStore/, /measurementFacts\.resolveProfileFacts/]
+    ],
+    [
+      "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-creation-errors.ts",
+      [/IngredientMeasurementProfileCreationValidationFailure/, /IngredientMeasurementProfileCreationPersistenceFailure/]
+    ],
+    [
+      "src/domains/recipe/index.ts",
+      [/IngredientMeasurementProfileCreationService/, /IngredientMeasurementProfileCreationCommand/]
+    ],
+    [
+      "src/server/app/cost-back-office-service.ts",
+      [/profileCreation\.create\(/]
+    ],
+    [
+      "src/server/index.ts",
+      [/new IngredientMeasurementProfileCreationService\(/, /new CostBackOfficeService\([\s\S]*profileCreation/]
+    ],
+    [
+      "src/tests/ingredient-measurement-profile-creation-application.test.ts",
+      [/Profile Creation Service creates one Active Profile/, /contains persistence detail/]
+    ],
+    [
+      "src/tests/cost-back-office-api.integration.test.ts",
+      [/Cost Back Office API keeps Profile creation on its existing facade/]
+    ],
+    [
+      "src/tests/architecture-guards.test.ts",
+      [/approved003GPaths/, /approved003GResponsibilities/]
+    ],
+    [
+      "tests/e2e/cost-back-office.spec.ts",
+      [/IngredientMeasurementProfileCreation on its existing facade/]
+    ]
+  ]);
+  assert.deepEqual(
+    [...approved003GResponsibilities.keys()].sort(),
+    [...approved003GPaths].sort(),
+    "Every path in the exact 003G allowlist must own an explicit guarded responsibility."
+  );
+  for (const [relative, patterns] of approved003GResponsibilities) {
+    const filename = path.join(projectRoot, ...relative.split("/"));
+    assert.equal(existsSync(filename), true, `${relative} is required by the 003G boundary.`);
+    const source = readFileSync(filename, "utf8");
+    for (const pattern of patterns) assert.match(source, pattern);
+  }
+
+  const profileCreationResponsibility = /IngredientMeasurementProfileCreation|profileCreation|Cost Back Office API keeps Profile creation on its existing facade/;
+  const profileCreationResponsibilityFiles = [
+    ...filesUnder(path.join(projectRoot, "src"), [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"])
+  ]
+    .filter((filename) => profileCreationResponsibility.test(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .sort();
+  assert.deepEqual(
+    profileCreationResponsibilityFiles,
+    [...approved003GPaths].sort(),
+    "A tenth Ingredient Measurement Profile Creation responsibility path is not authorized."
+  );
+  assert.equal(
+    profileCreationResponsibility.test("const profileCreation = createService();"),
+    true,
+    "A simulated tenth Measurement Profile Creation responsibility must be detected."
+  );
+
+  const profileCreationService = path.join(
+    sourceRoot,
+    "domains",
+    "recipe",
+    "measurement-profile",
+    "application",
+    "ingredient-measurement-profile-creation-service.ts"
+  );
+  const profileCreationErrors = path.join(
+    sourceRoot,
+    "domains",
+    "recipe",
+    "measurement-profile",
+    "application",
+    "ingredient-measurement-profile-creation-errors.ts"
+  );
+  const costBackOffice = path.join(sourceRoot, "server", "app", "cost-back-office-service.ts");
+  const serverIndex = path.join(sourceRoot, "server", "index.ts");
+  const creationSource = readFileSync(profileCreationService, "utf8");
+  const errorSource = readFileSync(profileCreationErrors, "utf8");
+  const costSource = readFileSync(costBackOffice, "utf8");
+  const serverSource = readFileSync(serverIndex, "utf8");
+  assertNoTerms(
+    creationSource,
+    ["sqlite", "better-sqlite3", "database-adapter", "domains/cost", "cause", "stack"],
+    profileCreationService
+  );
+  assertNoTerms(errorSource, ["sqlite", "database", "cause", "stack"], profileCreationErrors);
+  const createProfileStart = costSource.indexOf("  createProfile(");
+  const createProfileEnd = costSource.indexOf("\n  createAndPublishRecipe(", createProfileStart);
+  const createProfileSource = costSource.slice(createProfileStart, createProfileEnd);
+  assert.match(createProfileSource, /profileCreation\.create\(/);
+  assert.doesNotMatch(
+    createProfileSource,
+    /randomUUID|IngredientMeasurementProfile\.create|saveNew|MeasurementProfileFactsResolver|MeasurementUnitResolver|unitCodes/
+  );
+  assert.equal(
+    Array.from(serverSource.matchAll(/new IngredientMeasurementProfileCreationService\(/g)).length,
+    1,
+    "server/index.ts is the sole 003G Creation Service composition site."
+  );
+  assert.doesNotMatch(
+    readFileSync(path.join(sourceRoot, "server", "app", "routes.ts"), "utf8"),
+    /POST \/api\/admin\/canonical-ingredients\/profiles|IngredientMeasurementProfileCreation/,
+    "003G must retain Cost Back Office as the sole existing Profile creation facade."
   );
 });
 

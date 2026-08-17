@@ -318,7 +318,7 @@ test("fresh database completes Ingredient to exact Cost Evaluation and survives 
   }
 });
 
-test("Cost Back Office API rejects invalid cross-dimension Profile input", async () => {
+test("Cost Back Office API keeps Profile creation on its existing facade and rejects invalid cross-dimension input", async () => {
   const databasePath = path.resolve(
     "data",
     `cost-back-office-invalid-${randomUUID()}.sqlite`
@@ -336,6 +336,21 @@ test("Cost Back Office API rejects invalid cross-dimension Profile input", async
         actor: "owner"
       }
     );
+    const accepted = await request(
+      running.baseUrl,
+      "/api/admin/cost/profiles",
+      "POST",
+      {
+        ingredientId: ingredient.body.data.ingredientId,
+        dimension: "mass",
+        canonicalUnitCode: "g",
+        allowedUnitCodes: ["g", "kg"],
+        occurredAt: AT,
+        actor: "owner"
+      }
+    );
+    assert.equal(accepted.status, 201);
+    assert.equal(accepted.body.data.versions[0].state, "Active");
     const response = await request(
       running.baseUrl,
       "/api/admin/cost/profiles",

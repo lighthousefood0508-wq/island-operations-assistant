@@ -261,3 +261,14 @@ export type {
   ResolvedMeasurementProfileFactsV1
 } from "./contracts/measurement-foundation-contract.js";
 export { MeasurementProfileFactsResolver } from "./measurement/measurement-profile-facts-resolver.js";
+export {
+  IngredientMeasurementProfileCreationIngredientInactive,
+  IngredientMeasurementProfileCreationIngredientNotFound,
+  IngredientMeasurementProfileCreationMeasurementFailure,
+  IngredientMeasurementProfileCreationPersistenceFailure,
+  IngredientMeasurementProfileCreationValidationFailure
+} from "./measurement-profile/application/ingredient-measurement-profile-creation-errors.js";
+export {
+  IngredientMeasurementProfileCreationService,
+  type IngredientMeasurementProfileCreationCommand
+} from "./measurement-profile/application/ingredient-measurement-profile-creation-service.js";

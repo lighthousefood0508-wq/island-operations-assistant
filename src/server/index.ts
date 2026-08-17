@@ -9,7 +9,9 @@ import { LifecycleRepository, LifecycleService, OperationsRepository, Operations
 import {
   CanonicalIngredientCreationService,
   CanonicalIngredientLifecycleService,
-  CanonicalIngredientManagementReadService
+  CanonicalIngredientManagementReadService,
+  IngredientMeasurementProfileCreationService,
+  MeasurementProfileFactsResolver
 } from "../domains/recipe/index.js";
 import { SqliteRecipeRepository } from "../domains/recipe/infrastructure/sqlite-recipe-repository.js";
 import { SqliteCostRepository } from "../domains/cost/infrastructure/sqlite-cost-repository.js";
@@ -17,6 +19,8 @@ import { CanonicalIngredientReferenceImpactService } from "../application/canoni
 import {
   SqliteCanonicalIngredientRepository
 } from "../domains/recipe/ingredient-catalog/infrastructure/sqlite-canonical-ingredient-repository.js";
+import { MeasurementUnitResolver } from "../domains/recipe/measurement/measurement-unit-resolver.js";
+import { SqliteIngredientMeasurementProfileRepository } from "../domains/recipe/measurement-profile/infrastructure/sqlite-ingredient-measurement-profile-repository.js";
 import {
   CanonicalIngredientManagementService
 } from "./app/canonical-ingredient-management-service.js";
@@ -51,9 +55,17 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
   const canonicalIngredientCreation = new CanonicalIngredientCreationService(
     canonicalIngredientRepository
   );
+  const measurementUnits = new MeasurementUnitResolver();
+  const profileCreation = new IngredientMeasurementProfileCreationService(
+    canonicalIngredientRepository,
+    new SqliteIngredientMeasurementProfileRepository(database, measurementUnits),
+    new MeasurementProfileFactsResolver(measurementUnits),
+    measurementUnits
+  );
   const costBackOffice = new CostBackOfficeService(
     database,
-    canonicalIngredientCreation
+    canonicalIngredientCreation,
+    profileCreation
   );
   const events = new SseHub();
   const server = createServer(createRoute({

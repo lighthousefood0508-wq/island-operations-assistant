@@ -22,6 +22,35 @@
 
 ## Approval Register
 
+- **DECISIONS #075 - Ingredient Measurement Profile Active-Version Supersession Application Boundary**
+  - **Date**: 2026-08-17.
+  - **Status**: APPROVED by Architecture Owner for governance recording and the dedicated PR-INGREDIENT-003H Task Card only. Implementation remains separately gated.
+  - **Single responsibility**:
+    - Provide one synchronous Recipe-hosted Application boundary that orchestrates supersession of an Active Ingredient Measurement Profile Version through the existing Profile Aggregate.
+    - V1 is supersession-only: it does not expose a standalone Profile deprecation command, Draft revision command, or any Canonical Ingredient lifecycle command.
+  - **Lifecycle semantics**:
+    - The existing Aggregate remains the sole authority for Profile/Profile Version identity, same-Profile and same-Ingredient binding, lifecycle facts, immutable historical versions, and one-Active-Version behavior.
+    - A successful command changes one existing Active version to `Superseded` and creates one replacement `Active` version atomically through the Aggregate's existing `supersedeActive(...)` behavior.
+    - The transition instant is the replacement Active version's `effectiveFrom` and the superseded version's `effectiveTo`. They are exactly equal: no effective-time gap or overlap is permitted.
+    - Standalone deprecation remains an existing Domain capability but is not a V1 Application or HTTP command. A no-Active-version state is a domain-state rejection, not malformed command input.
+    - Pinned Recipe and Quote Profile Version evidence remains immutable and historically resolvable. Supersession must not rewrite, re-normalize, replace, or reinterpret historical Recipe or Quote evidence through the newest Active version.
+  - **Application and Measurement boundary**:
+    - The Application Service coordinates command shape, Profile and Active Ingredient lookup, formal Measurement facts resolution, the V1 replacement-family policy, Aggregate invocation, expected-version persistence, and typed safe results or failures. It must not reimplement supersession rules outside the Aggregate.
+    - Archived Ingredients reject a new supersession command with zero write; historical Profile reads and normalization remain unaffected.
+    - Raw replacement dimension, canonical-unit, and allowed-unit values must pass through `MeasurementProfileFactsResolutionContractV1`. The Application boundary must not add a local dimension/unit whitelist, parser, compatibility decision, resolver replacement, or unsafe raw-to-typed cast.
+    - V1 replacement facts must retain the current Active version's measurement dimension and canonical unit code. A different dimension or canonical unit is rejected as a V1 command policy; it does not redesign the Aggregate or Measurement authority.
+    - Optimistic concurrency uses the existing `expectedVersion` and `saveWithExpectedVersion(...)` semantics. A conflict performs no silent retry and no partial write.
+  - **Cost Back Office and HTTP boundary**:
+    - Cost Back Office remains the existing HTTP facade and delegator only; it must not create IDs, construct or supersede the Aggregate, call persistence directly, resolve Measurement facts, or own lifecycle rules.
+    - The authorized facade operation is `POST /api/admin/cost/profiles/:profileId/supersessions`. Success is HTTP `201`. This is not a second Profile authority or management route.
+    - Stable safe failures cover invalid command, Profile not found, no Active version as a domain-state rejection, archived Ingredient, expected-version conflict, Measurement-resolution failure, Aggregate rejection, and persistence failure. Raw SQLite/DB messages, stacks, causes, or infrastructure-specific types must not cross the Application or serialized HTTP boundary.
+  - **Exact implementation boundary**:
+    - The dedicated PR-INGREDIENT-003H Task Card fixes an exact ten-path implementation allowlist: supersession Service and errors, Recipe export, Cost Back Office delegation, route registration, server composition, focused Application and Cost API tests, Architecture Guard, and existing Cost Back Office E2E coverage.
+    - No migration, schema, package, UI/navigation, Purchase authority, Cost Snapshot authority, Ingredient Reactivate/Delete/Merge, alias/identity-resolution, historical evidence rewrite, or eleventh implementation path is authorized.
+  - **Authorization boundary**:
+    - This Decision authorizes recording this Decision and the dedicated PR-INGREDIENT-003H Task Card, including their isolated governance commit and normal push to `integration/architecture-development`.
+    - Implementation branch creation, production or test modification, staging, implementation commit, PR, merge, 003I, main promotion, release, and deployment require later explicit Owner authorization.
+
 - **DECISIONS #074 - Measurement Profile Facts Resolution Boundary**
   - **Date**: 2026-08-15.
   - **Status**: APPROVED by Architecture Owner for prerequisite governance recording and the dedicated PR-MEASUREMENT-001 Task Card only. Prerequisite implementation remains separately gated.

@@ -7,7 +7,8 @@ Status: Owner-amended after the Measurement prerequisite merge; implementation r
 ## 1. Authority and recording baseline
 
 - Decision: **DECISIONS #073 — Ingredient Measurement Profile Creation Application Boundary**.
-- Required implementation baseline: `integration/architecture-development` must contain `1c931b82c3990d40bdbc6092b470013c6355edcf` (the PR-MEASUREMENT-001 merge) or a later Owner-authorized integration descendant that contains it.
+- Required implementation baseline: `integration/architecture-development` must contain `1c931b82c3990d40bdbc6092b470013c6355edcf` (the PR-MEASUREMENT-001 merge) and `b803479c5e4b361351c69f709ceb0efcb21ec2c3` (the PR-MEASUREMENT-001R merge), or a later Owner-authorized integration descendant that contains both.
+- `MeasurementProfileFactsResolutionContractV1` now resolves `canonicalUnitCode` with the canonical-only type `"g" | "ml" | "each"`, structurally compatible with Profile canonical facts. The 003G Application Service must consume those typed facts directly; it must not restore compatibility through a local narrowing, cast, or whitelist.
 - This is an Architecture Development integration identity only. It is not `main`, release, deployment, runtime provenance, or implementation authorization.
 - DECISIONS #069, #071, and #072, accepted Ingredient 003A–003F Task Cards, and existing Measurement Profile Aggregate invariants remain authoritative unless this Card expressly and narrowly adds a boundary.
 

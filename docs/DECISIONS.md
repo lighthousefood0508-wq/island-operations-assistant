@@ -22,6 +22,34 @@
 
 ## Approval Register
 
+- **DECISIONS #076 - Ingredient Measurement Profile Standalone Deprecation Application Boundary**
+  - **Date**: 2026-08-17.
+  - **Status**: APPROVED by Architecture Owner for governance recording and the dedicated PR-INGREDIENT-003I Task Card only. Implementation remains separately gated.
+  - **Single responsibility**:
+    - Provide one synchronous Recipe-hosted Application boundary that orchestrates standalone deprecation of an Active Ingredient Measurement Profile Version through the existing Profile Aggregate.
+    - V1 exposes only `Active -> Deprecated`. It creates no replacement Active version and exposes no Draft creation, revision, or activation workflow.
+  - **Lifecycle semantics**:
+    - The existing Aggregate remains the sole authority for Profile/Profile Version identity, lifecycle facts, effective-time validity, immutable history, and one-Active-Version behavior.
+    - The supplied `occurredAt` is the deprecation transition instant and the former Active version's `effectiveTo`.
+    - A successful standalone deprecation intentionally permits the Ingredient to have no current Active Measurement Profile. Current or future normalization at or after that instant must fail closed through the existing missing-active-profile behavior until a later separately authorized lifecycle command establishes an Active Profile.
+    - A Profile that exists but has no Active version is a domain-state rejection, not malformed input. V1 maps it to the safe `measurement_profile_deprecation_invalid` / HTTP 422 outcome.
+    - Historical pinned Profile Version, Recipe, and Quote evidence remains immutable and resolvable at its valid historical instant. Deprecation must not delete history, rewrite evidence, substitute a newer Profile, re-normalize historical records, or create a replacement Active version.
+  - **Application and persistence boundary**:
+    - The Application Service coordinates command shape, Profile and Active Ingredient lookup, expected-version handling, `deprecateActive(...)` invocation, existing `saveWithExpectedVersion(...)` persistence, and typed safe results or failures. It must not recreate lifecycle rules outside the Aggregate.
+    - Archived Ingredients reject a new deprecation command with zero write; historical reads remain unaffected.
+    - Optimistic concurrency uses the existing expected-version semantics. A conflict performs no silent retry and no partial write.
+    - No Profile Aggregate redesign, persistence or Repository Port expansion, migration, schema, or Measurement authority change is authorized.
+  - **Cost Back Office and HTTP boundary**:
+    - Cost Back Office remains the existing HTTP facade and delegator only; it must not construct the Aggregate, invoke persistence, or own lifecycle rules.
+    - The authorized operation is `POST /api/admin/cost/profiles/:profileId/deprecations`. Success is HTTP `200`, returning the updated Deprecated Profile representation; deprecation does not create a replacement resource.
+    - Stable safe failures cover invalid command or no-Active domain state, Profile not found, archived Ingredient, expected-version conflict, Aggregate rejection, and persistence failure. Raw SQLite/DB messages, stacks, causes, or infrastructure-specific types must not cross the Application or serialized HTTP boundary.
+  - **Exact implementation boundary**:
+    - The dedicated PR-INGREDIENT-003I Task Card fixes an exact ten-path implementation allowlist: deprecation Service and errors, Recipe export, Cost Back Office delegation, route registration, server composition, focused Application and Cost API tests, Architecture Guard, and existing Cost Back Office E2E coverage.
+    - No Draft workflow, supersession change, Ingredient Reactivate/Delete/Merge, Purchase authority, Cost Snapshot authority, UI/navigation, migration, schema, package, historical evidence rewrite, or eleventh implementation path is authorized.
+  - **Authorization boundary**:
+    - This Decision authorizes recording this Decision and the dedicated PR-INGREDIENT-003I Task Card, including their isolated governance commit and normal push to `integration/architecture-development`.
+    - Implementation branch creation, production or test modification, staging, implementation commit, PR, merge, later lifecycle slices, main promotion, release, and deployment require later explicit Owner authorization.
+
 - **DECISIONS #075 - Ingredient Measurement Profile Active-Version Supersession Application Boundary**
   - **Date**: 2026-08-17.
   - **Status**: APPROVED by Architecture Owner for governance recording and the dedicated PR-INGREDIENT-003H Task Card only. Implementation remains separately gated.

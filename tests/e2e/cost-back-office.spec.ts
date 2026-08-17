@@ -155,3 +155,23 @@ test("Cost Back Office delegates Active Profile supersession without UI expansio
   expect(body.data.versions.find((version: { state: string }) => version.state === "Superseded").effectiveTo).toBe("2026-08-18T01:00:00.000Z");
   expect(body.data.versions.find((version: { state: string }) => version.state === "Active").effectiveFrom).toBe("2026-08-18T01:00:00.000Z");
 });
+
+test("Cost Back Office delegates Active Profile deprecation without UI expansion", async ({ page }) => {
+  const ingredient = await page.request.post("/api/admin/cost/ingredients", {
+    data: { name: "003I facade ingredient", categoryCode: "sauce", occurredAt: "2026-08-17T01:00:00.000Z", actor: "owner" }
+  });
+  const ingredientId = (await ingredient.json()).data.ingredientId;
+  const created = await page.request.post("/api/admin/cost/profiles", {
+    data: { ingredientId, dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g", "kg"], occurredAt: "2026-08-17T01:00:00.000Z", actor: "owner" }
+  });
+  const profileId = (await created.json()).data.profileId as string;
+  const response = await page.request.post(
+    `/api/admin/cost/profiles/${encodeURIComponent(profileId)}/deprecations`,
+    { data: { expectedVersion: 0, occurredAt: "2026-08-18T01:00:00.000Z", actor: "owner" } }
+  );
+  expect(response.status()).toBe(200);
+  const body = await response.json();
+  expect(body.data.versions).toHaveLength(1);
+  expect(body.data.versions[0].state).toBe("Deprecated");
+  expect(body.data.versions[0].effectiveTo).toBe("2026-08-18T01:00:00.000Z");
+});

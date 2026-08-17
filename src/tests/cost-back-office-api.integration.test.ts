@@ -4,6 +4,10 @@ import { randomUUID } from "node:crypto";
 import { rmSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import {
+  IngredientMeasurementProfileDeprecationPersistenceFailure,
+  IngredientMeasurementProfileDeprecationService
+} from "../domains/recipe/index.js";
 import { createRosServer } from "../server/index.js";
 
 const AT = "2026-07-31T01:00:00.000Z";
@@ -429,6 +433,102 @@ test("Cost Back Office supersedes an Active Profile through its delegated facade
     );
     assert.equal(invalid.status, 422);
     assert.equal(invalid.body.error.code, "measurement_profile_supersession_invalid");
+  } finally {
+    await stop(running.server);
+    cleanup(databasePath);
+  }
+});
+
+test("Cost Back Office deprecates an Active Profile through its delegated facade", async () => {
+  const databasePath = path.resolve(
+    "data",
+    `cost-back-office-profile-deprecation-${randomUUID()}.sqlite`
+  );
+  const running = await start(databasePath);
+  try {
+    const ingredient = await request(running.baseUrl, "/api/admin/cost/ingredients", "POST", {
+      name: "Deprecated sesame oil", categoryCode: "sauce", occurredAt: AT, actor: "owner"
+    });
+    const created = await request(running.baseUrl, "/api/admin/cost/profiles", "POST", {
+      ingredientId: ingredient.body.data.ingredientId,
+      dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g", "kg"], occurredAt: AT, actor: "owner"
+    });
+    const profileId = created.body.data.profileId;
+    const deprecated = await request(
+      running.baseUrl,
+      `/api/admin/cost/profiles/${encodeURIComponent(profileId)}/deprecations`,
+      "POST",
+      { expectedVersion: 0, occurredAt: REPLACEMENT_AT, actor: "owner", reason: "retired profile" }
+    );
+    assert.equal(deprecated.status, 200);
+    assert.equal(deprecated.body.data.versions.length, 1);
+    assert.equal(deprecated.body.data.versions[0].state, "Deprecated");
+    assert.equal(deprecated.body.data.versions[0].effectiveTo, REPLACEMENT_AT);
+
+    const stale = await request(
+      running.baseUrl,
+      `/api/admin/cost/profiles/${encodeURIComponent(profileId)}/deprecations`,
+      "POST",
+      { expectedVersion: 0, occurredAt: "2026-08-02T01:00:00.000Z", actor: "owner" }
+    );
+    assert.equal(stale.status, 409);
+    assert.equal(stale.body.error.code, "measurement_profile_expected_version_conflict");
+
+    const missing = await request(running.baseUrl, "/api/admin/cost/profiles/measurement_profile_123e4567-e89b-42d3-a456-426614174999/deprecations", "POST", {
+      expectedVersion: 0, occurredAt: REPLACEMENT_AT, actor: "owner"
+    });
+    assert.equal(missing.status, 404);
+    assert.equal(missing.body.error.code, "measurement_profile_not_found");
+
+    const invalid = await request(
+      running.baseUrl,
+      `/api/admin/cost/profiles/${encodeURIComponent(profileId)}/deprecations`,
+      "POST",
+      { expectedVersion: "stale", occurredAt: REPLACEMENT_AT, actor: "owner" }
+    );
+    assert.equal(invalid.status, 422);
+    assert.equal(invalid.body.error.code, "measurement_profile_deprecation_invalid");
+  } finally {
+    await stop(running.server);
+    cleanup(databasePath);
+  }
+});
+
+test("Cost Back Office maps Profile deprecation lookup failures to a safe persistence response", async () => {
+  const databasePath = path.resolve(
+    "data",
+    `cost-back-office-profile-deprecation-failure-${randomUUID()}.sqlite`
+  );
+  const running = await start(databasePath);
+  try {
+    const ingredient = await request(running.baseUrl, "/api/admin/cost/ingredients", "POST", {
+      name: "Deprecation failure probe", categoryCode: "sauce", occurredAt: AT, actor: "owner"
+    });
+    const created = await request(running.baseUrl, "/api/admin/cost/profiles", "POST", {
+      ingredientId: ingredient.body.data.ingredientId,
+      dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g", "kg"], occurredAt: AT, actor: "owner"
+    });
+    const originalDeprecate = IngredientMeasurementProfileDeprecationService.prototype.deprecate;
+    let response: Awaited<ReturnType<typeof request>>;
+    try {
+      IngredientMeasurementProfileDeprecationService.prototype.deprecate = () => {
+        throw new IngredientMeasurementProfileDeprecationPersistenceFailure();
+      };
+      response = await request(
+        running.baseUrl,
+        `/api/admin/cost/profiles/${encodeURIComponent(created.body.data.profileId)}/deprecations`,
+        "POST",
+        { expectedVersion: 0, occurredAt: REPLACEMENT_AT, actor: "owner" }
+      );
+    } finally {
+      IngredientMeasurementProfileDeprecationService.prototype.deprecate = originalDeprecate;
+    }
+    assert.equal(response!.status, 500);
+    assert.equal(response!.body.error.code, "measurement_profile_deprecation_persistence_failed");
+    assert.doesNotMatch(
+      JSON.stringify(response!.body),
+      /sqlite|database|no such table|recipe_ingredient_measurement_profiles|stack|cause/i
+    );
   } finally {
     await stop(running.server);
     cleanup(databasePath);

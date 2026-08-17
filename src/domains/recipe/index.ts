@@ -284,3 +284,14 @@ export {
   IngredientMeasurementProfileSupersessionService,
   type IngredientMeasurementProfileSupersessionCommand
 } from "./measurement-profile/application/ingredient-measurement-profile-supersession-service.js";
+export {
+  IngredientMeasurementProfileDeprecationExpectedVersionConflict,
+  IngredientMeasurementProfileDeprecationIngredientInactive,
+  IngredientMeasurementProfileDeprecationNotFound,
+  IngredientMeasurementProfileDeprecationPersistenceFailure,
+  IngredientMeasurementProfileDeprecationValidationFailure
+} from "./measurement-profile/application/ingredient-measurement-profile-deprecation-errors.js";
+export {
+  IngredientMeasurementProfileDeprecationService,
+  type IngredientMeasurementProfileDeprecationCommand
+} from "./measurement-profile/application/ingredient-measurement-profile-deprecation-service.js";

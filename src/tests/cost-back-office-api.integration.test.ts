@@ -372,6 +372,69 @@ test("Cost Back Office API keeps Profile creation on its existing facade and rej
   }
 });
 
+test("Cost Back Office supersedes an Active Profile through its delegated facade", async () => {
+  const databasePath = path.resolve(
+    "data",
+    `cost-back-office-profile-supersession-${randomUUID()}.sqlite`
+  );
+  const running = await start(databasePath);
+  try {
+    const ingredient = await request(running.baseUrl, "/api/admin/cost/ingredients", "POST", {
+      name: "Superseded sesame oil", categoryCode: "sauce", occurredAt: AT, actor: "owner"
+    });
+    const created = await request(running.baseUrl, "/api/admin/cost/profiles", "POST", {
+      ingredientId: ingredient.body.data.ingredientId,
+      dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g", "kg"], occurredAt: AT, actor: "owner"
+    });
+    assert.equal(created.status, 201);
+    const profileId = created.body.data.profileId;
+    const replacement = await request(
+      running.baseUrl,
+      `/api/admin/cost/profiles/${encodeURIComponent(profileId)}/supersessions`,
+      "POST",
+      {
+        expectedVersion: 0, dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g"],
+        occurredAt: REPLACEMENT_AT, actor: "owner", reason: "remove kilogram"
+      }
+    );
+    assert.equal(replacement.status, 201);
+    const oldVersion = replacement.body.data.versions.find((version: any) => version.state === "Superseded");
+    const activeVersion = replacement.body.data.versions.find((version: any) => version.state === "Active");
+    assert.equal(oldVersion.effectiveTo, REPLACEMENT_AT);
+    assert.equal(activeVersion.effectiveFrom, REPLACEMENT_AT);
+
+    const stale = await request(
+      running.baseUrl,
+      `/api/admin/cost/profiles/${encodeURIComponent(profileId)}/supersessions`,
+      "POST",
+      {
+        expectedVersion: 0, dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g"],
+        occurredAt: "2026-08-02T01:00:00.000Z", actor: "owner"
+      }
+    );
+    assert.equal(stale.status, 409);
+    assert.equal(stale.body.error.code, "measurement_profile_expected_version_conflict");
+
+    const missing = await request(running.baseUrl, "/api/admin/cost/profiles/measurement_profile_123e4567-e89b-42d3-a456-426614174999/supersessions", "POST", {
+      expectedVersion: 0, dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g"], occurredAt: REPLACEMENT_AT, actor: "owner"
+    });
+    assert.equal(missing.status, 404);
+    assert.equal(missing.body.error.code, "measurement_profile_not_found");
+
+    const invalid = await request(
+      running.baseUrl,
+      `/api/admin/cost/profiles/${encodeURIComponent(profileId)}/supersessions`,
+      "POST",
+      { expectedVersion: "stale", dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g"], occurredAt: REPLACEMENT_AT, actor: "owner" }
+    );
+    assert.equal(invalid.status, 422);
+    assert.equal(invalid.body.error.code, "measurement_profile_supersession_invalid");
+  } finally {
+    await stop(running.server);
+    cleanup(databasePath);
+  }
+});
+
 test("Cost Canonical Ingredient creation keeps the existing facade and safe validation response", async () => {
   const databasePath = path.resolve(
     "data",

@@ -2,9 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type {
   MeasurementProfileFactsResolutionRequestV1,
+  ResolvedMeasurementProfileFactsV1,
   MeasurementUnitResolutionContractV1,
   MeasurementUnitResolutionResultV1
 } from "../domains/recipe/contracts/measurement-foundation-contract.js";
+import type {
+  CompleteMeasurementProfileFactsV1
+} from "../domains/recipe/contracts/ingredient-measurement-profile-contract.js";
 import { MeasurementProfileFactsResolver } from "../domains/recipe/measurement/measurement-profile-facts-resolver.js";
 import { MeasurementUnitResolver } from "../domains/recipe/measurement/measurement-unit-resolver.js";
 
@@ -34,6 +38,22 @@ test("Measurement Profile Facts resolver returns typed mass facts in request ord
   });
   assert.equal(Object.isFrozen(result.facts), true);
   assert.equal(Object.isFrozen(result.facts.allowedUnitCodes), true);
+
+  const canonical: "g" | "ml" | "each" = result.facts.canonicalUnitCode;
+  const profileCanonical:
+    CompleteMeasurementProfileFactsV1["canonicalUnitCode"] = canonical;
+  assert.equal(profileCanonical, "g");
+});
+
+test("Measurement Profile Facts resolved canonical output excludes non-canonical stable units", () => {
+  type ResolvedCanonical = ResolvedMeasurementProfileFactsV1["canonicalUnitCode"];
+
+  // @ts-expect-error `kg` is stable but never a canonical Measurement code.
+  const kilogram: ResolvedCanonical = "kg";
+  // @ts-expect-error `l` is stable but never a canonical Measurement code.
+  const litre: ResolvedCanonical = "l";
+  void kilogram;
+  void litre;
 });
 
 test("Measurement Profile Facts resolver supports volume and count", () => {
@@ -44,6 +64,42 @@ test("Measurement Profile Facts resolver supports volume and count", () => {
     const result = resolver.resolveProfileFacts(input);
     assertResolved(result);
     assert.equal(result.facts.canonicalUnitCode, input.rawCanonicalUnit);
+  }
+});
+
+test("Measurement Profile Facts resolver preserves canonical output with non-canonical allowed units", () => {
+  for (const [rawDimension, rawCanonicalUnit, expectedCanonical] of [
+    ["mass", "g", "g"],
+    ["volume", "ml", "ml"],
+    ["count", "each", "each"]
+  ] as const) {
+    const result = resolver.resolveProfileFacts(request({
+      rawDimension,
+      rawCanonicalUnit,
+      rawAllowedUnitValues: rawDimension === "mass"
+        ? [rawCanonicalUnit, "kg"]
+        : rawDimension === "volume"
+          ? [rawCanonicalUnit, "l"]
+          : [rawCanonicalUnit, "dozen"]
+    }));
+    assertResolved(result);
+    assert.equal(result.facts.canonicalUnitCode, expectedCanonical);
+  }
+});
+
+test("formal unit resolution retains non-canonical raw unit mappings", () => {
+  const unitResolver = new MeasurementUnitResolver();
+  for (const [rawValue, expectedUnitCode, expectedCanonical] of [
+    ["kg", "kg", "g"],
+    ["l", "l", "ml"],
+    ["dozen", "dozen", "each"]
+  ] as const) {
+    const result = unitResolver.resolveUnit({ rawValue });
+    assert.equal(result.status, "resolved");
+    if (result.status === "resolved") {
+      assert.equal(result.unitCode, expectedUnitCode);
+      assert.equal(result.canonicalUnitCode, expectedCanonical);
+    }
   }
 });
 

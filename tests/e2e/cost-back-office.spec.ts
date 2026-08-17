@@ -119,3 +119,20 @@ test("Cost Back Office keeps CanonicalIngredientCreation on its existing facade"
   expect(body.data.status).toBe("Active");
   await expect(page.locator("#ingredient-list")).toContainText("003F facade ingredient");
 });
+
+test("Cost Back Office keeps IngredientMeasurementProfileCreation on its existing facade", async ({ page }) => {
+  await page.goto("/admin/cost");
+  await page.locator("#ingredient-name").fill("003G facade ingredient");
+  await page.locator("#ingredient-form button[type=submit]").click();
+  await page.locator("#profile-ingredient").selectOption({ label: "003G facade ingredient" });
+  const creationResponse = page.waitForResponse((response) =>
+    response.request().method() === "POST"
+    && new URL(response.url()).pathname === "/api/admin/cost/profiles"
+  );
+  await page.locator("#profile-form button[type=submit]").click();
+  const response = await creationResponse;
+  expect(response.status()).toBe(201);
+  const body = await response.json();
+  expect(body.data.versions[0].state).toBe("Active");
+  await expect(page.locator("#profile-list")).toContainText("mass → g");
+});

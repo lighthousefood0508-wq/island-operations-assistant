@@ -272,6 +272,18 @@ async function route(request: IncomingMessage, response: ServerResponse, service
         )
       );
     }
+    const profileDraftAppendMatch = pathname.match(/^\/api\/admin\/cost\/profiles\/([^/]+)\/re-establishment-drafts$/);
+    if (request.method === "POST" && profileDraftAppendMatch?.[1]) {
+      return success(response, 201, services.costBackOffice.appendProfileReestablishmentDraft(decodeURIComponent(profileDraftAppendMatch[1]), await readJson(request)));
+    }
+    const profileDraftMatch = pathname.match(/^\/api\/admin\/cost\/profiles\/([^/]+)\/drafts\/([^/]+)$/);
+    if (request.method === "PATCH" && profileDraftMatch?.[1] && profileDraftMatch[2]) {
+      return success(response, 200, services.costBackOffice.reviseProfileReestablishmentDraft(decodeURIComponent(profileDraftMatch[1]), decodeURIComponent(profileDraftMatch[2]), await readJson(request)));
+    }
+    const profileDraftActivationMatch = pathname.match(/^\/api\/admin\/cost\/profiles\/([^/]+)\/drafts\/([^/]+)\/activations$/);
+    if (request.method === "POST" && profileDraftActivationMatch?.[1] && profileDraftActivationMatch[2]) {
+      return success(response, 200, services.costBackOffice.activateProfileReestablishmentDraft(decodeURIComponent(profileDraftActivationMatch[1]), decodeURIComponent(profileDraftActivationMatch[2]), await readJson(request)));
+    }
     if (request.method === "POST" && pathname === "/api/admin/cost/recipes") {
       return success(
         response,

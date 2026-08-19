@@ -459,8 +459,17 @@ IngredientMeasurementProfileStore {
       (sum, version) => sum + version.lifecycle.length,
       0
     );
-    const expectedAddedFacts =
-      after.versions.length === before.versions.length ? 1 : 3;
+    const appended = after.versions.find((version) =>
+      !before.versions.some((beforeVersion) =>
+        beforeVersion.identity.profileVersionId === version.identity.profileVersionId
+      )
+    );
+    const expectedAddedFacts = after.versions.length === before.versions.length
+      ? 1
+      // Draft-first re-establishment appends exactly one CREATED fact.
+      : appended?.state === "Draft"
+        ? 1
+        : 3;
     if (afterFacts - beforeFacts !== expectedAddedFacts) {
       throw new InvalidIngredientMeasurementProfilePersistenceState(
         "Measurement Profile save must contain exactly one legal lifecycle transition."

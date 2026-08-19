@@ -178,7 +178,9 @@ test("PR-MEASUREMENT-001 keeps Measurement Profile Facts resolution inside its e
     "src/server/index.ts",
     "src/tests/ingredient-measurement-profile-creation-application.test.ts",
     "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-supersession-service.ts",
-    "src/tests/ingredient-measurement-profile-supersession-application.test.ts"
+    "src/tests/ingredient-measurement-profile-supersession-application.test.ts",
+    "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-reestablishment-service.ts",
+    "src/tests/ingredient-measurement-profile-reestablishment-application.test.ts"
   ]);
   const factsResolutionResponsibility = /MeasurementProfileFactsResolution|MeasurementProfileFactsResolver|Measurement Profile Facts resolver/;
   const factsResolutionFiles = [
@@ -262,7 +264,8 @@ test("Ingredient Measurement Profile internals remain behind versioned contracts
       const isApproved003GCreationDependency =
         (filename === approved003GCreationService
           || filename.endsWith(`${path.sep}ingredient-measurement-profile-supersession-service.ts`)
-          || filename.endsWith(`${path.sep}ingredient-measurement-profile-deprecation-service.ts`))
+          || filename.endsWith(`${path.sep}ingredient-measurement-profile-deprecation-service.ts`)
+          || filename.endsWith(`${path.sep}ingredient-measurement-profile-reestablishment-service.ts`))
         && (specifier === "node:crypto" || target === canonicalIngredientIdentity);
       assert.ok(
         isApproved003GCreationDependency
@@ -1053,7 +1056,8 @@ test("Canonical Ingredient internals remain behind the published contract", () =
       const isApproved003GIngredientLookup =
         (filename === approved003GCreationService
           || filename.endsWith(`${path.sep}ingredient-measurement-profile-supersession-service.ts`)
-          || filename.endsWith(`${path.sep}ingredient-measurement-profile-deprecation-service.ts`))
+          || filename.endsWith(`${path.sep}ingredient-measurement-profile-deprecation-service.ts`)
+          || filename.endsWith(`${path.sep}ingredient-measurement-profile-reestablishment-service.ts`))
         && target?.endsWith(`${path.sep}ingredient-catalog${path.sep}identities.ts`);
       assert.equal(
         (target?.startsWith(`${ingredientRoot}${path.sep}`) ?? false)
@@ -1121,6 +1125,14 @@ test("Canonical Ingredient internals remain behind the published contract", () =
     -1,
     "Recipe index publishes the 003I Deprecation Service surface."
   );
+  const accepted003JMarker =
+    "export {\n  IngredientMeasurementProfileReestablishmentExpectedVersionConflict,";
+  const accepted003JOffset = publicIndexSource.indexOf(accepted003JMarker);
+  assert.notEqual(
+    accepted003JOffset,
+    -1,
+    "Recipe index publishes the 003J Re-establishment Service surface."
+  );
   const pre003APublicIndex = publicIndexSource.slice(0, accepted003AOffset);
   const accepted003ASurface = publicIndexSource.slice(
     accepted003AOffset,
@@ -1150,7 +1162,8 @@ test("Canonical Ingredient internals remain behind the published contract", () =
     accepted003HOffset,
     accepted003IOffset
   );
-  const accepted003ISurface = publicIndexSource.slice(accepted003IOffset);
+  const accepted003ISurface = publicIndexSource.slice(accepted003IOffset, accepted003JOffset);
+  const accepted003JSurface = publicIndexSource.slice(accepted003JOffset);
   assert.equal(
     createHash("sha256").update(pre003APublicIndex).digest("hex"),
     "4f55d49ff0c054ff66ba802489f4e5bd832d4405dfe7c4c09470076a0ff8e616",
@@ -1266,6 +1279,24 @@ export {
   IngredientMeasurementProfileDeprecationService,
   type IngredientMeasurementProfileDeprecationCommand
 } from "./measurement-profile/application/ingredient-measurement-profile-deprecation-service.js";
+`
+  );
+  assert.equal(
+    accepted003JSurface,
+    `export {
+  IngredientMeasurementProfileReestablishmentExpectedVersionConflict,
+  IngredientMeasurementProfileReestablishmentIngredientInactive,
+  IngredientMeasurementProfileReestablishmentMeasurementFailure,
+  IngredientMeasurementProfileReestablishmentNotFound,
+  IngredientMeasurementProfileReestablishmentPersistenceFailure,
+  IngredientMeasurementProfileReestablishmentValidationFailure
+} from "./measurement-profile/application/ingredient-measurement-profile-reestablishment-errors.js";
+export {
+  IngredientMeasurementProfileReestablishmentService,
+  type IngredientMeasurementProfileActivateDraftCommand,
+  type IngredientMeasurementProfileAppendDraftCommand,
+  type IngredientMeasurementProfileReviseDraftCommand
+} from "./measurement-profile/application/ingredient-measurement-profile-reestablishment-service.js";
 `
   );
   assert.match(pre003APublicIndex, /canonical-ingredient-contract/);
@@ -2472,6 +2503,67 @@ test("Ingredient 003I keeps standalone Profile deprecation behind its Applicatio
   const routeSource = readFileSync(path.join(sourceRoot, "server", "app", "routes.ts"), "utf8");
   assert.match(routeSource, /\^\\\/api\\\/admin\\\/cost\\\/profiles\\\/\(\[\^\/\]\+\)\\\/deprecations\$/);
   assert.doesNotMatch(routeSource, /POST \/api\/admin\/canonical-ingredients\/profiles/);
+});
+
+test("Ingredient 003J keeps Draft-first Profile re-establishment inside its exact responsibility boundary", () => {
+  const approved003JPaths = new Set([
+    "src/domains/recipe/measurement-profile/ingredient-measurement-profile.ts",
+    "src/domains/recipe/measurement-profile/persistence/measurement-profile-persistence-mapper.ts",
+    "src/domains/recipe/measurement-profile/infrastructure/sqlite-ingredient-measurement-profile-repository.ts",
+    "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-reestablishment-service.ts",
+    "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-reestablishment-errors.ts",
+    "src/domains/recipe/index.ts",
+    "src/server/app/cost-back-office-service.ts",
+    "src/server/app/routes.ts",
+    "src/server/index.ts",
+    "src/tests/ingredient-measurement-profile.test.ts",
+    "src/tests/ingredient-measurement-profile-persistence.integration.test.ts",
+    "src/tests/ingredient-measurement-profile-reestablishment-application.test.ts",
+    "src/tests/cost-back-office-api.integration.test.ts",
+    "src/tests/architecture-guards.test.ts",
+    "tests/e2e/cost-back-office.spec.ts"
+  ]);
+  assert.equal(approved003JPaths.size, 15);
+  const approved003JResponsibilities = new Map<string, readonly RegExp[]>([
+    ["src/domains/recipe/measurement-profile/ingredient-measurement-profile.ts", [/appendDraftAfterDeprecation/, /priorDeprecatedVersion/]],
+    ["src/domains/recipe/measurement-profile/persistence/measurement-profile-persistence-mapper.ts", [/appendDraftAfterDeprecation/, /re-established Profile Version/]],
+    ["src/domains/recipe/measurement-profile/infrastructure/sqlite-ingredient-measurement-profile-repository.ts", [/Draft-first re-establishment/, /expectedAddedFacts/]],
+    ["src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-reestablishment-service.ts", [/class IngredientMeasurementProfileReestablishmentService/, /appendDraftAfterDeprecation/, /measurementFacts\.resolveProfileFacts/]],
+    ["src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-reestablishment-errors.ts", [/ReestablishmentPersistenceFailure/, /ReestablishmentMeasurementFailure/]],
+    ["src/domains/recipe/index.ts", [/IngredientMeasurementProfileReestablishmentService/, /IngredientMeasurementProfileAppendDraftCommand/]],
+    ["src/server/app/cost-back-office-service.ts", [/profileReestablishment\.appendDraft\(/, /reestablishmentOperation/]],
+    ["src/server/app/routes.ts", [/re-establishment-drafts/, /activateProfileReestablishmentDraft/]],
+    ["src/server/index.ts", [/new IngredientMeasurementProfileReestablishmentService\(/, /profileReestablishment/]],
+    ["src/tests/ingredient-measurement-profile.test.ts", [/003J re-establishment/, /appendDraftAfterDeprecation/]],
+    ["src/tests/ingredient-measurement-profile-persistence.integration.test.ts", [/003J persistence/, /appendDraftAfterDeprecation/]],
+    ["src/tests/ingredient-measurement-profile-reestablishment-application.test.ts", [/Profile Re-establishment Service/, /appendDraft/]],
+    ["src/tests/cost-back-office-api.integration.test.ts", [/re-establishes a Deprecated Profile/, /re-establishment-drafts/]],
+    ["src/tests/architecture-guards.test.ts", [/approved003JPaths/, /approved003JResponsibilities/]],
+    ["tests/e2e/cost-back-office.spec.ts", [/Draft-first Profile re-establishment/, /re-establishment-drafts/]]
+  ]);
+  assert.deepEqual([...approved003JResponsibilities.keys()].sort(), [...approved003JPaths].sort());
+  for (const [relative, patterns] of approved003JResponsibilities) {
+    const source = readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8");
+    for (const pattern of patterns) assert.match(source, pattern, `${relative} lost a 003J responsibility.`);
+  }
+  const responsibility = /IngredientMeasurementProfileReestablishment|profileReestablishment|re-establishment-drafts|appendDraftAfterDeprecation|Draft-first re-establishment|003J (?:re-establishment|persistence)/;
+  const files = [...filesUnder(path.join(projectRoot, "src"), [".ts", ".tsx"]), ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"])]
+    .filter((filename) => responsibility.test(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .sort();
+  assert.deepEqual(files, [...approved003JPaths].filter((relative) => relative.startsWith("src/") || relative.startsWith("tests/")).sort());
+  assert.equal(responsibility.test("const profileReestablishment = createService();"), true, "A simulated unauthorized sixteenth re-establishment responsibility path must be detected.");
+  const servicePath = path.join(sourceRoot, "domains", "recipe", "measurement-profile", "application", "ingredient-measurement-profile-reestablishment-service.ts");
+  const serviceSource = readFileSync(servicePath, "utf8");
+  assertNoTerms(serviceSource, ["sqlite", "better-sqlite3", "database-adapter", "domains/cost", "MeasurementProfileFactsResolver", "MeasurementUnitResolver", "cause", "stack"], servicePath);
+  const costSource = readFileSync(path.join(sourceRoot, "server", "app", "cost-back-office-service.ts"), "utf8");
+  const start = costSource.indexOf("  appendProfileReestablishmentDraft(");
+  const end = costSource.indexOf("\n  createAndPublishRecipe(", start);
+  const facade = costSource.slice(start, end);
+  assert.match(facade, /profileReestablishment\.appendDraft\(/);
+  assert.doesNotMatch(facade, /randomUUID|IngredientMeasurementProfile\.create|appendDraftAfterDeprecation|saveWithExpectedVersion|MeasurementProfileFactsResolver|MeasurementUnitResolver/);
+  const serverSource = readFileSync(path.join(sourceRoot, "server", "index.ts"), "utf8");
+  assert.equal(Array.from(serverSource.matchAll(/new IngredientMeasurementProfileReestablishmentService\(/g)).length, 1);
 });
 
 test("Recipe SQLite persistence uses the shared database boundary and stays private", () => {

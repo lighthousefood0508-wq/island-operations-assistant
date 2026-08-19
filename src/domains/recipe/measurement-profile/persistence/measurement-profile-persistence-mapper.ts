@@ -32,6 +32,16 @@ const TRANSITIONS = new Set([
   "DRAFT_REVISED"
 ]);
 
+function isCompleteFacts(
+  definition: Partial<CompleteMeasurementProfileFactsV1> | undefined
+): definition is CompleteMeasurementProfileFactsV1 {
+  return definition?.dimension !== undefined
+    && definition.canonicalUnitCode !== undefined
+    && definition.allowedUnitCodes !== undefined
+    && definition.profileAliases !== undefined
+    && definition.source !== undefined;
+}
+
 function parseJson<T>(source: string, label: string): T {
   try {
     return JSON.parse(source) as T;
@@ -198,9 +208,14 @@ function versionFromRow(
       identity,
       state: "Draft",
       lifecycle,
-      ...(source === undefined
-        ? {}
-        : { definition: Object.freeze({ source }) })
+      ...(row.dimension !== null
+        && row.canonical_unit_code !== null
+        && row.allowed_unit_codes_json !== null
+        && row.profile_aliases_json !== null
+        ? { definition: completeFacts(row) }
+        : source === undefined
+          ? {}
+          : { definition: Object.freeze({ source }) })
     });
   }
   const facts = completeFacts(row);
@@ -320,32 +335,78 @@ function replay(
     transition(requireTransition(first, "ACTIVATED")),
     unitResolver
   );
+  const firstWasDeprecated = first.state === "Deprecated";
+  if (firstWasDeprecated) {
+    profile = profile.deprecateActive(
+      first.identity.profileVersionId,
+      transition(requireTransition(first, "DEPRECATED"))
+    );
+  }
 
   for (let index = 0; index < contract.versions.length - 1; index += 1) {
     const current = contract.versions[index]!;
     const next = contract.versions[index + 1]!;
-    if (current.state !== "Superseded" || next.state === "Draft") {
-      throw new InvalidIngredientMeasurementProfilePersistenceState(
-        "Measurement Profile Version history is not an append-first supersession chain."
-      );
+    if (current.state === "Superseded" && next.state !== "Draft") {
+      profile = profile.supersedeActive({
+        activeProfileVersionId: current.identity.profileVersionId,
+        supersedingIdentity: next.identity,
+        supersedingDefinition: {
+          dimension: next.dimension,
+          canonicalUnitCode: next.canonicalUnitCode,
+          allowedUnitCodes: next.allowedUnitCodes,
+          profileAliases: next.profileAliases,
+          source: next.source
+        },
+        transition: transition(requireTransition(current, "SUPERSEDED")),
+        unitResolver
+      });
+      continue;
     }
-    profile = profile.supersedeActive({
-      activeProfileVersionId: current.identity.profileVersionId,
-      supersedingIdentity: next.identity,
-      supersedingDefinition: {
+    if (current.state === "Deprecated") {
+      const created = requireTransition(next, "CREATED");
+      const definition = next.state === "Draft" ? next.definition : {
         dimension: next.dimension,
         canonicalUnitCode: next.canonicalUnitCode,
         allowedUnitCodes: next.allowedUnitCodes,
         profileAliases: next.profileAliases,
         source: next.source
-      },
-      transition: transition(requireTransition(current, "SUPERSEDED")),
-      unitResolver
-    });
+      };
+      if (!isCompleteFacts(definition)) {
+        throw new InvalidIngredientMeasurementProfilePersistenceState(
+          "A re-established Draft must retain complete Measurement Profile facts."
+        );
+      }
+      profile = profile.appendDraftAfterDeprecation({
+        draftIdentity: next.identity,
+        transition: transition(created),
+        definition
+      });
+      for (const revision of next.lifecycle.filter(
+        (fact) => fact.transition === "DRAFT_REVISED"
+      )) {
+        profile = profile.reviseDraft(next.identity.profileVersionId, definition, transition(revision));
+      }
+      if (next.state === "Active") {
+        profile = profile.activateDraft(
+          next.identity.profileVersionId,
+          definition,
+          transition(requireTransition(next, "ACTIVATED")),
+          unitResolver
+        );
+      } else if (next.state !== "Draft") {
+        throw new InvalidIngredientMeasurementProfilePersistenceState(
+          "A re-established Profile Version must be Draft or Active."
+        );
+      }
+      continue;
+    }
+    throw new InvalidIngredientMeasurementProfilePersistenceState(
+      "Measurement Profile Version history is not a legal append-first lifecycle chain."
+    );
   }
 
   const finalVersion = contract.versions.at(-1)!;
-  if (finalVersion.state === "Deprecated") {
+  if (finalVersion.state === "Deprecated" && !firstWasDeprecated) {
     profile = profile.deprecateActive(
       finalVersion.identity.profileVersionId,
       transition(requireTransition(finalVersion, "DEPRECATED"))

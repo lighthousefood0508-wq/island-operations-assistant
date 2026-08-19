@@ -533,6 +533,42 @@ test("valid explicit lifecycle transition deprecates an Active Profile", () => {
   assert.equal(version.lifecycle.at(-1)?.transition, "DEPRECATED");
 });
 
+test("003J re-establishment appends a Draft before a new Active Version", () => {
+  const deprecated = activeProfile().deprecateActive(PROFILE_VERSION_ID, {
+    occurredAt: LATER,
+    actorId: "actor_test"
+  });
+  const appended = deprecated.appendDraftAfterDeprecation({
+    draftIdentity: {
+      profileId: PROFILE_ID,
+      profileVersionId: NEXT_PROFILE_VERSION_ID,
+      ingredientId: INGREDIENT_ID
+    },
+    transition: { occurredAt: LATER, actorId: "actor_test" },
+    definition: facts()
+  });
+  assert.equal(appended.findVersion(PROFILE_VERSION_ID)?.state, "Deprecated");
+  const appendedDraft = appended.findVersion(NEXT_PROFILE_VERSION_ID);
+  assert.equal(appendedDraft?.state, "Draft");
+  assert.deepEqual(appendedDraft?.lifecycle.map((fact) => fact.transition), ["CREATED"]);
+  const revised = appended.reviseDraft(
+    NEXT_PROFILE_VERSION_ID,
+    { allowedUnitCodes: ["g"] },
+    { occurredAt: "2026-08-01T00:30:00.000Z", actorId: "actor_test" }
+  );
+  assert.deepEqual(
+    revised.findVersion(NEXT_PROFILE_VERSION_ID)?.lifecycle.map((fact) => fact.transition),
+    ["CREATED", "DRAFT_REVISED"]
+  );
+  const reestablished = revised.activateDraft(
+    NEXT_PROFILE_VERSION_ID,
+    facts(),
+    { occurredAt: "2026-08-01T01:00:00.000Z", actorId: "actor_test" },
+    unitResolver
+  );
+  assert.equal(reestablished.findVersion(NEXT_PROFILE_VERSION_ID)?.state, "Active");
+});
+
 test("lifecycle ordering compares ISO instants rather than timestamp strings", () => {
   const profile = draft().activateDraft(
     PROFILE_VERSION_ID,

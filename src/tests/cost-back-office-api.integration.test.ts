@@ -494,6 +494,27 @@ test("Cost Back Office deprecates an Active Profile through its delegated facade
   }
 });
 
+test("Cost Back Office re-establishes a Deprecated Profile through Draft-first commands", async () => {
+  const databasePath = path.resolve("data", `cost-back-office-profile-reestablishment-${randomUUID()}.sqlite`);
+  const running = await start(databasePath);
+  try {
+    const ingredient = await request(running.baseUrl, "/api/admin/cost/ingredients", "POST", { name: "Re-established salt", categoryCode: "sauce", occurredAt: AT, actor: "owner" });
+    const created = await request(running.baseUrl, "/api/admin/cost/profiles", "POST", { ingredientId: ingredient.body.data.ingredientId, dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g", "kg"], occurredAt: AT, actor: "owner" });
+    const profileId = created.body.data.profileId;
+    const deprecated = await request(running.baseUrl, `/api/admin/cost/profiles/${encodeURIComponent(profileId)}/deprecations`, "POST", { expectedVersion: 0, occurredAt: REPLACEMENT_AT, actor: "owner" });
+    assert.equal(deprecated.status, 200);
+    const draft = await request(running.baseUrl, `/api/admin/cost/profiles/${encodeURIComponent(profileId)}/re-establishment-drafts`, "POST", { expectedVersion: 1, dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g", "kg"], occurredAt: REPLACEMENT_AT, actor: "owner" });
+    assert.equal(draft.status, 201);
+    const draftVersionId = draft.body.data.versions.at(-1).identity.profileVersionId;
+    const activated = await request(running.baseUrl, `/api/admin/cost/profiles/${encodeURIComponent(profileId)}/drafts/${encodeURIComponent(draftVersionId)}/activations`, "POST", { expectedVersion: 2, occurredAt: "2026-08-03T01:00:00.000Z", actor: "owner" });
+    assert.equal(activated.status, 200);
+    assert.equal(activated.body.data.versions.at(-1).state, "Active");
+    const invalid = await request(running.baseUrl, `/api/admin/cost/profiles/${encodeURIComponent(profileId)}/re-establishment-drafts`, "POST", { expectedVersion: 3, dimension: "volume", canonicalUnitCode: "ml", allowedUnitCodes: ["ml"], occurredAt: "2026-08-03T01:00:00.000Z", actor: "owner" });
+    assert.equal(invalid.status, 422);
+    assert.equal(invalid.body.error.code, "measurement_profile_reestablishment_invalid");
+  } finally { await stop(running.server); cleanup(databasePath); }
+});
+
 test("Cost Back Office maps Profile deprecation lookup failures to a safe persistence response", async () => {
   const databasePath = path.resolve(
     "data",

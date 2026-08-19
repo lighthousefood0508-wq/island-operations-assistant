@@ -82,6 +82,18 @@ function replaceVersion(
   );
 }
 
+function latestLifecycleInstant(
+  version: MeasurementProfileDefinitionContractV1
+): string {
+  const latest = version.lifecycle.at(-1);
+  if (latest === undefined) {
+    throw new InvalidIngredientMeasurementProfileDefinition(
+      "Measurement Profile Version requires lifecycle evidence."
+    );
+  }
+  return latest.occurredAt;
+}
+
 export class IngredientMeasurementProfile {
   private constructor(
     readonly profileId: string,
@@ -130,6 +142,32 @@ export class IngredientMeasurementProfile {
     const current = this.requireVersion(profileVersionId);
     if (current.state !== "Draft") {
       throw new ImmutableActiveMeasurementProfileViolation();
+    }
+    if (compareProfileInstants(transition.occurredAt, latestLifecycleInstant(current)) < 0) {
+      throw new InvalidIngredientMeasurementProfileDefinition(
+        "Draft revision must not predate existing lifecycle evidence."
+      );
+    }
+    const priorDeprecated = this.priorDeprecatedVersion(current.identity.profileVersionId);
+    if (
+      priorDeprecated !== undefined
+      && compareProfileInstants(transition.occurredAt, priorDeprecated.effectiveTo) < 0
+    ) {
+      throw new InvalidIngredientMeasurementProfileDefinition(
+        "Draft revision must not predate prior Profile deprecation."
+      );
+    }
+    if (
+      priorDeprecated !== undefined
+      && (
+        (definition.dimension !== undefined && definition.dimension !== priorDeprecated.dimension)
+        || (definition.canonicalUnitCode !== undefined
+          && definition.canonicalUnitCode !== priorDeprecated.canonicalUnitCode)
+      )
+    ) {
+      throw new InvalidIngredientMeasurementProfileDefinition(
+        "Re-established Draft must retain the prior Measurement Profile basis."
+      );
     }
     const revised: DraftMeasurementProfileDefinitionContractV1 = Object.freeze({
       ...current,
@@ -187,6 +225,15 @@ export class IngredientMeasurementProfile {
       transition.occurredAt,
       "Activation occurredAt"
     );
+    const priorDeprecated = this.priorDeprecatedVersion(profileVersionId);
+    if (
+      priorDeprecated !== undefined
+      && compareProfileInstants(effectiveFrom, priorDeprecated.effectiveTo) < 0
+    ) {
+      throw new InvalidIngredientMeasurementProfileDefinition(
+        "Profile re-establishment must not predate prior Profile deprecation."
+      );
+    }
     const active: ActiveMeasurementProfileDefinitionContractV1 = Object.freeze({
       contractVersion: INGREDIENT_MEASUREMENT_PROFILE_CONTRACT_VERSION,
       identity: current.identity,
@@ -202,6 +249,68 @@ export class IngredientMeasurementProfile {
       this.profileId,
       this.ingredientId,
       replaceVersion(this.versions, active)
+    );
+  }
+
+  appendDraftAfterDeprecation(input: {
+    draftIdentity: IngredientMeasurementProfileIdentityV1;
+    definition: CompleteMeasurementProfileFactsV1;
+    transition: TransitionInput;
+  }): IngredientMeasurementProfile {
+    const terminal = this.versions.at(-1);
+    if (terminal === undefined || terminal.state !== "Deprecated") {
+      throw new InvalidIngredientMeasurementProfileTransition(
+        terminal?.state ?? "Draft",
+        "CREATED"
+      );
+    }
+    if (this.versions.some((version) => version.state === "Draft" || version.state === "Active")) {
+      throw new InvalidIngredientMeasurementProfileDefinition(
+        "A re-established Measurement Profile may have only one Draft and no Active Version."
+      );
+    }
+    const identity = createIngredientMeasurementProfileIdentity(input.draftIdentity);
+    if (
+      identity.profileId !== this.profileId
+      || identity.ingredientId !== this.ingredientId
+      || this.findVersion(identity.profileVersionId) !== undefined
+    ) {
+      throw new InvalidIngredientMeasurementProfileDefinition(
+        "A re-establishment Draft Version must be new and belong to the same Profile and Ingredient."
+      );
+    }
+    if (compareProfileInstants(input.transition.occurredAt, terminal.effectiveTo) < 0) {
+      throw new InvalidIngredientMeasurementProfileDefinition(
+        "Draft creation must not predate prior Profile deprecation."
+      );
+    }
+    if (
+      input.definition.dimension !== terminal.dimension
+      || input.definition.canonicalUnitCode !== terminal.canonicalUnitCode
+    ) {
+      throw new InvalidIngredientMeasurementProfileDefinition(
+        "A re-established Draft must retain the prior Measurement Profile basis."
+      );
+    }
+    const draft: DraftMeasurementProfileDefinitionContractV1 = Object.freeze({
+      contractVersion: INGREDIENT_MEASUREMENT_PROFILE_CONTRACT_VERSION,
+      identity,
+      state: "Draft",
+      lifecycle: Object.freeze([transitionFact("CREATED", input.transition)]),
+      definition: Object.freeze({
+        dimension: input.definition.dimension,
+        canonicalUnitCode: input.definition.canonicalUnitCode,
+        allowedUnitCodes: Object.freeze([...input.definition.allowedUnitCodes]),
+        profileAliases: Object.freeze(
+          input.definition.profileAliases.map((alias) => Object.freeze({ ...alias }))
+        ),
+        source: freezeProfileSource(input.definition.source)
+      })
+    });
+    return new IngredientMeasurementProfile(
+      this.profileId,
+      this.ingredientId,
+      Object.freeze([...this.versions, draft])
     );
   }
 
@@ -359,5 +468,15 @@ export class IngredientMeasurementProfile {
       );
     }
     return version;
+  }
+
+  private priorDeprecatedVersion(
+    profileVersionId: IngredientMeasurementProfileVersionId
+  ): Extract<MeasurementProfileDefinitionContractV1, { state: "Deprecated" }> | undefined {
+    const index = this.versions.findIndex(
+      (version) => version.identity.profileVersionId === profileVersionId
+    );
+    const prior = index > 0 ? this.versions[index - 1] : undefined;
+    return prior?.state === "Deprecated" ? prior : undefined;
   }
 }

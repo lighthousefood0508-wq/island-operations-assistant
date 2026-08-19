@@ -120,6 +120,22 @@ test("Cost Back Office keeps CanonicalIngredientCreation on its existing facade"
   await expect(page.locator("#ingredient-list")).toContainText("003F facade ingredient");
 });
 
+test("Cost Back Office delegates Draft-first Profile re-establishment without UI expansion", async ({ page }) => {
+  const ingredient = await page.request.post("/api/admin/cost/ingredients", { data: { name: "003J re-establishment", categoryCode: "sauce", occurredAt: "2026-08-01T00:00:00.000Z", actor: "owner" } });
+  const ingredientId = (await ingredient.json()).data.ingredientId;
+  const profile = await page.request.post("/api/admin/cost/profiles", { data: { ingredientId, dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g", "kg"], occurredAt: "2026-08-01T00:00:00.000Z", actor: "owner" } });
+  const profileId = (await profile.json()).data.profileId;
+  const deprecated = await page.request.post(`/api/admin/cost/profiles/${encodeURIComponent(profileId)}/deprecations`, { data: { expectedVersion: 0, occurredAt: "2026-08-02T00:00:00.000Z", actor: "owner" } });
+  expect(deprecated.status()).toBe(200);
+  const draft = await page.request.post(`/api/admin/cost/profiles/${encodeURIComponent(profileId)}/re-establishment-drafts`, { data: { expectedVersion: 1, dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g", "kg"], occurredAt: "2026-08-02T00:00:00.000Z", actor: "owner" } });
+  expect(draft.status()).toBe(201);
+  const draftBody = await draft.json();
+  const draftVersionId = draftBody.data.versions.at(-1).identity.profileVersionId;
+  const active = await page.request.post(`/api/admin/cost/profiles/${encodeURIComponent(profileId)}/drafts/${encodeURIComponent(draftVersionId)}/activations`, { data: { expectedVersion: 2, occurredAt: "2026-08-03T00:00:00.000Z", actor: "owner" } });
+  expect(active.status()).toBe(200);
+  expect((await active.json()).data.versions.at(-1).state).toBe("Active");
+});
+
 test("Cost Back Office keeps IngredientMeasurementProfileCreation on its existing facade", async ({ page }) => {
   await page.goto("/admin/cost");
   await page.locator("#ingredient-name").fill("003G facade ingredient");

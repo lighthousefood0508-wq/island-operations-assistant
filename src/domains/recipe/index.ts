@@ -295,3 +295,17 @@ export {
   IngredientMeasurementProfileDeprecationService,
   type IngredientMeasurementProfileDeprecationCommand
 } from "./measurement-profile/application/ingredient-measurement-profile-deprecation-service.js";
+export {
+  IngredientMeasurementProfileReestablishmentExpectedVersionConflict,
+  IngredientMeasurementProfileReestablishmentIngredientInactive,
+  IngredientMeasurementProfileReestablishmentMeasurementFailure,
+  IngredientMeasurementProfileReestablishmentNotFound,
+  IngredientMeasurementProfileReestablishmentPersistenceFailure,
+  IngredientMeasurementProfileReestablishmentValidationFailure
+} from "./measurement-profile/application/ingredient-measurement-profile-reestablishment-errors.js";
+export {
+  IngredientMeasurementProfileReestablishmentService,
+  type IngredientMeasurementProfileActivateDraftCommand,
+  type IngredientMeasurementProfileAppendDraftCommand,
+  type IngredientMeasurementProfileReviseDraftCommand
+} from "./measurement-profile/application/ingredient-measurement-profile-reestablishment-service.js";

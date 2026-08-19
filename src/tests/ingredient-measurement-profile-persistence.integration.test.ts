@@ -251,3 +251,34 @@ test("foreign-key and one-active constraints reject contradictory authority", (t
   ));
   assert.equal(repository.listProfiles().length, 1);
 });
+
+test("003J persistence round-trips Active to Deprecated to Draft to Active without rewriting history", (t) => {
+  const { repository } = fixture(t);
+  const resolver = new MeasurementUnitResolver();
+  repository.saveNew(activeProfile());
+  const deprecated = activeProfile().deprecateActive(IDS.version1, { occurredAt: T1, actorId: "owner" });
+  assert.equal(repository.saveWithExpectedVersion(deprecated, 0), 1);
+  const appended = deprecated.appendDraftAfterDeprecation({
+    draftIdentity: { profileId: IDS.profile, profileVersionId: IDS.version2, ingredientId: IDS.ingredient },
+    transition: { occurredAt: T1, actorId: "owner" },
+    definition: {
+      dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g", "kg"], profileAliases: [], source: { sourceType: "MANUAL", recordedAt: T1, recordedBy: "owner" }
+    }
+  });
+  assert.equal(repository.saveWithExpectedVersion(appended, 1), 2);
+  const roundTrippedDraft = repository.findAggregateByProfileId(IDS.profile)?.profile.findVersion(IDS.version2);
+  assert.equal(roundTrippedDraft?.state, "Draft");
+  assert.deepEqual(roundTrippedDraft?.lifecycle.map((fact) => fact.transition), ["CREATED"]);
+  const revised = appended.reviseDraft(IDS.version2, {
+    dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g", "kg"], profileAliases: [], source: { sourceType: "MANUAL", recordedAt: T1, recordedBy: "owner" }
+  }, { occurredAt: "2026-08-02T00:00:00.000Z", actorId: "owner" });
+  assert.equal(repository.saveWithExpectedVersion(revised, 2), 3);
+  const roundTrippedRevised = repository.findAggregateByProfileId(IDS.profile)?.profile.findVersion(IDS.version2);
+  assert.deepEqual(roundTrippedRevised?.lifecycle.map((fact) => fact.transition), ["CREATED", "DRAFT_REVISED"]);
+  const reestablished = revised.activateDraft(IDS.version2, {
+    dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g", "kg"], profileAliases: [], source: { sourceType: "MANUAL", recordedAt: T1, recordedBy: "owner" }
+  }, { occurredAt: "2026-08-02T01:00:00.000Z", actorId: "owner" }, resolver);
+  assert.equal(repository.saveWithExpectedVersion(reestablished, 3), 4);
+  assert.equal(repository.findProfileVersion(IDS.version1)?.state, "Deprecated");
+  assert.equal(repository.findProfileVersion(IDS.version2)?.state, "Active");
+});

@@ -26,6 +26,7 @@ import type {
   CanonicalIngredientCreationService,
   IngredientMeasurementProfileCreationService,
   IngredientMeasurementProfileDeprecationService,
+  IngredientMeasurementProfileReestablishmentService,
   IngredientMeasurementProfileSupersessionService,
   IngredientMeasurementProfileContractV1,
   MeasurementDimensionV1,
@@ -36,6 +37,11 @@ import {
   IngredientMeasurementProfileDeprecationIngredientInactive,
   IngredientMeasurementProfileDeprecationNotFound,
   IngredientMeasurementProfileDeprecationPersistenceFailure,
+  IngredientMeasurementProfileReestablishmentExpectedVersionConflict,
+  IngredientMeasurementProfileReestablishmentIngredientInactive,
+  IngredientMeasurementProfileReestablishmentMeasurementFailure,
+  IngredientMeasurementProfileReestablishmentNotFound,
+  IngredientMeasurementProfileReestablishmentPersistenceFailure,
   IngredientMeasurementProfileSupersessionExpectedVersionConflict,
   IngredientMeasurementProfileSupersessionIngredientInactive,
   IngredientMeasurementProfileSupersessionMeasurementFailure,
@@ -179,7 +185,8 @@ export class CostBackOfficeService {
     private readonly canonicalIngredientCreation: Pick<CanonicalIngredientCreationService, "create">,
     private readonly profileCreation: Pick<IngredientMeasurementProfileCreationService, "create">,
     private readonly profileSupersession: Pick<IngredientMeasurementProfileSupersessionService, "supersede">,
-    private readonly profileDeprecation: Pick<IngredientMeasurementProfileDeprecationService, "deprecate">
+    private readonly profileDeprecation: Pick<IngredientMeasurementProfileDeprecationService, "deprecate">,
+    private readonly profileReestablishment: Pick<IngredientMeasurementProfileReestablishmentService, "appendDraft" | "reviseDraft" | "activateDraft">
   ) {
     this.ingredientRepository =
       new SqliteCanonicalIngredientRepository(database);
@@ -287,6 +294,27 @@ export class CostBackOfficeService {
     } catch (error) {
       throw this.deprecationOperation(error);
     }
+  }
+
+  appendProfileReestablishmentDraft(profileId: string, input: JsonObject): IngredientMeasurementProfileContractV1 {
+    try {
+      const reason = optionalText(input, "reason");
+      return this.profileReestablishment.appendDraft({ profileId, expectedVersion: integer(input, "expectedVersion"), dimension: text(input, "dimension"), canonicalUnitCode: text(input, "canonicalUnitCode"), allowedUnitCodes: rawTextValues(input, "allowedUnitCodes"), occurredAt: text(input, "occurredAt"), actor: text(input, "actor"), ...(reason === undefined ? {} : { reason }) });
+    } catch (error) { throw this.reestablishmentOperation(error); }
+  }
+
+  reviseProfileReestablishmentDraft(profileId: string, draftVersionId: string, input: JsonObject): IngredientMeasurementProfileContractV1 {
+    try {
+      const reason = optionalText(input, "reason");
+      return this.profileReestablishment.reviseDraft({ profileId, draftVersionId, expectedVersion: integer(input, "expectedVersion"), dimension: text(input, "dimension"), canonicalUnitCode: text(input, "canonicalUnitCode"), allowedUnitCodes: rawTextValues(input, "allowedUnitCodes"), occurredAt: text(input, "occurredAt"), actor: text(input, "actor"), ...(reason === undefined ? {} : { reason }) });
+    } catch (error) { throw this.reestablishmentOperation(error); }
+  }
+
+  activateProfileReestablishmentDraft(profileId: string, draftVersionId: string, input: JsonObject): IngredientMeasurementProfileContractV1 {
+    try {
+      const reason = optionalText(input, "reason");
+      return this.profileReestablishment.activateDraft({ profileId, draftVersionId, expectedVersion: integer(input, "expectedVersion"), occurredAt: text(input, "occurredAt"), actor: text(input, "actor"), ...(reason === undefined ? {} : { reason }) });
+    } catch (error) { throw this.reestablishmentOperation(error); }
   }
 
   createAndPublishRecipe(input: JsonObject) {
@@ -580,5 +608,15 @@ export class CostBackOfficeService {
       return new HttpError(500, "measurement_profile_deprecation_persistence_failed", "Measurement Profile deprecation could not be persisted.");
     }
     return new HttpError(422, "measurement_profile_deprecation_invalid", "Measurement Profile deprecation command is not valid for the current Profile state.");
+  }
+
+  private reestablishmentOperation(error: unknown): HttpError {
+    if (error instanceof HttpError) return new HttpError(422, "measurement_profile_reestablishment_invalid", "Measurement Profile re-establishment command is not valid for the current Profile state.");
+    if (error instanceof IngredientMeasurementProfileReestablishmentNotFound) return new HttpError(404, "measurement_profile_not_found", "Ingredient Measurement Profile or Draft Version was not found.");
+    if (error instanceof IngredientMeasurementProfileReestablishmentExpectedVersionConflict) return new HttpError(409, "measurement_profile_expected_version_conflict", "Measurement Profile changed before re-establishment could be persisted.");
+    if (error instanceof IngredientMeasurementProfileReestablishmentIngredientInactive) return new HttpError(422, "measurement_profile_ingredient_inactive", "Canonical Ingredient must be Active to re-establish its Measurement Profile.");
+    if (error instanceof IngredientMeasurementProfileReestablishmentMeasurementFailure) return new HttpError(422, "measurement_profile_measurement_resolution_failed", "Measurement Profile facts could not be resolved.");
+    if (error instanceof IngredientMeasurementProfileReestablishmentPersistenceFailure) return new HttpError(500, "measurement_profile_reestablishment_persistence_failed", "Measurement Profile re-establishment could not be persisted.");
+    return new HttpError(422, "measurement_profile_reestablishment_invalid", "Measurement Profile re-establishment command is not valid for the current Profile state.");
   }
 }

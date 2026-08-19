@@ -22,6 +22,39 @@
 
 ## Approval Register
 
+- **DECISIONS #078 - Canonical Ingredient Reactivation Evidence and Application Boundary**
+  - **Date**: 2026-08-19.
+  - **Status**: APPROVED by Architecture Owner for governance recording and the dedicated PR-INGREDIENT-003K Task Card only. Implementation remains separately gated.
+  - **Single responsibility**:
+    - Establish the one Canonical Ingredient Application boundary that may reactivate an Archived Canonical Ingredient while preserving an immutable, replayable lifecycle history.
+    - This Decision authorizes neither deletion, merge, aliases, identity resolution, Profile mutation, Recipe or Quote rewriting, nor any other Ingredient capability.
+  - **Lifecycle and evidence model**:
+    - Repeated governed `Active -> Archived -> Active` cycles are allowed. `Archived -> Active` is a Reactivation transition only; it never erases, overwrites, reuses, or mutates prior Archive evidence.
+    - Every Rename, Archive, and Reactivation is one immutable lifecycle event. Events have a continuous per-Ingredient aggregate transition version, event type, `occurredAt`, actor, reason, and Rename-specific name evidence where applicable.
+    - Event `occurredAt` must not precede the prior lifecycle event. Equality is allowed; backdating is rejected. Expected-version / CAS persistence is authoritative: conflict, invalid state, malformed input, and failed reads perform zero write and no retry.
+    - After Migration 018, `recipe_canonical_ingredient_lifecycle_events` is the single authoritative replay and history source for Rename, Archive, and Reactivate evidence. Legacy Rename rows and Archive columns are deterministic migration input only; no competing lifecycle-history truth remains.
+    - The Aggregate remains the sole authority for identity, current status, event ordering, audit evidence, and legal transitions. The Application boundary only validates command shape, loads the Aggregate, applies `reactivate(...)`, coordinates `saveWithExpectedVersion(...)`, and maps safe typed outcomes.
+  - **Operational and historical boundary**:
+    - Reactivation restores future operational eligibility of the Canonical Ingredient only. It does not reactivate, create, revise, supersede, deprecate, or otherwise alter any Ingredient Measurement Profile.
+    - It does not rewrite Recipe evidence, Quote evidence, pinned Profile Versions, or historical normalization. Existing historical reads remain immutable.
+    - Profile lifecycle commands remain governed separately. Their existing Archived-Ingredient rejection applies before reactivation; successful reactivation only permits future separately authorized commands.
+  - **Persistence and migration boundary**:
+    - Migration 018 is required because Migration 014 makes an Active row and Archive evidence mutually exclusive. A status toggle that clears Archive fields is prohibited.
+    - The migration must create an append-only lifecycle-event ledger, deterministically migrate every legacy Rename and Archive fact into it, and rebuild the Canonical Ingredient current-state projection without the old state-coupled Archive evidence constraint. The ledger must support repeated Archive/Reactivation cycles and correct replay of Rename events interleaved between them.
+    - The persistence mapper and SQLite repository must replay and validate the ledger as the sole lifecycle history. Public Repository shape remains unchanged; no cross-Domain persistence read, schema work outside Migration 018, or persistence-authority widening is authorized.
+  - **Application and HTTP boundary**:
+    - The existing Canonical Ingredient management namespace is retained. The sole command is `POST /api/admin/canonical-ingredients/:ingredientId/reactivate`, which returns the existing management record with HTTP `200`.
+    - Stable safe failures are: malformed command/audit evidence (`CANONICAL_INGREDIENT_VALIDATION_FAILURE`, `422`); missing Ingredient (`CANONICAL_INGREDIENT_NOT_FOUND`, `404`); a non-Archived Ingredient (`CANONICAL_INGREDIENT_NOT_ARCHIVED`, `409`); expected-version conflict (`CANONICAL_INGREDIENT_VERSION_CONFLICT`, `409`); invalid Aggregate transition (`INVALID_CANONICAL_INGREDIENT_TRANSITION`, `409`); and read/persistence failure (`CANONICAL_INGREDIENT_PERSISTENCE_FAILURE`, `500`).
+    - Raw SQLite/DB messages, table names, stacks, causes, and infrastructure-specific types must not cross the Application or serialized HTTP boundary.
+    - The existing management facade remains a facade/delegator. `src/server/index.ts` remains unchanged because existing lifecycle-service composition is sufficient.
+  - **Exact implementation boundary**:
+    - The dedicated PR-INGREDIENT-003K Task Card fixes an exact eighteen-path allowlist: Migration 018; Canonical Ingredient contract, management command contract, Aggregate, persistence records/mapper/repository, lifecycle Application errors/service, Recipe export, management facade, route registration, focused Aggregate/persistence/migration/Application/API tests, and Architecture Guard.
+    - The Architecture Guard must classify lifecycle responsibility substantively and reject a simulated unauthorized nineteenth path with the same classifier/enforcement logic.
+    - No UI/navigation, Profile mutation, Recipe/Quote rewrite, Purchase or Snapshot authority, delete, merge, aliases, identity resolution, package work, new composition site, or nineteenth implementation path is authorized.
+  - **Authorization boundary**:
+    - This Decision authorizes recording this Decision and the dedicated PR-INGREDIENT-003K Task Card, including their isolated governance commit and normal push to `integration/architecture-development`.
+    - Implementation branch creation, production or test modification, implementation commit, PR, merge, later lifecycle slices, main promotion, release, and deployment require later explicit Owner authorization.
+
 - **DECISIONS #077 - Ingredient Measurement Profile Re-establishment After Standalone Deprecation**
   - **Date**: 2026-08-18.
   - **Status**: APPROVED by Architecture Owner for governance recording and the dedicated PR-INGREDIENT-003J Task Card only. Implementation remains separately gated.

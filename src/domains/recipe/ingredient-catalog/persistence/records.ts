@@ -11,19 +11,20 @@ export type CanonicalIngredientRecord = Readonly<{
   aggregateVersion: number;
   createdAt: string;
   createdBy: string;
-  archivedAt: string | undefined;
-  archivedBy: string | undefined;
-  archiveReason: string | undefined;
+  archivedAt?: string;
+  archivedBy?: string;
+  archiveReason?: string;
 }>;
 
-export type CanonicalIngredientRenameRecord = Readonly<{
+export type CanonicalIngredientLifecycleEventRecord = Readonly<{
   ingredientId: string;
-  transitionVersion: number;
-  previousName: string;
-  newName: string;
-  renamedAt: string;
-  renamedBy: string;
+  aggregateVersion: number;
+  eventType: "RENAMED" | "ARCHIVED" | "REACTIVATED";
+  occurredAt: string;
+  actor: string;
   reason: string;
+  previousName?: string;
+  newName?: string;
 }>;
 
 export type CanonicalIngredientRow = Readonly<{
@@ -39,12 +40,13 @@ export type CanonicalIngredientRow = Readonly<{
   archive_reason: string | null;
 }>;
 
-export type CanonicalIngredientRenameRow = Readonly<{
+export type CanonicalIngredientLifecycleEventRow = Readonly<{
   ingredient_id: string;
-  transition_version: number;
-  previous_name: string;
-  new_name: string;
-  renamed_at: string;
-  renamed_by: string;
+  aggregate_version: number;
+  event_type: string;
+  occurred_at: string;
+  actor: string;
   reason: string;
+  previous_name: string | null;
+  new_name: string | null;
 }>;

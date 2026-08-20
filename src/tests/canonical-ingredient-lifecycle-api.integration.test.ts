@@ -500,6 +500,31 @@ test("four registrations provide six management API behaviors and survive restar
   }
 });
 
+test("Reactivate uses the Canonical Ingredient management namespace and preserves safe lifecycle failures", async () => {
+  const databasePath = path.resolve("data", `canonical-ingredient-reactivate-${randomUUID()}.sqlite`);
+  const runtime = await start(databasePath);
+  try {
+    const ingredient = await createIngredient(runtime.baseUrl, "Reactivate API Ingredient");
+    const archived = await request(runtime.baseUrl, `/api/admin/canonical-ingredients/${encodeURIComponent(ingredient.ingredientId)}/archive`, "POST", {
+      expectedVersion: 0, actor: "owner", occurredAt: ARCHIVED_AT, reason: "retired"
+    });
+    assert.equal(archived.status, 200);
+    const restored = await request(runtime.baseUrl, `/api/admin/canonical-ingredients/${encodeURIComponent(ingredient.ingredientId)}/reactivate`, "POST", {
+      expectedVersion: 1, actor: "owner", occurredAt: LATER_AT, reason: "restored"
+    });
+    assert.equal(restored.status, 200);
+    assert.equal(restored.body.data.ingredient.status, "Active");
+    const invalid = await request(runtime.baseUrl, `/api/admin/canonical-ingredients/${encodeURIComponent(ingredient.ingredientId)}/reactivate`, "POST", {
+      expectedVersion: 2, actor: "owner", occurredAt: "2026-08-05T01:00:00.000Z", reason: "again"
+    });
+    assert.equal(invalid.status, 409);
+    assert.equal(invalid.body.error.code, "CANONICAL_INGREDIENT_NOT_ARCHIVED");
+  } finally {
+    if (runtime.server.listening) await stop(runtime.server);
+    cleanup(databasePath);
+  }
+});
+
 test("HTTP maps another recognized lifecycle rejection to 409", async () => {
   const databasePath = path.resolve(
     "data",

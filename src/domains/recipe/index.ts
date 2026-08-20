@@ -200,6 +200,7 @@ export {
   type CanonicalIngredientArchiveFactV1,
   type CanonicalIngredientContractV1,
   type CanonicalIngredientIdV1,
+  type CanonicalIngredientLifecycleEventV1,
   type CanonicalIngredientRenameFactV1,
   type CanonicalIngredientStatusV1,
   type IngredientCategoryCodeV1
@@ -222,10 +223,13 @@ export type {
   CanonicalIngredientDuplicateWarningV1,
   CanonicalIngredientManagementRecordV1,
   RenameCanonicalIngredientCommandV1,
-  RenameCanonicalIngredientResultV1
+  RenameCanonicalIngredientResultV1,
+  ReactivateCanonicalIngredientCommandV1,
+  ReactivateCanonicalIngredientResultV1
 } from "./contracts/canonical-ingredient-management-contract.js";
 export {
   CanonicalIngredientAlreadyArchived,
+  CanonicalIngredientNotArchived,
   CanonicalIngredientArchivedRenameRejected,
   CanonicalIngredientLifecycleNotFound,
   CanonicalIngredientLifecyclePersistenceFailure,

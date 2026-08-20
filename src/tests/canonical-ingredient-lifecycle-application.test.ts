@@ -5,6 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   CanonicalIngredientAlreadyArchived,
+  CanonicalIngredientNotArchived,
   CanonicalIngredientArchivedRenameRejected,
   CanonicalIngredientLifecycleNotFound,
   CanonicalIngredientLifecyclePersistenceFailure,
@@ -14,6 +15,7 @@ import {
   CanonicalIngredientManagementReadService,
   InvalidCanonicalIngredientLifecycleTransition,
   type ArchiveCanonicalIngredientCommandV1,
+  type ReactivateCanonicalIngredientCommandV1,
   type RenameCanonicalIngredientCommandV1
 } from "../domains/recipe/index.js";
 import { CanonicalIngredient } from "../domains/recipe/ingredient-catalog/canonical-ingredient.js";
@@ -81,6 +83,12 @@ function archiveCommand(
     reason: " Retired ",
     ...overrides
   };
+}
+
+function reactivateCommand(
+  overrides: Partial<ReactivateCanonicalIngredientCommandV1> = {}
+): ReactivateCanonicalIngredientCommandV1 {
+  return { ingredientId: INGREDIENT_ID, expectedVersion: 1, actor: "owner", occurredAt: "2026-07-31T03:00:00.000Z", reason: "restored", ...overrides };
 }
 
 class RepositoryFixture {
@@ -559,4 +567,19 @@ test("003A lifecycle dependency and accepted Contract remain unchanged", () => {
   assert.doesNotMatch(contractSource, /Object\.freeze/);
   assert.match(repositorySource, /saveNew\s*\(/);
   assert.match(repositorySource, /searchByName\s*\(/);
+});
+
+test("Reactivate delegates one Archived Aggregate transition and rejects non-Archived state without writes", () => {
+  const repository = new RepositoryFixture();
+  repository.found = archived();
+  const service = new CanonicalIngredientLifecycleService(repository);
+  const result = service.reactivate(reactivateCommand());
+  assert.equal(result.ingredient.status, "Active");
+  assert.equal(repository.saveCalls, 1);
+  assert.equal(repository.savedExpectedVersion, 1);
+  assert.deepEqual(repository.saved?.lifecycleHistory.map((event) => event.eventType), ["ARCHIVED", "REACTIVATED"]);
+  repository.found = ingredient();
+  const failure = caught(() => service.reactivate(reactivateCommand({ expectedVersion: 0 })));
+  assert.ok(failure instanceof CanonicalIngredientNotArchived);
+  assert.equal(repository.saveCalls, 1);
 });

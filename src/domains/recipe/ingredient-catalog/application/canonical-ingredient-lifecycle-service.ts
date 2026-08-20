@@ -4,7 +4,9 @@ import type {
   CanonicalIngredientDuplicateCandidateV1,
   CanonicalIngredientDuplicateWarningV1,
   RenameCanonicalIngredientCommandV1,
-  RenameCanonicalIngredientResultV1
+  RenameCanonicalIngredientResultV1,
+  ReactivateCanonicalIngredientCommandV1,
+  ReactivateCanonicalIngredientResultV1
 } from "../../contracts/canonical-ingredient-management-contract.js";
 import type { CanonicalIngredient } from "../canonical-ingredient.js";
 import type {
@@ -19,6 +21,7 @@ import {
 import { CanonicalIngredientId } from "../identities.js";
 import {
   CanonicalIngredientAlreadyArchived,
+  CanonicalIngredientNotArchived,
   CanonicalIngredientArchivedRenameRejected,
   CanonicalIngredientLifecycleNotFound,
   CanonicalIngredientLifecyclePersistenceFailure,
@@ -195,6 +198,29 @@ export class CanonicalIngredientLifecycleService {
     }
     this.save(archived, command.expectedVersion);
     return { ingredient: archived.toContract() };
+  }
+
+  reactivate(
+    command: ReactivateCanonicalIngredientCommandV1
+  ): ReactivateCanonicalIngredientResultV1 {
+    const ingredient = this.load(command.ingredientId);
+    this.validateVersion(command.expectedVersion, ingredient);
+    if (ingredient.status !== "Archived") {
+      throw new CanonicalIngredientNotArchived();
+    }
+    validateAudit(command, ingredient);
+    let reactivated: CanonicalIngredient;
+    try {
+      reactivated = ingredient.reactivate({
+        actorId: command.actor,
+        occurredAt: command.occurredAt,
+        reason: command.reason
+      });
+    } catch (error) {
+      return mapDomainFailure(error);
+    }
+    this.save(reactivated, command.expectedVersion);
+    return { ingredient: reactivated.toContract() };
   }
 
   private load(ingredientId: string): CanonicalIngredient {

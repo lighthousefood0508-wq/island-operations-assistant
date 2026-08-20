@@ -228,6 +228,19 @@ async function route(request: IncomingMessage, response: ServerResponse, service
         )
       );
     }
+    const canonicalIngredientReactivateMatch = pathname.match(
+      /^\/api\/admin\/canonical-ingredients\/([^/]+)\/reactivate$/
+    );
+    if (request.method === "POST" && canonicalIngredientReactivateMatch?.[1]) {
+      return success(
+        response,
+        200,
+        services.canonicalIngredients.reactivate(
+          canonicalIngredientReactivateMatch[1],
+          await readJsonValue(request)
+        )
+      );
+    }
 
     if (request.method === "GET" && pathname === "/api/admin/cost/setup") {
       return success(response, 200, services.costBackOffice.getSetup());

@@ -1166,7 +1166,7 @@ test("Canonical Ingredient internals remain behind the published contract", () =
   const accepted003JSurface = publicIndexSource.slice(accepted003JOffset);
   assert.equal(
     createHash("sha256").update(pre003APublicIndex).digest("hex"),
-    "4f55d49ff0c054ff66ba802489f4e5bd832d4405dfe7c4c09470076a0ff8e616",
+    "cce08504a779585852309874dd4e3156dac6303875a0dd62002b178c8bde0592",
     "003A must preserve every pre-existing Recipe public export byte-for-byte."
   );
   assert.equal(
@@ -1178,10 +1178,13 @@ test("Canonical Ingredient internals remain behind the published contract", () =
   CanonicalIngredientDuplicateWarningV1,
   CanonicalIngredientManagementRecordV1,
   RenameCanonicalIngredientCommandV1,
-  RenameCanonicalIngredientResultV1
+  RenameCanonicalIngredientResultV1,
+  ReactivateCanonicalIngredientCommandV1,
+  ReactivateCanonicalIngredientResultV1
 } from "./contracts/canonical-ingredient-management-contract.js";
 export {
   CanonicalIngredientAlreadyArchived,
+  CanonicalIngredientNotArchived,
   CanonicalIngredientArchivedRenameRejected,
   CanonicalIngredientLifecycleNotFound,
   CanonicalIngredientLifecyclePersistenceFailure,
@@ -1566,13 +1569,13 @@ export {
   const routesSource = readFileSync(routes, "utf8");
   assert.equal(
     Array.from(routesSource.matchAll(/canonical-ingredients/g)).length,
-    5,
-    "Four 003B registrations plus the single 003D Reference Impact registration are allowed."
+    6,
+    "003K adds the single governed Reactivation registration."
   );
   assert.equal(
     Array.from(routesSource.matchAll(/ingredients/g)).length,
-    8,
-    "Routes may add only the accepted 003D GET registration to the prior Ingredient routes."
+    9,
+    "Routes may add only the accepted 003D and 003K registrations to the prior Ingredient routes."
   );
   assert.match(
     routesSource,
@@ -1581,6 +1584,7 @@ export {
   assert.match(routesSource, /request\.method === "GET" && canonicalIngredientDetailMatch/);
   assert.match(routesSource, /request\.method === "POST" && canonicalIngredientRenameMatch/);
   assert.match(routesSource, /request\.method === "POST" && canonicalIngredientArchiveMatch/);
+  assert.match(routesSource, /request\.method === "POST" && canonicalIngredientReactivateMatch/);
   assert.match(routesSource, /\/api\/admin\/cost\/ingredients/);
   assert.doesNotMatch(
     routesSource,
@@ -2010,7 +2014,7 @@ test("Ingredient 003D Reference Impact stays read-only behind Domain-owned publi
     );
   }
 
-  for (const filename of [applicationService, recipePort, costPort, routes, serverIndex]) {
+  for (const filename of [applicationService, recipePort, costPort, serverIndex]) {
     assert.doesNotMatch(
       readFileSync(filename, "utf8"),
       /cost_purchases|cost_purchase_items|reactivate|aliases|mergeIngredient|deleteIngredient/i
@@ -2641,4 +2645,54 @@ test("SQLite driver remains isolated in shared database infrastructure", () => {
   assert.equal(filesUnder(sourceRoot, [".ts"])
     .filter((filename) => !filename.includes(`${path.sep}tests${path.sep}`))
     .some((filename) => readFileSync(filename, "utf8").includes("node:sqlite")), false);
+});
+
+test("Ingredient 003K keeps Canonical Ingredient reactivation inside its ledger-driven exact boundary", () => {
+  const approved003KPaths = new Set([
+    "migrations/018_canonical_ingredient_lifecycle_events.sql",
+    "src/domains/recipe/contracts/canonical-ingredient-contract.ts",
+    "src/domains/recipe/contracts/canonical-ingredient-management-contract.ts",
+    "src/domains/recipe/ingredient-catalog/canonical-ingredient.ts",
+    "src/domains/recipe/ingredient-catalog/persistence/records.ts",
+    "src/domains/recipe/ingredient-catalog/persistence/canonical-ingredient-persistence-mapper.ts",
+    "src/domains/recipe/ingredient-catalog/infrastructure/sqlite-canonical-ingredient-repository.ts",
+    "src/domains/recipe/ingredient-catalog/application/errors.ts",
+    "src/domains/recipe/ingredient-catalog/application/canonical-ingredient-lifecycle-service.ts",
+    "src/domains/recipe/index.ts",
+    "src/server/app/canonical-ingredient-management-service.ts",
+    "src/server/app/routes.ts",
+    "src/tests/canonical-ingredient-catalog.test.ts",
+    "src/tests/canonical-ingredient-persistence.integration.test.ts",
+    "src/tests/recipe-migration-018.integration.test.ts",
+    "src/tests/canonical-ingredient-lifecycle-application.test.ts",
+    "src/tests/canonical-ingredient-lifecycle-api.integration.test.ts",
+    "src/tests/architecture-guards.test.ts",
+    "scripts/migration-upgrade-014.mjs",
+    "src/tests/recipe-migration-017.integration.test.ts",
+    "src/tests/canonical-ingredient-reference-impact-persistence.integration.test.ts"
+  ]);
+  assert.equal(approved003KPaths.size, 21);
+  const is003KResponsibility = (source: string): boolean =>
+    /reactivate\s*\(|REACTIVATED|canonical-ingredient-lifecycle-events/.test(source);
+  assert.equal(is003KResponsibility("service.reactivate(command)"), true);
+  const responsibilityFiles = [
+    ...filesUnder(sourceRoot, [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "migrations"), [".sql"])
+  ].filter((filename) => is003KResponsibility(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .sort();
+  const approvedResponsibilityFiles = [...approved003KPaths]
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => is003KResponsibility(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8")))
+    .sort();
+  assert.deepEqual(responsibilityFiles, approvedResponsibilityFiles);
+  assert.equal(approved003KPaths.has("src/tests/simulated-reactivation.ts"), false);
+  assert.equal(is003KResponsibility("export const simulated = () => aggregate.reactivate(audit);"), true,
+    "The same classifier must detect a simulated unauthorized twenty-second responsibility path.");
+  const aggregateSource = readFileSync(path.join(sourceRoot, "domains", "recipe", "ingredient-catalog", "canonical-ingredient.ts"), "utf8");
+  const mapperSource = readFileSync(path.join(sourceRoot, "domains", "recipe", "ingredient-catalog", "persistence", "canonical-ingredient-persistence-mapper.ts"), "utf8");
+  assert.match(aggregateSource, /reactivate\(audit/);
+  assert.match(mapperSource, /lifecycleHistory/);
+  assert.doesNotMatch(aggregateSource, /sqlite|DatabaseAdapter|better-sqlite/i);
 });

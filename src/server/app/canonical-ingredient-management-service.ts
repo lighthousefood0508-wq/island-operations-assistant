@@ -1,5 +1,6 @@
 import {
   CanonicalIngredientAlreadyArchived,
+  CanonicalIngredientNotArchived,
   CanonicalIngredientArchivedRenameRejected,
   CanonicalIngredientLifecycleNotFound,
   CanonicalIngredientLifecyclePersistenceFailure,
@@ -12,7 +13,9 @@ import {
   type ArchiveCanonicalIngredientResultV1,
   type CanonicalIngredientManagementRecordV1,
   type RenameCanonicalIngredientCommandV1,
-  type RenameCanonicalIngredientResultV1
+  type RenameCanonicalIngredientResultV1,
+  type ReactivateCanonicalIngredientCommandV1,
+  type ReactivateCanonicalIngredientResultV1
 } from "../../domains/recipe/index.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 
@@ -83,6 +86,19 @@ function archiveCommand(
   };
 }
 
+function reactivateCommand(
+  encodedIngredientId: string,
+  input: unknown
+): ReactivateCanonicalIngredientCommandV1 {
+  return {
+    ingredientId: decodeIngredientId(encodedIngredientId),
+    get expectedVersion(): number { return requiredVersion(input); },
+    get actor(): string { return requiredText(input, "actor"); },
+    get occurredAt(): string { return requiredText(input, "occurredAt"); },
+    get reason(): string { return requiredText(input, "reason"); }
+  };
+}
+
 function mapApplicationError(error: unknown): never {
   if (error instanceof HttpError) throw error;
   if (error instanceof CanonicalIngredientLifecycleValidationFailure) {
@@ -94,6 +110,7 @@ function mapApplicationError(error: unknown): never {
   if (
     error instanceof CanonicalIngredientLifecycleVersionConflict
     || error instanceof CanonicalIngredientAlreadyArchived
+    || error instanceof CanonicalIngredientNotArchived
     || error instanceof CanonicalIngredientArchivedRenameRejected
     || error instanceof InvalidCanonicalIngredientLifecycleTransition
   ) {
@@ -150,6 +167,17 @@ export class CanonicalIngredientManagementService {
   ): ArchiveCanonicalIngredientResultV1 {
     try {
       return this.lifecycle.archive(archiveCommand(encodedIngredientId, input));
+    } catch (error) {
+      return mapApplicationError(error);
+    }
+  }
+
+  reactivate(
+    encodedIngredientId: string,
+    input: unknown
+  ): ReactivateCanonicalIngredientResultV1 {
+    try {
+      return this.lifecycle.reactivate(reactivateCommand(encodedIngredientId, input));
     } catch (error) {
       return mapApplicationError(error);
     }

@@ -11,11 +11,7 @@ const migrationFiles = readdirSync(migrationDirectory)
   .filter((name) => name.endsWith(".sql"))
   .sort();
 const through014 = migrationFiles.filter((name) => name <= "014_recipe_canonical_ingredients.sql");
-const expectedUpgrade = [
-  "015_recipe_ingredient_measurement_profiles.sql",
-  "016_recipe_recipes.sql",
-  "017_recipe_persistence_line_identity_and_publication_uow.sql"
-];
+const expectedUpgrade = migrationFiles.filter((name) => !through014.includes(name));
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -198,7 +194,7 @@ let adapter;
 let upgradedDatabase;
 
 try {
-  assert(migrationFiles.length === 17, `expected 17 migrations, found ${migrationFiles.length}`);
+  assert(migrationFiles.length > through014.length, "repository has no migrations after the historical 014 fixture");
   assert(through014.length === 14, `expected 14 historical migrations, found ${through014.length}`);
 
   historicalDatabase = openDatabase(databasePath);
@@ -228,14 +224,41 @@ try {
 
   upgradedDatabase = openDatabase(databasePath);
   const afterSnapshot = tableSnapshot(upgradedDatabase);
-  for (const table of Object.keys(beforeSnapshot)) {
+  const migratedLifecycleTable = "recipe_canonical_ingredient_renames";
+  for (const table of Object.keys(beforeSnapshot).filter((name) => name !== migratedLifecycleTable)) {
     assert(JSON.stringify(afterSnapshot[table]) === JSON.stringify(beforeSnapshot[table]), `pre-existing table changed during upgrade: ${table}`);
   }
-  const afterDigest = digest(JSON.stringify(Object.fromEntries(Object.keys(beforeSnapshot).map((table) => [table, afterSnapshot[table]]))));
-  assert(afterDigest === beforeDigest, "pre-existing SQL-value snapshot digest changed during upgrade");
+  const preservedBeforeSnapshot = Object.fromEntries(Object.entries(beforeSnapshot).filter(([name]) => name !== migratedLifecycleTable));
+  const preservedAfterSnapshot = Object.fromEntries(Object.keys(preservedBeforeSnapshot).map((table) => [table, afterSnapshot[table]]));
+  const afterDigest = digest(JSON.stringify(preservedAfterSnapshot));
+  assert(afterDigest === digest(JSON.stringify(preservedBeforeSnapshot)), "pre-existing SQL-value snapshot digest changed during upgrade");
+
+  const canonicalIngredient = upgradedDatabase.prepare("SELECT ingredient_id, name, category_code, status, aggregate_version, created_at, created_by, archived_at, archived_by, archive_reason FROM recipe_canonical_ingredients WHERE ingredient_id = ?")
+    .get("ing_00000000-0000-4000-8000-000000000001");
+  assert(JSON.stringify(canonicalIngredient) === JSON.stringify({
+    ingredient_id: "ing_00000000-0000-4000-8000-000000000001",
+    name: "Canonical Fixture Ingredient",
+    category_code: "fixture",
+    status: "Active",
+    aggregate_version: 1,
+    created_at: "2026-07-31T08:00:00.000Z",
+    created_by: "owner",
+    archived_at: null,
+    archived_by: null,
+    archive_reason: null
+  }), "canonical Ingredient projection changed during lifecycle-ledger upgrade");
+  assert(JSON.stringify(upgradedDatabase.prepare("SELECT aggregate_version, event_type, occurred_at, actor, reason, previous_name, new_name FROM recipe_canonical_ingredient_lifecycle_events WHERE ingredient_id = ? ORDER BY aggregate_version").all("ing_00000000-0000-4000-8000-000000000001")) === JSON.stringify([{
+    aggregate_version: 1,
+    event_type: "RENAMED",
+    occurred_at: "2026-07-31T08:05:00.000Z",
+    actor: "owner",
+    reason: "canonical naming",
+    previous_name: "Fixture Ingredient",
+    new_name: "Canonical Fixture Ingredient"
+  }]), "canonical Ingredient lifecycle evidence was not replayed into the authoritative ledger");
 
   const afterMigrations = upgradedDatabase.prepare("SELECT migration_id FROM schema_migrations ORDER BY migration_id").pluck().all();
-  assert(JSON.stringify(afterMigrations) === JSON.stringify(migrationFiles), "database did not reach migration 017");
+  assert(JSON.stringify(afterMigrations) === JSON.stringify(migrationFiles), "database did not reach the repository's full migration set");
   const requiredNewTables = [
     "recipe_ingredient_measurement_profiles",
     "recipe_ingredient_measurement_profile_versions",
@@ -248,7 +271,8 @@ try {
     "recipe_supersession_audits",
     "recipe_creation_audits",
     "recipe_abandonment_audits",
-    "recipe_command_receipts"
+    "recipe_command_receipts",
+    "recipe_canonical_ingredient_lifecycle_events"
   ];
   const actualNewTables = new Set(upgradedDatabase.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").pluck().all());
   for (const table of requiredNewTables) assert(actualNewTables.has(table), `missing upgraded table: ${table}`);

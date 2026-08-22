@@ -49,7 +49,8 @@ test("Migration 017 deterministically backfills Family and shared Draft/Version 
   seedLegacy(database);
   assert.deepEqual(runMigrations(database), [
     "017_recipe_persistence_line_identity_and_publication_uow.sql",
-    "018_canonical_ingredient_lifecycle_events.sql"
+    "018_canonical_ingredient_lifecycle_events.sql",
+    "019_cost_suppliers.sql"
   ]);
   const draftLine = database.queryOne<{ recipe_line_id: string }>("SELECT recipe_line_id FROM recipe_draft_lines WHERE draft_id = ?", [draftId])!;
   const versionLine = database.queryOne<{ recipe_line_id: string }>("SELECT recipe_line_id FROM recipe_version_lines WHERE recipe_version_id = ?", [versionId])!;

@@ -16,14 +16,36 @@ export {
   InvalidIngredientCostQuoteIdentity,
   InvalidIngredientCostQuoteSupersession,
   InvalidIngredientIdentity,
+  InvalidCostSupplier,
+  InvalidSupplierIdentity,
   InvalidMonetaryAmount
 } from "./domain/errors.js";
 export {
   CostItemId,
   IngredientCostItem,
   IngredientCostQuoteId,
-  IngredientId
+  IngredientId,
+  SupplierId
 } from "./domain/identities.js";
+export {
+  CostSupplier,
+  type CostSupplierContractV1,
+  type CreateCostSupplierInput
+} from "./domain/supplier.js";
+export type { CostSupplierRepository } from "./domain/supplier-repository.js";
+export {
+  CostSupplierService,
+  type CreateCostSupplierCommand
+} from "./application/cost-supplier-service.js";
+export {
+  CostSupplierPersistenceFailure,
+  CostSupplierValidationFailure
+} from "./application/cost-supplier-errors.js";
+export type {
+  CostSupplierRecord,
+  CostSupplierRow
+} from "./persistence/supplier-records.js";
+export { SqliteCostSupplierRepository } from "./infrastructure/sqlite-cost-supplier-repository.js";
 export { Currency, type CurrencyCode } from "./domain/currency.js";
 export { ExactDecimal } from "./domain/exact-decimal.js";
 export { MonetaryAmount } from "./domain/monetary-amount.js";

@@ -18,6 +18,11 @@ import { MonetaryAmount } from "../../domains/cost/domain/monetary-amount.js";
 import { SqliteCostEvaluationReadUnitOfWork } from "../../domains/cost/infrastructure/sqlite-cost-evaluation-read-unit-of-work.js";
 import { SqliteCostQuoteUnitOfWork } from "../../domains/cost/infrastructure/sqlite-cost-unit-of-work.js";
 import { SqliteCostRepository } from "../../domains/cost/infrastructure/sqlite-cost-repository.js";
+import {
+  CostSupplierPersistenceFailure,
+  CostSupplierService,
+  CostSupplierValidationFailure
+} from "../../domains/cost/index.js";
 import { RecipeCanonicalProjectionService } from "../../domains/recipe/application/recipe-canonical-projection-service.js";
 import { RecipeCostingContractV2Service } from "../../domains/recipe/application/recipe-costing-contract-v2-service.js";
 import { RecipePublishService } from "../../domains/recipe/application/recipe-publish-service.js";
@@ -183,6 +188,7 @@ export class CostBackOfficeService {
   constructor(
     private readonly database: DatabaseAdapter,
     private readonly canonicalIngredientCreation: Pick<CanonicalIngredientCreationService, "create">,
+    private readonly supplierService: Pick<CostSupplierService, "create" | "list">,
     private readonly profileCreation: Pick<IngredientMeasurementProfileCreationService, "create">,
     private readonly profileSupersession: Pick<IngredientMeasurementProfileSupersessionService, "supersede">,
     private readonly profileDeprecation: Pick<IngredientMeasurementProfileDeprecationService, "deprecate">,
@@ -243,6 +249,26 @@ export class CostBackOfficeService {
       });
     } catch (error) {
       throw this.invalidOperation("ingredient_invalid", error);
+    }
+  }
+
+  createSupplier(input: JsonObject) {
+    try {
+      return this.supplierService.create({
+        displayName: text(input, "displayName"),
+        occurredAt: text(input, "occurredAt"),
+        actor: text(input, "actor")
+      });
+    } catch (error) {
+      throw this.supplierOperation(error);
+    }
+  }
+
+  listSuppliers() {
+    try {
+      return this.supplierService.list();
+    } catch (error) {
+      throw this.supplierOperation(error);
     }
   }
 
@@ -584,6 +610,16 @@ export class CostBackOfficeService {
       return new HttpError(500, "measurement_profile_supersession_persistence_failed", "Measurement Profile supersession could not be persisted.");
     }
     return new HttpError(422, "measurement_profile_supersession_invalid", "Measurement Profile supersession command is not valid for the current Profile state.");
+  }
+
+  private supplierOperation(error: unknown): HttpError {
+    if (error instanceof CostSupplierPersistenceFailure) {
+      return new HttpError(500, error.code, "Cost Supplier persistence operation failed.");
+    }
+    if (error instanceof CostSupplierValidationFailure || error instanceof HttpError) {
+      return new HttpError(422, "COST_SUPPLIER_VALIDATION_FAILURE", "Cost Supplier command validation failed.");
+    }
+    return new HttpError(422, "COST_SUPPLIER_VALIDATION_FAILURE", "Cost Supplier command validation failed.");
   }
 
   private deprecationOperation(error: unknown): HttpError {

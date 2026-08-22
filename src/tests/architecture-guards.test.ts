@@ -1960,7 +1960,7 @@ test("Ingredient 003D Reference Impact stays read-only behind Domain-owned publi
     createHash("sha256")
       .update(costIndexSource.slice(0, cost003DOffset))
       .digest("hex"),
-    "301db5fd2c0e586a3c7d532be9202dadc4f6c845a2833761a1a189fa132483f9",
+    "89ae1d89ac0fb982f70efb8d72cc086211c4db946d90bd5775d7f6df239fec00",
     "003D must preserve the Cost public index as extended only by later Owner-approved Cost exports."
   );
   assert.equal(
@@ -2723,7 +2723,8 @@ test("PR-COST-005 keeps Supplier Foundation inside its exact Cost-owned responsi
   ]);
   assert.equal(approvedCost005Paths.size, 21);
   const isCost005Responsibility = (source: string): boolean =>
-    /\bCostSupplier(?:[A-Z][A-Za-z]*|\b)|\bSupplierId\b|COST_SUPPLIER_|cost_suppliers/.test(source);
+    !/\bCostPurchase(?:[A-Z][A-Za-z]*|\b)|\bPurchaseId\b|\bPurchaseLineId\b/.test(source)
+    && /\bCostSupplier(?:[A-Z][A-Za-z]*|\b)|\bexport class SupplierId\b|COST_SUPPLIER_|CREATE TABLE IF NOT EXISTS cost_suppliers/.test(source);
   assert.equal(isCost005Responsibility("new CostSupplierService(repository)"), true);
   const responsibilityFiles = [
     ...filesUnder(sourceRoot, [".ts", ".tsx"]),
@@ -2741,7 +2742,7 @@ test("PR-COST-005 keeps Supplier Foundation inside its exact Cost-owned responsi
   assert.equal(
     isCost005Responsibility("export const simulated = () => new CostSupplierService(repository);"),
     true,
-    "The same classifier must reject a simulated unauthorized twenty-second Supplier responsibility path."
+    "The same classifier must reject a simulated unauthorized later Cost responsibility path."
   );
   const supplierSource = readFileSync(path.join(sourceRoot, "domains", "cost", "domain", "supplier.ts"), "utf8");
   const serviceSource = readFileSync(path.join(sourceRoot, "domains", "cost", "application", "cost-supplier-service.ts"), "utf8");
@@ -2750,4 +2751,59 @@ test("PR-COST-005 keeps Supplier Foundation inside its exact Cost-owned responsi
   assert.doesNotMatch(serviceSource, /sqlite|DatabaseAdapter|better-sqlite|CostBackOffice/i);
   assert.match(facadeSource, /supplierService\.create/);
   assert.doesNotMatch(facadeSource, /SupplierId\.fromUuid|CostSupplier\.create|new SqliteCostSupplierRepository/);
+});
+
+test("PR-COST-006 keeps Purchase Foundation inside its exact Cost-owned responsibility boundary", () => {
+  const approvedCost006Paths = new Set([
+    "migrations/020_cost_purchases.sql",
+    "src/domains/cost/domain/purchase.ts",
+    "src/domains/cost/domain/purchase-repository.ts",
+    "src/domains/cost/domain/identities.ts",
+    "src/domains/cost/domain/errors.ts",
+    "src/domains/cost/persistence/purchase-records.ts",
+    "src/domains/cost/infrastructure/sqlite-cost-purchase-repository.ts",
+    "src/domains/cost/application/cost-purchase-service.ts",
+    "src/domains/cost/application/cost-purchase-errors.ts",
+    "src/domains/cost/index.ts",
+    "src/server/app/cost-back-office-service.ts",
+    "src/server/app/routes.ts",
+    "src/server/index.ts",
+    "src/tests/cost-purchase-domain.test.ts",
+    "src/tests/cost-purchase-persistence.integration.test.ts",
+    "src/tests/cost-purchase-application.test.ts",
+    "src/tests/cost-back-office-api.integration.test.ts",
+    "src/tests/architecture-guards.test.ts",
+    "src/tests/recipe-migration-017.integration.test.ts",
+    "src/tests/recipe-migration-018.integration.test.ts",
+    "src/tests/canonical-ingredient-reference-impact-persistence.integration.test.ts"
+  ]);
+  assert.equal(approvedCost006Paths.size, 21);
+  const isCost006Responsibility = (source: string): boolean =>
+    /\bCostPurchase(?:[A-Z][A-Za-z]*|\b)|\bPurchaseId\b|\bPurchaseLineId\b|COST_PURCHASE_|cost_purchase_(?:aggregates|lines)|\/api\/admin\/cost\/purchases/.test(source);
+  assert.equal(isCost006Responsibility("new CostPurchaseService(repository)"), true);
+  const responsibilityFiles = [
+    ...filesUnder(sourceRoot, [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "migrations"), [".sql"])
+  ].filter((filename) => isCost006Responsibility(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .sort();
+  const approvedResponsibilityFiles = [...approvedCost006Paths]
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => isCost006Responsibility(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8")))
+    .sort();
+  assert.deepEqual(responsibilityFiles, approvedResponsibilityFiles);
+  assert.equal(approvedCost006Paths.has("src/tests/simulated-purchase.ts"), false);
+  assert.equal(
+    isCost006Responsibility("export const simulated = () => '/api/admin/cost/purchases';"),
+    true,
+    "The same classifier must reject a simulated unauthorized later Purchase responsibility path."
+  );
+  const purchaseSource = readFileSync(path.join(sourceRoot, "domains", "cost", "domain", "purchase.ts"), "utf8");
+  const serviceSource = readFileSync(path.join(sourceRoot, "domains", "cost", "application", "cost-purchase-service.ts"), "utf8");
+  const facadeSource = readFileSync(path.join(sourceRoot, "server", "app", "cost-back-office-service.ts"), "utf8");
+  assert.doesNotMatch(purchaseSource, /Money|MonetaryAmount|Currency|AcceptedPurchase|CostSnapshot/i);
+  assert.doesNotMatch(serviceSource, /sqlite|DatabaseAdapter|better-sqlite|CostBackOffice/i);
+  assert.match(facadeSource, /purchaseService\.create/);
+  assert.doesNotMatch(facadeSource, /PurchaseId\.fromUuid|CostPurchase\.create|new SqliteCostPurchaseRepository/);
 });

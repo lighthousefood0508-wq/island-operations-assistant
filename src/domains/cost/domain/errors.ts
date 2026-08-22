@@ -39,6 +39,12 @@ export class InvalidSupplierIdentity extends CostDomainError {
   }
 }
 
+export class InvalidPurchaseIdentity extends CostDomainError { readonly code = "INVALID_PURCHASE_IDENTITY"; constructor() { super("Purchase identity must use pur_<uuid> format."); } }
+export class InvalidPurchaseLineIdentity extends CostDomainError { readonly code = "INVALID_PURCHASE_LINE_IDENTITY"; constructor() { super("Purchase line identity must use pur_line_<uuid> format."); } }
+export class InvalidCostPurchase extends CostDomainError { readonly code = "INVALID_COST_PURCHASE"; constructor(message: string) { super(message); } }
+export class CostPurchaseVersionConflict extends CostDomainError { readonly code = "COST_PURCHASE_VERSION_CONFLICT"; constructor(expected: number, actual: number) { super(`Expected Purchase version ${expected}, but found ${actual}.`); } }
+export class CostPurchaseInvalidState extends CostDomainError { readonly code = "COST_PURCHASE_INVALID_STATE"; constructor(purchaseId: string) { super(`Purchase ${purchaseId} is not in Draft state.`); } }
+
 export class InvalidCostSupplier extends CostDomainError {
   readonly code = "INVALID_COST_SUPPLIER";
 

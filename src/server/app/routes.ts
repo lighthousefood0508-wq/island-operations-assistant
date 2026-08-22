@@ -262,6 +262,11 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "GET" && pathname === "/api/admin/cost/suppliers") {
       return success(response, 200, services.costBackOffice.listSuppliers());
     }
+    if (request.method === "POST" && pathname === "/api/admin/cost/purchases") return success(response, 201, services.costBackOffice.createPurchase(await readJson(request)));
+    const purchaseMatch = pathname.match(/^\/api\/admin\/cost\/purchases\/([^/]+)$/);
+    if (request.method === "PATCH" && purchaseMatch?.[1]) return success(response, 200, services.costBackOffice.revisePurchase(decodeURIComponent(purchaseMatch[1]), await readJson(request)));
+    const purchaseRecordMatch = pathname.match(/^\/api\/admin\/cost\/purchases\/([^/]+)\/records$/);
+    if (request.method === "POST" && purchaseRecordMatch?.[1]) return success(response, 200, services.costBackOffice.recordPurchase(decodeURIComponent(purchaseRecordMatch[1]), await readJson(request)));
     if (request.method === "POST" && pathname === "/api/admin/cost/profiles") {
       return success(
         response,

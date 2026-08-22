@@ -20,7 +20,9 @@ import { SqliteRecipeRepository } from "../domains/recipe/infrastructure/sqlite-
 import { SqliteCostRepository } from "../domains/cost/infrastructure/sqlite-cost-repository.js";
 import {
   CostSupplierService,
-  SqliteCostSupplierRepository
+  SqliteCostSupplierRepository,
+  CostPurchaseService,
+  SqliteCostPurchaseRepository
 } from "../domains/cost/index.js";
 import { CanonicalIngredientReferenceImpactService } from "../application/canonical-ingredient-reference-impact-service.js";
 import {
@@ -65,6 +67,10 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
   const supplierService = new CostSupplierService(
     new SqliteCostSupplierRepository(database)
   );
+  const purchaseService = new CostPurchaseService(
+    new SqliteCostPurchaseRepository(database),
+    new SqliteCostSupplierRepository(database)
+  );
   const measurementUnits = new MeasurementUnitResolver();
   const profileCreation = new IngredientMeasurementProfileCreationService(
     canonicalIngredientRepository,
@@ -92,6 +98,7 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
     database,
     canonicalIngredientCreation,
     supplierService,
+    purchaseService,
     profileCreation,
     profileSupersession,
     profileDeprecation,

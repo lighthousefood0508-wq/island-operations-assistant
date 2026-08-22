@@ -24,7 +24,8 @@ test("Migration 018 turns legacy Rename and Archive evidence into the sole lifec
     database.execute("INSERT INTO recipe_canonical_ingredient_renames VALUES (?, 1, 'Pork', 'Old pork', ?, 'owner', 'rename')", [id, "2026-08-01T01:00:00.000Z"]);
     assert.deepEqual(runMigrations(database), [
       "018_canonical_ingredient_lifecycle_events.sql",
-      "019_cost_suppliers.sql"
+      "019_cost_suppliers.sql",
+      "020_cost_purchases.sql"
     ]);
     assert.deepEqual(database.queryMany<{ event_type: string; aggregate_version: number }>("SELECT event_type, aggregate_version FROM recipe_canonical_ingredient_lifecycle_events WHERE ingredient_id = ? ORDER BY aggregate_version", [id]), [
       { event_type: "RENAMED", aggregate_version: 1 }, { event_type: "ARCHIVED", aggregate_version: 2 }

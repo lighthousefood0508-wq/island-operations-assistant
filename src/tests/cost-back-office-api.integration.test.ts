@@ -85,6 +85,19 @@ test("Cost Supplier API creates formal Supplier identities and lists them determ
   }
 });
 
+test("Cost Purchase API records an unaccepted Supplier-backed document without actual-price authority", async () => {
+  const databasePath = path.resolve("data", `cost-purchase-api-${randomUUID()}.sqlite`);
+  const running = await start(databasePath);
+  try {
+    const supplier = await request(running.baseUrl, "/api/admin/cost/suppliers", "POST", { displayName: "Supplier", occurredAt: AT, actor: "owner" });
+    const body = { supplierId: supplier.body.data.supplierId, lines: [{ ingredientId: "ing_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", quantityCoefficient: "2", quantityScale: 0, unitCode: "kg" }], occurredAt: AT, actor: "owner" };
+    const created = await request(running.baseUrl, "/api/admin/cost/purchases", "POST", body);
+    assert.equal(created.status, 201); assert.equal(created.body.data.state, "Draft"); assert.equal("amount" in created.body.data, false);
+    const recorded = await request(running.baseUrl, `/api/admin/cost/purchases/${created.body.data.purchaseId}/records`, "POST", { expectedVersion: 0, recordedAt: REPLACEMENT_AT, recordedBy: "owner" });
+    assert.equal(recorded.status, 200); assert.equal(recorded.body.data.state, "Recorded");
+  } finally { await stop(running.server); cleanup(databasePath); }
+});
+
 function cleanup(databasePath: string): void {
   for (const suffix of ["", "-shm", "-wal"]) {
     rmSync(`${databasePath}${suffix}`, { force: true });

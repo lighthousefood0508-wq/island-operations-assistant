@@ -47,7 +47,10 @@ function seedLegacy(database: BetterSqlite3Adapter, mismatchedVersion = false): 
 test("Migration 017 deterministically backfills Family and shared Draft/Version Line identity", () => withDatabase((database) => {
   migrateThrough016(database);
   seedLegacy(database);
-  assert.deepEqual(runMigrations(database), ["017_recipe_persistence_line_identity_and_publication_uow.sql"]);
+  assert.deepEqual(runMigrations(database), [
+    "017_recipe_persistence_line_identity_and_publication_uow.sql",
+    "018_canonical_ingredient_lifecycle_events.sql"
+  ]);
   const draftLine = database.queryOne<{ recipe_line_id: string }>("SELECT recipe_line_id FROM recipe_draft_lines WHERE draft_id = ?", [draftId])!;
   const versionLine = database.queryOne<{ recipe_line_id: string }>("SELECT recipe_line_id FROM recipe_version_lines WHERE recipe_version_id = ?", [versionId])!;
   assert.equal(draftLine.recipe_line_id, "recipe_line_ae596fda-45ea-5523-bc4d-6d63a7e97dfd");

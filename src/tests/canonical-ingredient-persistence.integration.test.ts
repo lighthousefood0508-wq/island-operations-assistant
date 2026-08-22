@@ -109,7 +109,7 @@ test("migration creates only Canonical Ingredient tables and approved indexes", 
       ORDER BY name`
   ).map((row) => row.name);
   assert.deepEqual(tables, [
-    "recipe_canonical_ingredient_renames",
+    "recipe_canonical_ingredient_lifecycle_events",
     "recipe_canonical_ingredients"
   ]);
   const ingredientCount = database.queryOne<{ count: number }>(
@@ -120,10 +120,10 @@ test("migration creates only Canonical Ingredient tables and approved indexes", 
     "SELECT name FROM sqlite_master WHERE type = 'index'"
   ).map((row) => row.name);
   assert.ok(indexes.includes("recipe_canonical_ingredients_active_name"));
-  const renamePrimaryKey = database.queryMany<{ name: string; pk: number }>(
-    "PRAGMA table_info(recipe_canonical_ingredient_renames)"
+  const lifecyclePrimaryKey = database.queryMany<{ name: string; pk: number }>(
+    "PRAGMA table_info(recipe_canonical_ingredient_lifecycle_events)"
   ).filter((column) => column.pk > 0).map((column) => column.name);
-  assert.deepEqual(renamePrimaryKey, ["ingredient_id", "transition_version"]);
+  assert.deepEqual(lifecyclePrimaryKey, ["ingredient_id", "aggregate_version"]);
 });
 
 test("Active Ingredient round-trips through the existing Aggregate authority", (t) => {
@@ -147,17 +147,17 @@ test("Rename appends history and round-trips current state", (t) => {
   assert.ok(hydrated);
   assert.deepEqual(hydrated.toContract(), changed.toContract());
   const facts = database.queryMany<{
-    transition_version: number;
+    aggregate_version: number;
     previous_name: string;
     new_name: string;
   }>(
-    `SELECT transition_version, previous_name, new_name
-       FROM recipe_canonical_ingredient_renames
+    `SELECT aggregate_version, previous_name, new_name
+       FROM recipe_canonical_ingredient_lifecycle_events
       WHERE ingredient_id = ?`,
     [IDS.first]
   );
   assert.deepEqual(facts, [{
-    transition_version: 1,
+    aggregate_version: 1,
     previous_name: "Soy Sauce",
     new_name: "Taiwan Soy Sauce"
   }]);
@@ -177,6 +177,48 @@ test("Archive preserves history and remains resolvable by identity", (t) => {
   assert.deepEqual(hydrated.toContract(), inactive.toContract());
   assert.equal(hydrated.renameHistory.length, 1);
   assert.equal(hydrated.status, "Archived");
+});
+
+test("repeated Archive and Reactivate cycles append immutable ledger evidence while current projection follows replay", (t) => {
+  const { database, repository } = fixture(t);
+  const original = ingredient();
+  repository.saveNew(original);
+  const firstArchive = original.archive({ occurredAt: ARCHIVED_AT, actorId: "owner", reason: "first archive" });
+  repository.saveWithExpectedVersion(firstArchive, 0);
+  const reactivated = firstArchive.reactivate({ occurredAt: "2026-07-31T04:00:00.000Z", actorId: "owner", reason: "resume future use" });
+  repository.saveWithExpectedVersion(reactivated, 1);
+  const renamedAfterReactivation = reactivated.rename("Restored Soy Sauce", { occurredAt: "2026-07-31T05:00:00.000Z", actorId: "editor", reason: "current name" });
+  repository.saveWithExpectedVersion(renamedAfterReactivation, 2);
+  const secondArchive = renamedAfterReactivation.archive({ occurredAt: "2026-07-31T06:00:00.000Z", actorId: "owner", reason: "second archive" });
+  repository.saveWithExpectedVersion(secondArchive, 3);
+  const final = secondArchive.reactivate({ occurredAt: "2026-07-31T07:00:00.000Z", actorId: "owner", reason: "resume again" });
+  repository.saveWithExpectedVersion(final, 4);
+
+  assert.deepEqual(repository.findById(original.ingredientId)?.toContract(), final.toContract());
+  assert.deepEqual(database.queryMany<{ aggregate_version: number; event_type: string }>(
+    "SELECT aggregate_version, event_type FROM recipe_canonical_ingredient_lifecycle_events WHERE ingredient_id = ? ORDER BY aggregate_version",
+    [IDS.first]
+  ), [
+    { aggregate_version: 1, event_type: "ARCHIVED" },
+    { aggregate_version: 2, event_type: "REACTIVATED" },
+    { aggregate_version: 3, event_type: "RENAMED" },
+    { aggregate_version: 4, event_type: "ARCHIVED" },
+    { aggregate_version: 5, event_type: "REACTIVATED" }
+  ]);
+  assert.deepEqual(database.queryOne<{ status: string; archived_at: string | null; archived_by: string | null; archive_reason: string | null }>(
+    "SELECT status, archived_at, archived_by, archive_reason FROM recipe_canonical_ingredients WHERE ingredient_id = ?",
+    [IDS.first]
+  ), { status: "Active", archived_at: null, archived_by: null, archive_reason: null });
+});
+
+test("hydration rejects a current Archive projection that contradicts authoritative ledger replay", (t) => {
+  const { database, repository } = fixture(t);
+  const original = ingredient();
+  repository.saveNew(original);
+  const inactive = original.archive({ occurredAt: ARCHIVED_AT, actorId: "owner", reason: "retired" });
+  repository.saveWithExpectedVersion(inactive, 0);
+  database.execute("UPDATE recipe_canonical_ingredients SET archive_reason = ? WHERE ingredient_id = ?", ["contradictory", IDS.first]);
+  assert.throws(() => repository.findById(original.ingredientId), InvalidCanonicalIngredientPersistenceState);
 });
 
 test("saveNew is insert-only and duplicate identity never overwrites", (t) => {
@@ -295,7 +337,7 @@ test("failed current-state update rolls back the appended Rename fact", (t) => {
   );
   assert.equal(
     database.queryOne<{ count: number }>(
-      "SELECT COUNT(*) AS count FROM recipe_canonical_ingredient_renames"
+      "SELECT COUNT(*) AS count FROM recipe_canonical_ingredient_lifecycle_events"
     )?.count,
     0
   );
@@ -496,9 +538,10 @@ test("hydration fails closed when transition versions contain a gap", (t) => {
   const original = ingredient();
   repository.saveNew(original);
   repository.saveWithExpectedVersion(renamed(original), 0);
+  database.execute("DROP TRIGGER recipe_canonical_ingredient_lifecycle_events_no_update");
   database.execute(
-    `UPDATE recipe_canonical_ingredient_renames
-        SET transition_version = 2
+    `UPDATE recipe_canonical_ingredient_lifecycle_events
+        SET aggregate_version = 2
       WHERE ingredient_id = ?`,
     [IDS.first]
   );
@@ -562,7 +605,8 @@ test("mapper cross-checks complete replayed state rather than trusting rows", ()
   const original = ingredient();
   const changed = renamed(original);
   const mapped = CanonicalIngredientPersistenceMapper.toRecord(changed);
-  assert.equal(mapped.renames[0]?.transitionVersion, 1);
+  assert.equal(mapped.lifecycleEvents[0]?.aggregateVersion, 1);
+  assert.equal(mapped.lifecycleEvents[0]?.eventType, "RENAMED");
   assert.equal(mapped.ingredient.name, "Taiwan Soy Sauce");
   assert.equal(mapped.ingredient.aggregateVersion, 1);
 });

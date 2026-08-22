@@ -2,6 +2,7 @@ type CanonicalIngredientLifecycleErrorCode =
   | "CANONICAL_INGREDIENT_NOT_FOUND"
   | "CANONICAL_INGREDIENT_VERSION_CONFLICT"
   | "CANONICAL_INGREDIENT_ALREADY_ARCHIVED"
+  | "CANONICAL_INGREDIENT_NOT_ARCHIVED"
   | "CANONICAL_INGREDIENT_ARCHIVED_RENAME_REJECTED"
   | "INVALID_CANONICAL_INGREDIENT_TRANSITION"
   | "CANONICAL_INGREDIENT_VALIDATION_FAILURE"
@@ -40,6 +41,15 @@ export class CanonicalIngredientAlreadyArchived
 
   constructor() {
     super("Canonical Ingredient is already Archived.");
+  }
+}
+
+export class CanonicalIngredientNotArchived
+  extends CanonicalIngredientLifecycleError {
+  readonly code = "CANONICAL_INGREDIENT_NOT_ARCHIVED" as const;
+
+  constructor() {
+    super("Canonical Ingredient is not Archived.");
   }
 }
 

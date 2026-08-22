@@ -34,11 +34,23 @@ export type ArchiveCanonicalIngredientCommandV1 = Readonly<{
   reason: string;
 }>;
 
+export type ReactivateCanonicalIngredientCommandV1 = Readonly<{
+  ingredientId: string;
+  expectedVersion: number;
+  actor: string;
+  occurredAt: string;
+  reason: string;
+}>;
+
 export type RenameCanonicalIngredientResultV1 = Readonly<{
   ingredient: CanonicalIngredientManagementRecordV1;
   warnings: readonly CanonicalIngredientDuplicateWarningV1[];
 }>;
 
 export type ArchiveCanonicalIngredientResultV1 = Readonly<{
+  ingredient: CanonicalIngredientManagementRecordV1;
+}>;
+
+export type ReactivateCanonicalIngredientResultV1 = Readonly<{
   ingredient: CanonicalIngredientManagementRecordV1;
 }>;

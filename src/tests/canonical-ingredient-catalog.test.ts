@@ -285,6 +285,24 @@ test("Archived Ingredient cannot be renamed or archived again", () => {
   );
 });
 
+test("Archived Ingredient reactivates by appending immutable evidence and permits a later governed Archive", () => {
+  const firstArchive = ingredient().archive({
+    occurredAt: "2026-07-31T03:00:00.000Z", actorId: "owner", reason: "retired"
+  });
+  const activeAgain = firstArchive.reactivate({
+    occurredAt: "2026-07-31T04:00:00.000Z", actorId: "owner", reason: "restored"
+  });
+  const secondArchive = activeAgain.archive({
+    occurredAt: "2026-07-31T05:00:00.000Z", actorId: "owner", reason: "retired again"
+  });
+  assert.equal(activeAgain.status, "Active");
+  assert.equal(activeAgain.archiveFact, undefined);
+  assert.deepEqual(activeAgain.lifecycleHistory.map((event) => event.eventType), ["ARCHIVED", "REACTIVATED"]);
+  assert.deepEqual(secondArchive.lifecycleHistory.map((event) => event.aggregateVersion), [1, 2, 3]);
+  assert.equal(secondArchive.archiveFact?.reason, "retired again");
+  assert.throws(() => activeAgain.reactivate({ occurredAt: "2026-07-31T05:00:00.000Z", actorId: "owner", reason: "invalid" }), InvalidCanonicalIngredientTransition);
+});
+
 test("archive audit time cannot precede the latest rename", () => {
   const renamed = ingredient().rename("台灣豬五花", {
     occurredAt: LATER,

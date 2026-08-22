@@ -38,6 +38,18 @@ export type CanonicalIngredientArchiveFactV1 = Readonly<{
   reason: string;
 }>;
 
+/** Internal replay evidence is ordered by aggregateVersion. Management readers
+ * retain the v1 renameHistory/archiveFact projection for compatibility. */
+export type CanonicalIngredientLifecycleEventV1 = Readonly<{
+  aggregateVersion: number;
+  eventType: "RENAMED" | "ARCHIVED" | "REACTIVATED";
+  occurredAt: string;
+  actor: string;
+  reason: string;
+  previousName?: string;
+  newName?: string;
+}>;
+
 export type CanonicalIngredientContractV1 = Readonly<{
   contractVersion: typeof CANONICAL_INGREDIENT_CONTRACT_VERSION;
   ingredientId: CanonicalIngredientIdV1;

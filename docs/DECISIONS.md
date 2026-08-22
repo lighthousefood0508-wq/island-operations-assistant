@@ -22,6 +22,42 @@
 
 ## Approval Register
 
+- **DECISIONS #079 - Cost-Owned Supplier Foundation and Purchase Reference Boundary**
+  - **Date**: 2026-08-22.
+  - **Status**: APPROVED by Architecture Owner for the Supplier Foundation governance, implementation, verification, review, publication, merge, and integration closeout workflow defined by PR-COST-005.
+  - **Constitution Compatibility Gate**:
+    - **Reviewed ADR / Decisions**: ADR-019; DECISIONS #048, #049, #050, #051, #053, #064, and #071.
+    - **Compatibility Result**: PASS. Cost retains exclusive ownership of Supplier identity and future Purchase evidence. Canonical Ingredient, Measurement, Ingredient Measurement Profile, Recipe, and Quote authorities are unchanged. No reverse dependency or cross-Domain table access is created.
+  - **Single responsibility**:
+    - Establish the minimal formal Cost-owned Supplier identity foundation required before a future Purchase authority may refer to a Supplier.
+    - This is not a Purchase, Purchase Order, receipt, receiving, Accepted Purchase, Cost Snapshot, Inventory, package, pricing, or valuation capability.
+  - **Supplier identity and lifecycle**:
+    - A Supplier has one immutable `sup_<uuid>` identity, immutable creation audit evidence (`createdAt`, `createdBy`), an immutable display name for v1, and initial aggregate version `0`.
+    - Supplier display names are descriptive data, not identity. Equal or normalized names remain allowed; this slice creates no uniqueness, alias, merge, duplicate-resolution, rename, archive, deactivate, reactivate, delete, or status-transition rule.
+    - V1 registration makes the Supplier available as a future Cost-owned reference only. It creates no Supplier Item, package, catalogue, quote, purchase, actual-price, or inventory fact.
+  - **Authority and historical boundary**:
+    - Cost is the exclusive Supplier identity authority. A Supplier must not create a Canonical Ingredient identity, interpret Ingredient names as identity, own a Measurement Unit or conversion, own an Ingredient Measurement Profile, alter a Recipe, or calculate prices.
+    - Existing Quote `supplierId` metadata remains optional historical source metadata; it is not retroactively validated, migrated, or promoted into formal Supplier authority by this Decision.
+    - Legacy `cost_purchases` and `cost_purchase_items`, including `vendor_name`, remain non-authoritative foundation data. They are neither a Supplier migration source nor a formal Purchase / Accepted Purchase authority.
+    - Ingredient Cost Quotes remain immutable quotation / expected-price evidence. They are not Purchase or Accepted Purchase evidence and must not become actual-price evidence through this slice.
+  - **Persistence boundary**:
+    - Migration 019 is required and must add one forward-only `cost_suppliers` table. It stores only the formal Supplier identity, immutable display name, immutable creation audit evidence, and initial aggregate version.
+    - No existing migration or legacy table is rewritten. No legacy Supplier / vendor data is backfilled, inferred, deduplicated, or promoted.
+    - The Cost-owned repository port and SQLite adapter persist and retrieve only Supplier facts. They must not query Recipe, Canonical Ingredient, Measurement, Profile, Purchase, Inventory, or Snapshot tables.
+  - **Application and HTTP boundary**:
+    - One Cost-owned Application Service coordinates command validation, `sup_<uuid>` generation, Supplier Aggregate construction, `saveNew`, deterministic read listing, and typed safe failures. It must not import SQLite, `DatabaseAdapter`, BetterSqlite3, infrastructure-specific errors, or another Domain's business authority.
+    - Cost Back Office remains the existing facade/delegator. It must not create Supplier IDs, construct a Supplier Aggregate, invoke the repository, or own Supplier validation.
+    - `src/server/index.ts` is the sole production composition site for the new Application Service.
+    - The only v1 routes are `POST /api/admin/cost/suppliers` (HTTP `201`) and `GET /api/admin/cost/suppliers` (HTTP `200`). The POST body contains `displayName`, `occurredAt`, and `actor`; the GET collection is deterministic by Supplier identity.
+    - Stable failures are `COST_SUPPLIER_VALIDATION_FAILURE` (`422`) and `COST_SUPPLIER_PERSISTENCE_FAILURE` (`500`). Raw SQLite/DB messages, table names, stack, cause, or infrastructure detail must not cross the Application or HTTP boundary.
+  - **Exact implementation boundary**:
+    - PR-COST-005 fixes an exact twenty-path allowlist: Migration 019; Cost Supplier Aggregate, identity/repository/error/persistence/application boundaries and exports; existing Cost Back Office facade, routes, and server composition; focused domain, persistence, Application, API, migration-regression, and Architecture Guard tests.
+    - The Architecture Guard must classify Supplier-foundation responsibility substantively and reject a simulated unauthorized twenty-first responsibility path using the same classifier/enforcement logic.
+    - No UI/navigation, Package/Supplier Item, Purchase, Accepted Purchase, Cost Snapshot, Quote lifecycle change, Cost Evaluation change, Inventory, Recipe/Ingredient/Profile/Measurement change, shared contract change, new domain, package change, or twenty-first implementation path is authorized.
+  - **Verification and delivery boundary**:
+    - Required evidence includes focused Supplier domain/persistence/Application/API tests, migration 014-upgrade and migration 017-to-current regressions, Reference Impact persistence regression, Architecture Guards, typecheck, lint, build, configured tests, complete E2E, `npm run verify`, `npm run verify:full`, compiled repository collection, `git diff --check`, encoding/final-newline/trailing-whitespace checks, and exact twenty-path audit.
+    - A normal feature-branch commit, push, non-Draft PR, independent PR review, clean merge, integration synchronization, and closeout are authorized only while reviewed identity, scope, and protected boundaries remain exact. Main promotion, release, deployment, and any later Cost slice remain excluded.
+
 - **DECISIONS #078 - Canonical Ingredient Reactivation Evidence and Application Boundary**
   - **Date**: 2026-08-19.
   - **Status**: APPROVED by Architecture Owner for governance recording and the dedicated PR-INGREDIENT-003K Task Card only. Implementation remains separately gated.

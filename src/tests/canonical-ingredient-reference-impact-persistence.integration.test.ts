@@ -464,7 +464,7 @@ test("Reference Impact survives database close and reopen without schema changes
     database.queryOne<{ count: number }>(
       "SELECT COUNT(*) AS count FROM schema_migrations"
     )?.count,
-    19
+    20
   );
 });
 

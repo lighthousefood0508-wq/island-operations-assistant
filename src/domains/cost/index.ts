@@ -17,6 +17,11 @@ export {
   InvalidIngredientCostQuoteSupersession,
   InvalidIngredientIdentity,
   InvalidCostSupplier,
+  InvalidCostPurchase,
+  InvalidPurchaseIdentity,
+  InvalidPurchaseLineIdentity,
+  CostPurchaseVersionConflict,
+  CostPurchaseInvalidState,
   InvalidSupplierIdentity,
   InvalidMonetaryAmount
 } from "./domain/errors.js";
@@ -27,6 +32,12 @@ export {
   IngredientId,
   SupplierId
 } from "./domain/identities.js";
+export { PurchaseId, PurchaseLineId } from "./domain/identities.js";
+export { CostPurchase, type CostPurchaseContractV1, type CostPurchaseLineContractV1, type CostPurchaseState } from "./domain/purchase.js";
+export type { CostPurchaseRepository } from "./domain/purchase-repository.js";
+export { CostPurchaseService, type CreateCostPurchaseCommand, type ReviseCostPurchaseCommand, type RecordCostPurchaseCommand } from "./application/cost-purchase-service.js";
+export { CostPurchaseValidationFailure, CostPurchaseNotFound, CostPurchaseInvalidStateFailure, CostPurchaseVersionConflictFailure, CostPurchasePersistenceFailure } from "./application/cost-purchase-errors.js";
+export { SqliteCostPurchaseRepository } from "./infrastructure/sqlite-cost-purchase-repository.js";
 export {
   CostSupplier,
   type CostSupplierContractV1,

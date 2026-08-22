@@ -1,0 +1,2 @@
+export type CostPurchaseAggregateRow = Readonly<{ purchase_id:string; supplier_id:string; state:"Draft"|"Recorded"; created_at:string; created_by:string; changed_at:string; changed_by:string; recorded_at:string|null; recorded_by:string|null; aggregate_version:number }>;
+export type CostPurchaseLineRow = Readonly<{ purchase_line_id:string; ingredient_id:string; quantity_coefficient:string; quantity_scale:number; unit_code:string }>;

@@ -21,7 +21,13 @@ import { SqliteCostRepository } from "../../domains/cost/infrastructure/sqlite-c
 import {
   CostSupplierPersistenceFailure,
   CostSupplierService,
-  CostSupplierValidationFailure
+  CostSupplierValidationFailure,
+  CostPurchaseService,
+  CostPurchaseValidationFailure,
+  CostPurchaseNotFound,
+  CostPurchaseInvalidStateFailure,
+  CostPurchaseVersionConflictFailure,
+  CostPurchasePersistenceFailure
 } from "../../domains/cost/index.js";
 import { RecipeCanonicalProjectionService } from "../../domains/recipe/application/recipe-canonical-projection-service.js";
 import { RecipeCostingContractV2Service } from "../../domains/recipe/application/recipe-costing-contract-v2-service.js";
@@ -189,6 +195,7 @@ export class CostBackOfficeService {
     private readonly database: DatabaseAdapter,
     private readonly canonicalIngredientCreation: Pick<CanonicalIngredientCreationService, "create">,
     private readonly supplierService: Pick<CostSupplierService, "create" | "list">,
+    private readonly purchaseService: Pick<CostPurchaseService, "create" | "revise" | "record">,
     private readonly profileCreation: Pick<IngredientMeasurementProfileCreationService, "create">,
     private readonly profileSupersession: Pick<IngredientMeasurementProfileSupersessionService, "supersede">,
     private readonly profileDeprecation: Pick<IngredientMeasurementProfileDeprecationService, "deprecate">,
@@ -271,6 +278,10 @@ export class CostBackOfficeService {
       throw this.supplierOperation(error);
     }
   }
+
+  createPurchase(input: JsonObject) { try { return this.purchaseService.create({ supplierId: text(input,"supplierId"), lines: objectArray(input,"lines").map(line => ({ ingredientId:text(line,"ingredientId"), quantityCoefficient:text(line,"quantityCoefficient"), quantityScale:integer(line,"quantityScale"), unitCode:text(line,"unitCode") })), occurredAt:text(input,"occurredAt"), actor:text(input,"actor") }); } catch(error) { throw this.purchaseOperation(error); } }
+  revisePurchase(purchaseId: string, input: JsonObject) { try { return this.purchaseService.revise({ purchaseId, expectedVersion:integer(input,"expectedVersion"), lines: objectArray(input,"lines").map(line => ({ ingredientId:text(line,"ingredientId"), quantityCoefficient:text(line,"quantityCoefficient"), quantityScale:integer(line,"quantityScale"), unitCode:text(line,"unitCode") })), occurredAt:text(input,"occurredAt"), actor:text(input,"actor") }); } catch(error) { throw this.purchaseOperation(error); } }
+  recordPurchase(purchaseId: string, input: JsonObject) { try { return this.purchaseService.record({ purchaseId, expectedVersion:integer(input,"expectedVersion"), recordedAt:text(input,"recordedAt"), recordedBy:text(input,"recordedBy") }); } catch(error) { throw this.purchaseOperation(error); } }
 
   createProfile(input: JsonObject): IngredientMeasurementProfileContractV1 {
     try {
@@ -621,6 +632,7 @@ export class CostBackOfficeService {
     }
     return new HttpError(422, "COST_SUPPLIER_VALIDATION_FAILURE", "Cost Supplier command validation failed.");
   }
+  private purchaseOperation(error: unknown): HttpError { if(error instanceof CostPurchaseNotFound)return new HttpError(404,"cost_purchase_not_found",error.message);if(error instanceof CostPurchaseInvalidStateFailure)return new HttpError(409,"cost_purchase_invalid_state",error.message);if(error instanceof CostPurchaseVersionConflictFailure)return new HttpError(409,"cost_purchase_version_conflict",error.message);if(error instanceof CostPurchaseValidationFailure)return new HttpError(422,"cost_purchase_validation_failure",error.message);if(error instanceof CostPurchasePersistenceFailure)return new HttpError(500,"cost_purchase_persistence_failure",error.message);return new HttpError(500,"cost_purchase_persistence_failure","Purchase persistence failed."); }
 
   private deprecationOperation(error: unknown): HttpError {
     if (error instanceof HttpError) {

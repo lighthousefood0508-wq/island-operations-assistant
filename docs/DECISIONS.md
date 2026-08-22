@@ -22,6 +22,26 @@
 
 ## Approval Register
 
+- **DECISIONS #080 - Cost-Owned Purchase Foundation and Unaccepted Commercial Evidence Boundary**
+  - **Date**: 2026-08-22.
+  - **Status**: APPROVED by Architecture Owner for PR-COST-006 governance, implementation, verification, review, publication, merge, and integration closeout while the exact approved scope remains unchanged.
+  - **Single responsibility**: Establish the first formal Cost-owned Purchase aggregate: a governed Supplier reference, canonical Ingredient line references, and the closed `Draft -> Recorded` lifecycle. A Recorded Purchase is immutable commercial-document evidence only; it is not Accepted Purchase or actual-price authority.
+  - **Lifecycle and evidence**:
+    - A Purchase has one immutable `pur_<uuid>` identity, starts `Draft`, and contains ordered immutable line identities `pur_line_<uuid>` with `ing_<uuid>` references, positive exact quantity, and an opaque Cost unit code. Cost owns Purchase identity and line ordering, not Ingredient, Measurement, Profile, Recipe, or conversion authority.
+    - Draft creation and full-line revision require a currently existing formal `sup_<uuid>` Supplier. Recording requires `expectedVersion`, non-empty lines, and explicit `recordedAt` / `recordedBy`; it produces `Recorded`, advances aggregate version, and makes header and lines immutable. Zero lines, duplicate line identities, invalid identity, invalid quantity/unit, invalid state, and CAS conflict write nothing.
+    - Purchase quantities/units are unaccepted supplier-document facts. This Decision creates no price, currency, quote selection, normalization, valuation, inventory, receipt settlement, Accepted Purchase, or Cost Snapshot authority. A future Accepted Purchase may consume a Recorded Purchase only under a separate Decision.
+    - Canonical Ingredient references are typed `ing_<uuid>` references only. This slice neither reads Recipe/Ingredient persistence nor reinterprets historical Ingredient state; it creates no foreign-key ownership or second Ingredient authority.
+    - Legacy `cost_purchases` / `cost_purchase_items` and `vendor_name` remain non-authoritative and untouched. Existing Cost Quotes remain quotation/expected-price evidence only.
+  - **Persistence and Application boundary**:
+    - Migration 020 adds forward-only formal `cost_purchase_aggregates` and `cost_purchase_lines` tables only. It must not alter legacy Purchase tables, Supplier rows, Quotes, Recipe tables, or cross-Domain foreign-key targets.
+    - The Cost Purchase Aggregate is the lifecycle/invariant authority. A narrow Cost-owned repository performs hydration, transactionally atomic draft create/revise/record CAS writes, and no cross-Domain read. The Application Service generates identities, validates command shape, verifies the Supplier through its Cost-owned public repository, delegates Aggregate transitions, and maps typed safe failures; it imports neither SQLite nor infrastructure errors.
+    - Cost Back Office remains facade/delegator; `src/server/index.ts` is the sole composition site. Routes are `POST /api/admin/cost/purchases` (`201`), `PATCH /api/admin/cost/purchases/:purchaseId` (`200`), and `POST /api/admin/cost/purchases/:purchaseId/records` (`200`). Stable failures are `COST_PURCHASE_VALIDATION_FAILURE` (`422`), `COST_PURCHASE_NOT_FOUND` (`404`), `COST_PURCHASE_INVALID_STATE` / `COST_PURCHASE_VERSION_CONFLICT` (`409`), and `COST_PURCHASE_PERSISTENCE_FAILURE` (`500`); raw persistence detail never serializes.
+  - **Exact implementation boundary**:
+    - PR-COST-006 fixes an exact twenty-one-path allowlist: Migration 020; Cost Purchase aggregate/identities/errors/repository/persistence/SQLite/Application/export boundaries; existing Cost Back Office, routes, and server composition; focused domain/persistence/Application/API tests; Architecture Guard; and the three pre-existing migration-count regression tests.
+    - The Guard must substantively classify Purchase-foundation responsibility, allow only its exact twenty-one paths, and reject a simulated unauthorized twenty-second responsibility path using the same classifier.
+    - No Accepted Purchase, actual-price authority, Reference Impact change, Cost Snapshot/valuation, Quote lifecycle change, Supplier lifecycle, Inventory, package, UI/navigation, migration beyond 020, shared contract, Recipe/Ingredient/Measurement/Profile mutation, package, or twenty-second path is authorized.
+  - **Verification**: focused Purchase domain/persistence/Application/API tests; Supplier, Quote, Ingredient, Profile, Recipe and Reference Impact regressions; migration upgrade/restart/FK evidence; Guards; typecheck/lint/build; configured tests, full E2E, `npm run verify`, `npm run verify:full`, compiled collection, exact scope and text checks are required.
+
 - **DECISIONS #079 - Cost-Owned Supplier Foundation and Purchase Reference Boundary**
   - **Date**: 2026-08-22.
   - **Status**: APPROVED by Architecture Owner for the Supplier Foundation governance, implementation, verification, review, publication, merge, and integration closeout workflow defined by PR-COST-005.

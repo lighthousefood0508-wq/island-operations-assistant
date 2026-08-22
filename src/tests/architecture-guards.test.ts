@@ -1960,8 +1960,8 @@ test("Ingredient 003D Reference Impact stays read-only behind Domain-owned publi
     createHash("sha256")
       .update(costIndexSource.slice(0, cost003DOffset))
       .digest("hex"),
-    "1291045098fda42d9e1001cdbb2fecf02710fcd6afced7b3a3c628c4d34d4aba",
-    "003D must preserve the complete pre-existing Cost public index."
+    "301db5fd2c0e586a3c7d532be9202dadc4f6c845a2833761a1a189fa132483f9",
+    "003D must preserve the Cost public index as extended only by later Owner-approved Cost exports."
   );
   assert.equal(
     costIndexSource.slice(cost003DOffset),
@@ -2695,4 +2695,59 @@ test("Ingredient 003K keeps Canonical Ingredient reactivation inside its ledger-
   assert.match(aggregateSource, /reactivate\(audit/);
   assert.match(mapperSource, /lifecycleHistory/);
   assert.doesNotMatch(aggregateSource, /sqlite|DatabaseAdapter|better-sqlite/i);
+});
+
+test("PR-COST-005 keeps Supplier Foundation inside its exact Cost-owned responsibility boundary", () => {
+  const approvedCost005Paths = new Set([
+    "migrations/019_cost_suppliers.sql",
+    "src/domains/cost/domain/supplier.ts",
+    "src/domains/cost/domain/supplier-repository.ts",
+    "src/domains/cost/domain/identities.ts",
+    "src/domains/cost/domain/errors.ts",
+    "src/domains/cost/persistence/supplier-records.ts",
+    "src/domains/cost/infrastructure/sqlite-cost-supplier-repository.ts",
+    "src/domains/cost/application/cost-supplier-service.ts",
+    "src/domains/cost/application/cost-supplier-errors.ts",
+    "src/domains/cost/index.ts",
+    "src/server/app/cost-back-office-service.ts",
+    "src/server/app/routes.ts",
+    "src/server/index.ts",
+    "src/tests/cost-supplier-domain.test.ts",
+    "src/tests/cost-supplier-persistence.integration.test.ts",
+    "src/tests/cost-supplier-application.test.ts",
+    "src/tests/cost-back-office-api.integration.test.ts",
+    "src/tests/architecture-guards.test.ts",
+    "src/tests/recipe-migration-017.integration.test.ts",
+    "src/tests/recipe-migration-018.integration.test.ts",
+    "src/tests/canonical-ingredient-reference-impact-persistence.integration.test.ts"
+  ]);
+  assert.equal(approvedCost005Paths.size, 21);
+  const isCost005Responsibility = (source: string): boolean =>
+    /\bCostSupplier(?:[A-Z][A-Za-z]*|\b)|\bSupplierId\b|COST_SUPPLIER_|cost_suppliers/.test(source);
+  assert.equal(isCost005Responsibility("new CostSupplierService(repository)"), true);
+  const responsibilityFiles = [
+    ...filesUnder(sourceRoot, [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "migrations"), [".sql"])
+  ].filter((filename) => isCost005Responsibility(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .sort();
+  const approvedResponsibilityFiles = [...approvedCost005Paths]
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => isCost005Responsibility(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8")))
+    .sort();
+  assert.deepEqual(responsibilityFiles, approvedResponsibilityFiles);
+  assert.equal(approvedCost005Paths.has("src/tests/simulated-supplier.ts"), false);
+  assert.equal(
+    isCost005Responsibility("export const simulated = () => new CostSupplierService(repository);"),
+    true,
+    "The same classifier must reject a simulated unauthorized twenty-second Supplier responsibility path."
+  );
+  const supplierSource = readFileSync(path.join(sourceRoot, "domains", "cost", "domain", "supplier.ts"), "utf8");
+  const serviceSource = readFileSync(path.join(sourceRoot, "domains", "cost", "application", "cost-supplier-service.ts"), "utf8");
+  const facadeSource = readFileSync(path.join(sourceRoot, "server", "app", "cost-back-office-service.ts"), "utf8");
+  assert.doesNotMatch(supplierSource, /sqlite|DatabaseAdapter|better-sqlite/i);
+  assert.doesNotMatch(serviceSource, /sqlite|DatabaseAdapter|better-sqlite|CostBackOffice/i);
+  assert.match(facadeSource, /supplierService\.create/);
+  assert.doesNotMatch(facadeSource, /SupplierId\.fromUuid|CostSupplier\.create|new SqliteCostSupplierRepository/);
 });

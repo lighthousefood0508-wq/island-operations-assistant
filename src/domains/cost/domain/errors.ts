@@ -31,6 +31,22 @@ export class InvalidIngredientCostQuoteIdentity extends CostDomainError {
   }
 }
 
+export class InvalidSupplierIdentity extends CostDomainError {
+  readonly code = "INVALID_SUPPLIER_IDENTITY";
+
+  constructor() {
+    super("Supplier identity must use sup_<uuid> format.");
+  }
+}
+
+export class InvalidCostSupplier extends CostDomainError {
+  readonly code = "INVALID_COST_SUPPLIER";
+
+  constructor(message: string) {
+    super(message);
+  }
+}
+
 export class InvalidCurrency extends CostDomainError {
   readonly code = "INVALID_CURRENCY";
 

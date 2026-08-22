@@ -50,6 +50,41 @@ async function stop(server: ReturnType<typeof createRosServer>) {
   await once(server, "close");
 }
 
+test("Cost Supplier API creates formal Supplier identities and lists them deterministically without Purchase authority", async () => {
+  const databasePath = path.resolve("data", `cost-supplier-api-${randomUUID()}.sqlite`);
+  const running = await start(databasePath);
+  try {
+    const invalid = await request(running.baseUrl, "/api/admin/cost/suppliers", "POST", {
+      displayName: " ", occurredAt: AT, actor: "owner"
+    });
+    assert.equal(invalid.status, 422);
+    assert.equal(invalid.body.error.code, "COST_SUPPLIER_VALIDATION_FAILURE");
+    assert.doesNotMatch(JSON.stringify(invalid.body), /sqlite|stack|cause|table/i);
+
+    const first = await request(running.baseUrl, "/api/admin/cost/suppliers", "POST", {
+      displayName: "Northern Ingredients", occurredAt: AT, actor: "owner"
+    });
+    const second = await request(running.baseUrl, "/api/admin/cost/suppliers", "POST", {
+      displayName: "Northern Ingredients", occurredAt: AT, actor: "owner"
+    });
+    assert.equal(first.status, 201);
+    assert.equal(second.status, 201);
+    assert.match(first.body.data.supplierId, /^sup_[0-9a-f-]{36}$/);
+    assert.notEqual(first.body.data.supplierId, second.body.data.supplierId);
+    assert.equal("status" in first.body.data, false);
+
+    const listed = await request(running.baseUrl, "/api/admin/cost/suppliers");
+    assert.equal(listed.status, 200);
+    assert.deepEqual(
+      listed.body.data.map((supplier: { supplierId: string }) => supplier.supplierId),
+      [...listed.body.data.map((supplier: { supplierId: string }) => supplier.supplierId)].sort()
+    );
+  } finally {
+    await stop(running.server);
+    cleanup(databasePath);
+  }
+});
+
 function cleanup(databasePath: string): void {
   for (const suffix of ["", "-shm", "-wal"]) {
     rmSync(`${databasePath}${suffix}`, { force: true });

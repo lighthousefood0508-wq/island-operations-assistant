@@ -1,7 +1,8 @@
 import {
   InvalidCostItemIdentity,
   InvalidIngredientCostQuoteIdentity,
-  InvalidIngredientIdentity
+  InvalidIngredientIdentity,
+  InvalidSupplierIdentity
 } from "./errors.js";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -77,6 +78,22 @@ export class IngredientCostQuoteId extends PrefixedIdentity {
 
   static fromUuid(uuid: string): IngredientCostQuoteId {
     return new IngredientCostQuoteId(`${IngredientCostQuoteId.prefix}${uuid}`);
+  }
+}
+
+export class SupplierId extends PrefixedIdentity {
+  private static readonly prefix = "sup_";
+
+  private constructor(value: string) {
+    super(value, SupplierId.prefix, () => new InvalidSupplierIdentity());
+  }
+
+  static parse(value: string): SupplierId {
+    return new SupplierId(value);
+  }
+
+  static fromUuid(uuid: string): SupplierId {
+    return new SupplierId(`${SupplierId.prefix}${uuid}`);
   }
 }
 

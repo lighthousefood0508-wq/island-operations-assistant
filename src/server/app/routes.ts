@@ -252,6 +252,16 @@ async function route(request: IncomingMessage, response: ServerResponse, service
         services.costBackOffice.createIngredient(await readJson(request))
       );
     }
+    if (request.method === "POST" && pathname === "/api/admin/cost/suppliers") {
+      return success(
+        response,
+        201,
+        services.costBackOffice.createSupplier(await readJson(request))
+      );
+    }
+    if (request.method === "GET" && pathname === "/api/admin/cost/suppliers") {
+      return success(response, 200, services.costBackOffice.listSuppliers());
+    }
     if (request.method === "POST" && pathname === "/api/admin/cost/profiles") {
       return success(
         response,

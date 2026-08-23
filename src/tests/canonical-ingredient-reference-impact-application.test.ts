@@ -58,6 +58,7 @@ function fixture(options: Readonly<{
   costFailure?: Error;
   recipe?: ReturnType<RecipeIngredientReferenceImpactReadPort["findIngredientReferences"]>;
   cost?: ReturnType<CostIngredientReferenceImpactReadPort["findIngredientQuoteReferences"]>;
+  accepted?: ReturnType<CostIngredientReferenceImpactReadPort["findIngredientAcceptedPurchaseReferences"]>;
 }> = {}) {
   const counters: Counters = { ingredient: 0, recipe: 0, cost: 0 };
   const ingredientReader: Pick<
@@ -91,6 +92,11 @@ function fixture(options: Readonly<{
         contractVersion: 1,
         quoteIds: []
       };
+    },
+    findIngredientAcceptedPurchaseReferences() {
+      counters.cost += 1;
+      if (options.costFailure) throw options.costFailure;
+      return options.accepted ?? { contractName: "CostAcceptedPurchaseReferenceImpact", contractVersion: 1, acceptedPurchaseIds: [] };
     }
   };
   return {
@@ -158,13 +164,13 @@ test("reference impact exposes exact cardinalities, identities and ordering", ()
     quoteCount: 2,
     quoteIds: ["cost_quote_a", "cost_quote_b"]
   });
-  assert.deepEqual(result.acceptedPurchases, { availability: "Unavailable" });
+  assert.deepEqual(result.acceptedPurchases, { availability: "Available", acceptedPurchaseCount: 0, acceptedPurchaseIds: [] });
   assert.deepEqual(result.costSnapshots, { availability: "Unavailable" });
   assert.deepEqual(result.deletionEligibility, {
     status: "Indeterminate",
     blocked: true
   });
-  assert.deepEqual(counters, { ingredient: 1, recipe: 1, cost: 1 });
+  assert.deepEqual(counters, { ingredient: 1, recipe: 1, cost: 2 });
 });
 
 test("available zero-reference categories remain distinct from unavailable authorities", () => {
@@ -188,7 +194,7 @@ test("available zero-reference categories remain distinct from unavailable autho
     recipeVersionIds: [],
     references: []
   });
-  assert.deepEqual(Object.keys(result.acceptedPurchases), ["availability"]);
+  assert.deepEqual(Object.keys(result.acceptedPurchases), ["availability", "acceptedPurchaseCount", "acceptedPurchaseIds"]);
   assert.deepEqual(Object.keys(result.costSnapshots), ["availability"]);
 });
 

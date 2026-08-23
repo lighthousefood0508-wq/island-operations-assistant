@@ -20,6 +20,10 @@ export {
   InvalidCostPurchase,
   InvalidPurchaseIdentity,
   InvalidPurchaseLineIdentity,
+  InvalidAcceptedPurchaseIdentity,
+  InvalidAcceptedPurchaseLineIdentity,
+  InvalidAcceptedPurchase,
+  AcceptedPurchaseAlreadyExists,
   CostPurchaseVersionConflict,
   CostPurchaseInvalidState,
   InvalidSupplierIdentity,
@@ -32,7 +36,12 @@ export {
   IngredientId,
   SupplierId
 } from "./domain/identities.js";
-export { PurchaseId, PurchaseLineId } from "./domain/identities.js";
+export { PurchaseId, PurchaseLineId, AcceptedPurchaseId, AcceptedPurchaseLineId } from "./domain/identities.js";
+export { AcceptedPurchase, type AcceptedPurchaseContractV1, type AcceptedPurchaseLineContractV1 } from "./domain/accepted-purchase.js";
+export type { AcceptedPurchaseRepository } from "./domain/accepted-purchase-repository.js";
+export { AcceptedPurchaseService, type AcceptPurchaseCommand } from "./application/accepted-purchase-service.js";
+export { AcceptedPurchaseValidationFailure, AcceptedPurchaseNotFound, AcceptedPurchaseInvalidStateFailure, AcceptedPurchaseVersionConflictFailure, AcceptedPurchaseMeasurementFailure, AcceptedPurchasePersistenceFailure } from "./application/accepted-purchase-errors.js";
+export { SqliteAcceptedPurchaseRepository } from "./infrastructure/sqlite-accepted-purchase-repository.js";
 export { CostPurchase, type CostPurchaseContractV1, type CostPurchaseLineContractV1, type CostPurchaseState } from "./domain/purchase.js";
 export type { CostPurchaseRepository } from "./domain/purchase-repository.js";
 export { CostPurchaseService, type CreateCostPurchaseCommand, type ReviseCostPurchaseCommand, type RecordCostPurchaseCommand } from "./application/cost-purchase-service.js";
@@ -149,6 +158,7 @@ export {
 } from "./domain/recipe-cost-evaluation.js";
 export { RecipeCostEvaluationError } from "./application/recipe-cost-evaluation-errors.js";
 export type {
+  CostAcceptedPurchaseReferenceImpactReadModelV1,
   CostIngredientQuoteReferenceImpactReadModelV1,
   CostIngredientReferenceImpactReadPort
 } from "./domain/ingredient-reference-impact-read-port.js";

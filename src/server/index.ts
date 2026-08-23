@@ -22,13 +22,17 @@ import {
   CostSupplierService,
   SqliteCostSupplierRepository,
   CostPurchaseService,
-  SqliteCostPurchaseRepository
+  SqliteCostPurchaseRepository,
+  AcceptedPurchaseService,
+  SqliteAcceptedPurchaseRepository
 } from "../domains/cost/index.js";
 import { CanonicalIngredientReferenceImpactService } from "../application/canonical-ingredient-reference-impact-service.js";
 import {
   SqliteCanonicalIngredientRepository
 } from "../domains/recipe/ingredient-catalog/infrastructure/sqlite-canonical-ingredient-repository.js";
 import { MeasurementUnitResolver } from "../domains/recipe/measurement/measurement-unit-resolver.js";
+import { MeasurementNormalizer } from "../domains/recipe/measurement/measurement-normalizer.js";
+import { IngredientMeasurementNormalizationService } from "../domains/recipe/measurement-profile/ingredient-normalization-service.js";
 import { SqliteIngredientMeasurementProfileRepository } from "../domains/recipe/measurement-profile/infrastructure/sqlite-ingredient-measurement-profile-repository.js";
 import {
   CanonicalIngredientManagementService
@@ -72,6 +76,15 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
     new SqliteCostSupplierRepository(database)
   );
   const measurementUnits = new MeasurementUnitResolver();
+  const acceptedPurchaseService = new AcceptedPurchaseService(
+    new SqliteCostPurchaseRepository(database),
+    new SqliteAcceptedPurchaseRepository(database),
+    new IngredientMeasurementNormalizationService(
+      new SqliteIngredientMeasurementProfileRepository(database, measurementUnits),
+      measurementUnits,
+      new MeasurementNormalizer()
+    )
+  );
   const profileCreation = new IngredientMeasurementProfileCreationService(
     canonicalIngredientRepository,
     new SqliteIngredientMeasurementProfileRepository(database, measurementUnits),
@@ -99,6 +112,7 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
     canonicalIngredientCreation,
     supplierService,
     purchaseService,
+    acceptedPurchaseService,
     profileCreation,
     profileSupersession,
     profileDeprecation,

@@ -358,7 +358,7 @@ function seed(database: DatabaseAdapter): void {
   insertQuote(database, "cost_quote_cccccccc-cccc-4ccc-8ccc-cccccccccccc", OTHER_INGREDIENT_ID);
 }
 
-test("Domain-owned readers preserve exact Recipe and Cost history with three set-based reads", (t) => {
+test("Domain-owned readers preserve exact Recipe and Cost history with four set-based reads", (t) => {
   const { database } = fixture(t);
   const counted = new CountingAdapter(database);
   const recipe = new SqliteRecipeRepository(counted).findIngredientReferences(
@@ -367,8 +367,11 @@ test("Domain-owned readers preserve exact Recipe and Cost history with three set
   const cost = new SqliteCostRepository(counted).findIngredientQuoteReferences(
     IngredientId.parse(INGREDIENT_ID)
   );
+  const accepted = new SqliteCostRepository(counted).findIngredientAcceptedPurchaseReferences(
+    IngredientId.parse(INGREDIENT_ID)
+  );
 
-  assert.equal(counted.queries.length, 3);
+  assert.equal(counted.queries.length, 4);
   assert.equal(recipe.draftReferences.length, 4);
   assert.deepEqual(
     [...new Set(recipe.draftReferences.map((reference) => reference.recipeId))],
@@ -390,6 +393,7 @@ test("Domain-owned readers preserve exact Recipe and Cost history with three set
     "cost_quote_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     "cost_quote_bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
   ]);
+  assert.deepEqual(accepted.acceptedPurchaseIds, []);
   assert.equal(counted.queries.some((query) => /cost_purchases|cost_purchase_items/.test(query.sql)), false);
 
   const plans = counted.queries.map((query) => ({
@@ -401,7 +405,7 @@ test("Domain-owned readers preserve exact Recipe and Cost history with three set
   }));
   t.diagnostic(`Reference Impact query count: ${counted.queries.length}`);
   t.diagnostic(
-    `Reference Impact representative rows: Draft=${recipe.draftReferences.length}, Published=${recipe.publishedReferences.length}, CostQuote=${cost.quoteIds.length}`
+    `Reference Impact representative rows: Draft=${recipe.draftReferences.length}, Published=${recipe.publishedReferences.length}, CostQuote=${cost.quoteIds.length}, AcceptedPurchase=${accepted.acceptedPurchaseIds.length}`
   );
   plans.forEach((plan, index) => {
     t.diagnostic(
@@ -411,7 +415,7 @@ test("Domain-owned readers preserve exact Recipe and Cost history with three set
       `Reference Impact query ${index + 1} plan: ${plan.details.join(" | ")}`
     );
   });
-  assert.equal(plans.length, 3);
+  assert.equal(plans.length, 4);
   assert.equal(
     plans.slice(0, 2).every((plan) =>
       plan.details.some((detail) => /SCAN l/.test(detail))
@@ -426,6 +430,7 @@ test("Domain-owned readers preserve exact Recipe and Cost history with three set
     true,
     "Cost Quote impact must use the existing Ingredient Quote index."
   );
+  assert.equal(plans[3]!.details.some((detail) => /cost_accepted_purchase_lines_ingredient_reference/.test(detail)), true);
 });
 
 test("Reference Impact survives database close and reopen without schema changes", (t) => {
@@ -464,7 +469,7 @@ test("Reference Impact survives database close and reopen without schema changes
     database.queryOne<{ count: number }>(
       "SELECT COUNT(*) AS count FROM schema_migrations"
     )?.count,
-    20
+    21
   );
 });
 

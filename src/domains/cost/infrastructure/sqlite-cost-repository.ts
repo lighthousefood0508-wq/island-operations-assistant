@@ -9,6 +9,7 @@ import type {
   CostIngredientQuoteReferenceImpactReadModelV1,
   CostIngredientReferenceImpactReadPort
 } from "../domain/ingredient-reference-impact-read-port.js";
+import type { AcceptedPurchaseValuationEvidenceV1 } from "../domain/cost-evaluation-read-unit-of-work.js";
 import { CostDomainError, IngredientCostQuoteVersionConflict } from "../domain/errors.js";
 import { IngredientCostQuote } from "../domain/ingredient-cost-quote.js";
 import { IngredientCostQuoteId, IngredientId } from "../domain/identities.js";
@@ -262,6 +263,43 @@ export class SqliteCostRepository implements
 
   findIngredientAcceptedPurchaseReferences(ingredientId: IngredientId): CostAcceptedPurchaseReferenceImpactReadModelV1 {
     try { const rows=this.database.queryMany<{acceptedPurchaseId:string}>(`SELECT DISTINCT accepted_purchase_id AS acceptedPurchaseId FROM cost_accepted_purchase_lines WHERE ingredient_id=? ORDER BY accepted_purchase_id ASC`,[ingredientId.value]);return Object.freeze({contractName:"CostAcceptedPurchaseReferenceImpact",contractVersion:1,acceptedPurchaseIds:Object.freeze(rows.map(row=>row.acceptedPurchaseId))}); } catch(error) { return mapTechnicalFailure("find Accepted Purchase references",error); }
+  }
+
+  findEligibleAcceptedPurchaseLines(
+    ingredientId: IngredientId,
+    valuedAt: string
+  ): readonly AcceptedPurchaseValuationEvidenceV1[] {
+    try {
+      const rows = this.database.queryMany<AcceptedPurchaseValuationEvidenceV1>(
+        `SELECT h.accepted_purchase_id AS acceptedPurchaseId,
+                l.accepted_purchase_line_id AS acceptedPurchaseLineId,
+                h.source_purchase_id AS sourcePurchaseId,
+                h.source_purchase_version AS sourcePurchaseVersion,
+                h.supplier_id AS supplierId,
+                h.accepted_at AS acceptedAt,
+                h.currency_code AS currencyCode,
+                CAST(l.amount_coefficient AS TEXT) AS amountCoefficient,
+                l.amount_scale AS amountScale,
+                CAST(l.normalized_quantity_coefficient AS TEXT) AS normalizedQuantityCoefficient,
+                l.normalized_quantity_scale AS normalizedQuantityScale,
+                l.measurement_dimension AS dimension,
+                l.canonical_unit_code AS canonicalUnitCode,
+                l.profile_id AS profileId,
+                l.profile_version_id AS profileVersionId
+           FROM cost_accepted_purchase_lines l
+           JOIN cost_accepted_purchases h
+             ON h.accepted_purchase_id = l.accepted_purchase_id
+          WHERE l.ingredient_id = ?
+            AND h.accepted_at <= ?
+          ORDER BY h.accepted_at DESC,
+                   h.accepted_purchase_id ASC,
+                   l.line_position ASC`,
+        [ingredientId.value, valuedAt]
+      );
+      return Object.freeze(rows.map((row) => Object.freeze({ ...row })));
+    } catch (error) {
+      return mapTechnicalFailure("find eligible Accepted Purchase evidence", error);
+    }
   }
 
   findEffectiveQuoteAt(

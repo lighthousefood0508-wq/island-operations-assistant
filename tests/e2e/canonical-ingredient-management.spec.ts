@@ -1150,7 +1150,7 @@ test("Canonical Ingredient management UI loads Reference Impact only on explicit
   await expect(page.locator("#reference-impact-result")).toContainText("Reference: recipe-z / draft-3 / line-3");
   await expect(page.locator("#reference-impact-result")).toContainText("Published Version count: 3");
   await expect(page.locator("#reference-impact-result")).toContainText("Quote IDs: quote-superseded, quote-recorded, quote-history");
-  await expect(page.locator("#reference-impact-result")).toContainText("Accepted Purchase: Unavailable");
+  await expect(page.locator("#reference-impact-result")).toContainText("Accepted Purchase count: 0");
   await expect(page.locator("#reference-impact-result")).toContainText("Cost Snapshot: Unavailable");
   await expect(page.locator("#reference-impact-result")).toContainText("Deletion eligibility: Indeterminate — blocked.");
   await page.waitForTimeout(80);
@@ -1163,7 +1163,7 @@ test("Canonical Ingredient management UI loads Reference Impact only on explicit
   await expect.poll(() => impactRequests).toBe(2);
   await expect(page.locator("#reference-impact-result")).toContainText("Availability: Available");
   await expect(page.locator("#reference-impact-result")).toContainText("Unique Recipe count: 0");
-  await expect(page.locator("#reference-impact-result")).toContainText("Accepted Purchase: Unavailable");
+  await expect(page.locator("#reference-impact-result")).toContainText("Accepted Purchase count: 0");
 
   await page.locator("#lifecycle-filter").selectOption("archived");
   expect(impactRequests).toBe(2);

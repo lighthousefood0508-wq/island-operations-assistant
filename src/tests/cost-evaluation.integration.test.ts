@@ -235,7 +235,10 @@ test("SQLite read UoW exposes only the narrow frozen Quote reader", (t) => {
   const { databaseA } = databases(t);
   const uow = new SqliteCostEvaluationReadUnitOfWork(databaseA);
   uow.execute((reader) => {
-    assert.deepEqual(Object.keys(reader), ["findEffectiveQuoteAt"]);
+    assert.deepEqual(Object.keys(reader), [
+      "findEffectiveQuoteAt",
+      "findEligibleAcceptedPurchaseLines"
+    ]);
     assert.ok(Object.isFrozen(reader));
     assert.equal("save" in reader, false);
     assert.equal("saveWithExpectedVersion" in reader, false);
@@ -308,6 +311,68 @@ test("Evaluation composes the real SQLite Quote reader inside one read UoW", (t)
     assert.deepEqual(outcome.result.exactPerStandardYieldCost, {
       numerator: "200",
       denominator: "3"
+    });
+  }
+});
+
+test("Evaluation selects immutable Accepted Purchase evidence before Quote fallback", (t) => {
+  const { databaseA } = databases(t);
+  const acceptedPurchaseId =
+    "accepted_purchase_11111111-1111-4111-8111-111111111111";
+  databaseA.execute("PRAGMA foreign_keys = OFF");
+  databaseA.execute(
+    `INSERT INTO cost_accepted_purchases (
+      accepted_purchase_id, source_purchase_id, source_purchase_version,
+      supplier_id, currency_code, accepted_at, accepted_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      acceptedPurchaseId,
+      "purchase_11111111-1111-4111-8111-111111111111",
+      1,
+      "supplier_11111111-1111-4111-8111-111111111111",
+      "TWD",
+      "2026-07-30T01:00:00.000Z",
+      "cost-owner"
+    ]
+  );
+  databaseA.execute(
+    `INSERT INTO cost_accepted_purchase_lines (
+      accepted_purchase_line_id, accepted_purchase_id, source_purchase_line_id,
+      line_position, ingredient_id, raw_quantity_coefficient,
+      raw_quantity_scale, raw_unit_code, amount_coefficient, amount_scale,
+      normalized_quantity_coefficient, normalized_quantity_scale,
+      measurement_dimension, canonical_unit_code, profile_id, profile_version_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      "accepted_purchase_line_11111111-1111-4111-8111-111111111111",
+      acceptedPurchaseId,
+      "purchase_line_11111111-1111-4111-8111-111111111111",
+      0,
+      INGREDIENT_A,
+      "3",
+      0,
+      "kg",
+      "900",
+      0,
+      "3000",
+      0,
+      "mass",
+      "g",
+      "profile_accepted",
+      "profile_version_accepted"
+    ]
+  );
+  const service = new RecipeCostEvaluationService(
+    new SqliteCostEvaluationReadUnitOfWork(databaseA),
+    new IntegrationNormalizer()
+  );
+  const outcome = service.evaluate({ recipe: recipe(), evaluatedAt: EVALUATED_AT });
+  assert.equal(outcome.status, "evaluated");
+  if (outcome.status === "evaluated") {
+    assert.equal(outcome.result.lines[0]?.selectedSource.sourceType, "ActualPurchase");
+    assert.deepEqual(outcome.result.exactStandardBatchCost, {
+      numerator: "180",
+      denominator: "1"
     });
   }
 });

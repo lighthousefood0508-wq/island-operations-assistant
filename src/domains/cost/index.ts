@@ -137,6 +137,7 @@ export {
   ExactRationalError
 } from "./domain/exact-rational.js";
 export type {
+  AcceptedPurchaseValuationEvidenceV1,
   CostEvaluationEffectiveQuoteLookup,
   CostEvaluationQuoteReader,
   CostEvaluationReadUnitOfWork
@@ -147,9 +148,11 @@ export {
   RECIPE_COST_EVALUATION_BASIS,
   RECIPE_COST_EVALUATION_RESULT_CONTRACT_NAME,
   RECIPE_COST_EVALUATION_RESULT_CONTRACT_VERSION,
+  type ActualPurchaseCostSourceV1,
   type EvaluateRecipeCostCommand,
   type ExactRationalV1,
   type IngredientCostQuoteNormalizationPort,
+  type QuoteFallbackCostSourceV1,
   type RecipeCostEvaluationFailureCodeV1,
   type RecipeCostEvaluationFailureV1,
   type RecipeCostEvaluationLineV1,

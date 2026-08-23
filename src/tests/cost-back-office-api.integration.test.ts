@@ -447,6 +447,19 @@ test("fresh database completes Ingredient to exact Cost Evaluation and survives 
       numerator: "40",
       denominator: "1"
     });
+    const snapshot = await request(
+      running.baseUrl,
+      `/api/admin/cost/recipes/${encodeURIComponent(recipe.body.data.recipeId)}/snapshots`,
+      "POST",
+      { valuedAt: "2026-09-01T00:00:00.000Z", capturedAt: "2026-09-01T01:00:00.000Z", capturedBy: "owner" }
+    );
+    assert.equal(snapshot.status, 201);
+    assert.match(snapshot.body.data.costSnapshotId, /^cost_snapshot_/);
+    assert.equal(snapshot.body.data.result.lines[0].selectedSource.acceptedPurchaseId, acceptedPurchase.body.data.acceptedPurchaseId);
+    const invalidSnapshot = await request(running.baseUrl, `/api/admin/cost/recipes/${encodeURIComponent(recipe.body.data.recipeId)}/snapshots`, "POST", { valuedAt: "invalid", capturedAt: "2026-09-01T01:00:00.000Z", capturedBy: "owner" });
+    assert.equal(invalidSnapshot.status, 422);
+    assert.equal(invalidSnapshot.body.error.code, "recipe_cost_snapshot_validation_failure");
+    assert.doesNotMatch(JSON.stringify(invalidSnapshot.body), /sqlite|database|table|stack|cause/i);
   } finally {
     if (running.server.listening) await stop(running.server);
     cleanup(databasePath);

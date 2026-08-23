@@ -323,6 +323,8 @@ async function route(request: IncomingMessage, response: ServerResponse, service
         )
       );
     }
+    const costSnapshotMatch = pathname.match(/^\/api\/admin\/cost\/recipes\/([^/]+)\/snapshots$/);
+    if (request.method === "POST" && costSnapshotMatch?.[1]) return success(response, 201, services.costBackOffice.captureSnapshot(decodeURIComponent(costSnapshotMatch[1]), await readJson(request)));
     if (request.method === "POST" && pathname === "/api/admin/cost/quotes") {
       return success(
         response,

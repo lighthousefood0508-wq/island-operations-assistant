@@ -53,7 +53,7 @@ export type CanonicalIngredientReferenceImpactV1 = Readonly<{
     quoteIds: readonly string[];
   }>;
   acceptedPurchases: Readonly<{ availability: "Available"; acceptedPurchaseCount:number; acceptedPurchaseIds:readonly string[] }>;
-  costSnapshots: Readonly<{ availability: "Unavailable" }>;
+  costSnapshots: Readonly<{ availability: "Available"; costSnapshotCount:number; costSnapshotIds:readonly string[] }>;
   deletionEligibility: Readonly<{
     status: "Indeterminate";
     blocked: true;
@@ -185,6 +185,7 @@ export class CanonicalIngredientReferenceImpactService {
         IngredientId.parse(loadedIngredientId)
       );
       const acceptedPurchaseReferences=this.costReader.findIngredientAcceptedPurchaseReferences(IngredientId.parse(loadedIngredientId));
+      const snapshotReferences=this.costReader.findIngredientCostSnapshotReferences(IngredientId.parse(loadedIngredientId));
       const draftReferences = uniqueDraftReferences(recipe.draftReferences);
       const publishedReferences = uniquePublishedReferences(
         recipe.publishedReferences
@@ -236,7 +237,7 @@ export class CanonicalIngredientReferenceImpactService {
           quoteIds
         },
         acceptedPurchases: { availability: "Available",acceptedPurchaseCount:uniqueSorted(acceptedPurchaseReferences.acceptedPurchaseIds).length,acceptedPurchaseIds:uniqueSorted(acceptedPurchaseReferences.acceptedPurchaseIds) },
-        costSnapshots: { availability: "Unavailable" },
+        costSnapshots: { availability: "Available",costSnapshotCount:uniqueSorted(snapshotReferences.costSnapshotIds).length,costSnapshotIds:uniqueSorted(snapshotReferences.costSnapshotIds) },
         deletionEligibility: {
           status: "Indeterminate",
           blocked: true

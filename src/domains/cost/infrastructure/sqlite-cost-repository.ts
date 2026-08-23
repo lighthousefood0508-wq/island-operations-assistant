@@ -7,6 +7,7 @@ import {
 import type {
   CostAcceptedPurchaseReferenceImpactReadModelV1,
   CostIngredientQuoteReferenceImpactReadModelV1,
+  CostSnapshotReferenceImpactReadModelV1,
   CostIngredientReferenceImpactReadPort
 } from "../domain/ingredient-reference-impact-read-port.js";
 import type { AcceptedPurchaseValuationEvidenceV1 } from "../domain/cost-evaluation-read-unit-of-work.js";
@@ -263,6 +264,10 @@ export class SqliteCostRepository implements
 
   findIngredientAcceptedPurchaseReferences(ingredientId: IngredientId): CostAcceptedPurchaseReferenceImpactReadModelV1 {
     try { const rows=this.database.queryMany<{acceptedPurchaseId:string}>(`SELECT DISTINCT accepted_purchase_id AS acceptedPurchaseId FROM cost_accepted_purchase_lines WHERE ingredient_id=? ORDER BY accepted_purchase_id ASC`,[ingredientId.value]);return Object.freeze({contractName:"CostAcceptedPurchaseReferenceImpact",contractVersion:1,acceptedPurchaseIds:Object.freeze(rows.map(row=>row.acceptedPurchaseId))}); } catch(error) { return mapTechnicalFailure("find Accepted Purchase references",error); }
+  }
+
+  findIngredientCostSnapshotReferences(ingredientId: IngredientId): CostSnapshotReferenceImpactReadModelV1 {
+    try { const rows=this.database.queryMany<{costSnapshotId:string}>(`SELECT DISTINCT cost_snapshot_id AS costSnapshotId FROM cost_recipe_snapshot_lines WHERE ingredient_id=? ORDER BY cost_snapshot_id ASC`,[ingredientId.value]); return Object.freeze({contractName:"CostSnapshotReferenceImpact",contractVersion:1,costSnapshotIds:Object.freeze(rows.map(row=>row.costSnapshotId))}); } catch(error) { return mapTechnicalFailure("find Cost Snapshot references",error); }
   }
 
   findEligibleAcceptedPurchaseLines(

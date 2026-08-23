@@ -36,7 +36,7 @@ export {
   IngredientId,
   SupplierId
 } from "./domain/identities.js";
-export { PurchaseId, PurchaseLineId, AcceptedPurchaseId, AcceptedPurchaseLineId } from "./domain/identities.js";
+export { PurchaseId, PurchaseLineId, AcceptedPurchaseId, AcceptedPurchaseLineId, CostSnapshotId } from "./domain/identities.js";
 export { AcceptedPurchase, type AcceptedPurchaseContractV1, type AcceptedPurchaseLineContractV1 } from "./domain/accepted-purchase.js";
 export type { AcceptedPurchaseRepository } from "./domain/accepted-purchase-repository.js";
 export { AcceptedPurchaseService, type AcceptPurchaseCommand } from "./application/accepted-purchase-service.js";
@@ -163,5 +163,11 @@ export { RecipeCostEvaluationError } from "./application/recipe-cost-evaluation-
 export type {
   CostAcceptedPurchaseReferenceImpactReadModelV1,
   CostIngredientQuoteReferenceImpactReadModelV1,
+  CostSnapshotReferenceImpactReadModelV1,
   CostIngredientReferenceImpactReadPort
 } from "./domain/ingredient-reference-impact-read-port.js";
+export { CostSnapshot, type CostSnapshotContractV1 } from "./domain/cost-snapshot.js";
+export type { CostSnapshotRepository } from "./domain/cost-snapshot-repository.js";
+export { SqliteCostSnapshotRepository } from "./infrastructure/sqlite-cost-snapshot-repository.js";
+export { RecipeCostSnapshotService } from "./application/recipe-cost-snapshot-service.js";
+export { RecipeCostSnapshotValidationFailure, RecipeCostSnapshotPersistenceFailure } from "./application/recipe-cost-snapshot-errors.js";

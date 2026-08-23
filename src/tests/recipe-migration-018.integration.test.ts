@@ -26,7 +26,8 @@ test("Migration 018 turns legacy Rename and Archive evidence into the sole lifec
       "018_canonical_ingredient_lifecycle_events.sql",
       "019_cost_suppliers.sql",
       "020_cost_purchases.sql",
-      "021_accepted_purchase_evidence.sql"
+      "021_accepted_purchase_evidence.sql",
+      "022_cost_recipe_snapshots.sql"
     ]);
     assert.deepEqual(database.queryMany<{ event_type: string; aggregate_version: number }>("SELECT event_type, aggregate_version FROM recipe_canonical_ingredient_lifecycle_events WHERE ingredient_id = ? ORDER BY aggregate_version", [id]), [
       { event_type: "RENAMED", aggregate_version: 1 }, { event_type: "ARCHIVED", aggregate_version: 2 }

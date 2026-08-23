@@ -59,6 +59,7 @@ function fixture(options: Readonly<{
   recipe?: ReturnType<RecipeIngredientReferenceImpactReadPort["findIngredientReferences"]>;
   cost?: ReturnType<CostIngredientReferenceImpactReadPort["findIngredientQuoteReferences"]>;
   accepted?: ReturnType<CostIngredientReferenceImpactReadPort["findIngredientAcceptedPurchaseReferences"]>;
+  snapshots?: ReturnType<CostIngredientReferenceImpactReadPort["findIngredientCostSnapshotReferences"]>;
 }> = {}) {
   const counters: Counters = { ingredient: 0, recipe: 0, cost: 0 };
   const ingredientReader: Pick<
@@ -97,6 +98,11 @@ function fixture(options: Readonly<{
       counters.cost += 1;
       if (options.costFailure) throw options.costFailure;
       return options.accepted ?? { contractName: "CostAcceptedPurchaseReferenceImpact", contractVersion: 1, acceptedPurchaseIds: [] };
+    },
+    findIngredientCostSnapshotReferences() {
+      counters.cost += 1;
+      if (options.costFailure) throw options.costFailure;
+      return options.snapshots ?? { contractName: "CostSnapshotReferenceImpact", contractVersion: 1, costSnapshotIds: [] };
     }
   };
   return {
@@ -130,7 +136,8 @@ test("reference impact exposes exact cardinalities, identities and ordering", ()
       contractName: "CostIngredientQuoteReferenceImpact",
       contractVersion: 1,
       quoteIds: ["cost_quote_b", "cost_quote_a", "cost_quote_a"]
-    }
+    },
+    snapshots: { contractName: "CostSnapshotReferenceImpact", contractVersion: 1, costSnapshotIds: ["cost_snapshot_b", "cost_snapshot_a", "cost_snapshot_a"] }
   });
 
   const result = service.getByIngredientId(INGREDIENT_ID);
@@ -165,12 +172,12 @@ test("reference impact exposes exact cardinalities, identities and ordering", ()
     quoteIds: ["cost_quote_a", "cost_quote_b"]
   });
   assert.deepEqual(result.acceptedPurchases, { availability: "Available", acceptedPurchaseCount: 0, acceptedPurchaseIds: [] });
-  assert.deepEqual(result.costSnapshots, { availability: "Unavailable" });
+  assert.deepEqual(result.costSnapshots, { availability: "Available", costSnapshotCount: 2, costSnapshotIds: ["cost_snapshot_a", "cost_snapshot_b"] });
   assert.deepEqual(result.deletionEligibility, {
     status: "Indeterminate",
     blocked: true
   });
-  assert.deepEqual(counters, { ingredient: 1, recipe: 1, cost: 2 });
+  assert.deepEqual(counters, { ingredient: 1, recipe: 1, cost: 3 });
 });
 
 test("available zero-reference categories remain distinct from unavailable authorities", () => {
@@ -195,7 +202,7 @@ test("available zero-reference categories remain distinct from unavailable autho
     references: []
   });
   assert.deepEqual(Object.keys(result.acceptedPurchases), ["availability", "acceptedPurchaseCount", "acceptedPurchaseIds"]);
-  assert.deepEqual(Object.keys(result.costSnapshots), ["availability"]);
+  assert.deepEqual(Object.keys(result.costSnapshots), ["availability", "costSnapshotCount", "costSnapshotIds"]);
 });
 
 test("malformed and missing identities stop before Domain impact reads", () => {

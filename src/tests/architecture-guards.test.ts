@@ -1869,7 +1869,9 @@ test("Ingredient 003D Reference Impact stays read-only behind Domain-owned publi
     "CANONICAL_INGREDIENT_REFERENCE_IMPACT_READ_FAILURE"
   ]) assert.match(applicationSource, new RegExp(code));
   assert.match(applicationSource, /acceptedPurchaseCount/);
-  assert.match(applicationSource, /availability: "Unavailable"/);
+  assert.match(applicationSource, /costSnapshotCount/);
+  assert.match(applicationSource, /costSnapshotIds/);
+  assert.match(applicationSource, /availability: "Available"/);
   assert.match(applicationSource, /status: "Indeterminate"/);
   assert.match(applicationSource, /blocked: true/);
 
@@ -1896,7 +1898,7 @@ test("Ingredient 003D Reference Impact stays read-only behind Domain-owned publi
   );
   assertNoTerms(
     readFileSync(costPort, "utf8"),
-    ["domains/recipe", "sqlite", "database", "snapshot"],
+    ["domains/recipe", "sqlite", "database"],
     costPort
   );
 
@@ -1933,17 +1935,18 @@ test("Ingredient 003D Reference Impact stays read-only behind Domain-owned publi
   const recipeRead = recipeSqliteSource.match(
     /findIngredientReferences\([\s\S]*?\n  }\n\n  private rawRecipe/
   )?.[0] ?? "";
-  const costRead = costSqliteSource.match(
-    /findIngredientQuoteReferences\([\s\S]*?\n  }\n\n  findEffectiveQuoteAt/
+  const costQuoteRead = costSqliteSource.match(
+    /findIngredientQuoteReferences\([\s\S]*?\n  }\n\n  findIngredientAcceptedPurchaseReferences/
   )?.[0] ?? "";
   assert.match(recipeRead, /recipe_draft_lines/);
   assert.match(recipeRead, /recipe_version_lines/);
   assert.equal(Array.from(recipeRead.matchAll(/queryMany</g)).length, 2);
   assert.doesNotMatch(recipeRead, /cost_|purchase|snapshot/i);
-  assert.match(costRead, /cost_ingredient_cost_quotes/);
-  assert.equal(Array.from(costRead.matchAll(/queryMany</g)).length, 3);
-  assert.doesNotMatch(costRead, /recipe_|cost_purchases|cost_purchase_items/);
+  assert.match(costQuoteRead, /cost_ingredient_cost_quotes/);
+  assert.equal(Array.from(costQuoteRead.matchAll(/queryMany</g)).length, 1);
+  assert.doesNotMatch(costQuoteRead, /recipe_|cost_purchases|cost_purchase_items/);
   assert.match(costSqliteSource, /findIngredientAcceptedPurchaseReferences[\s\S]*cost_accepted_purchase_lines/);
+  assert.match(costSqliteSource, /findIngredientCostSnapshotReferences[\s\S]*cost_recipe_snapshot_lines/);
 
   const recipeIndexSource = readFileSync(recipePublicIndex, "utf8")
     .replaceAll("\r\n", "\n");
@@ -1962,7 +1965,7 @@ test("Ingredient 003D Reference Impact stays read-only behind Domain-owned publi
     createHash("sha256")
       .update(costIndexSource.slice(0, cost003DOffset))
       .digest("hex"),
-    "a4e1afc4d6d3885c5937017294f8a1e5d3ca8ced735c8b74ba322c57dd6a6de7",
+    "536bc44e0c375dd1c008b006bb5be11c9de9cd9301085aed929759d1aaf3720a",
     "003D must preserve the Cost public index as extended only by later Owner-approved Cost exports."
   );
   assert.equal(
@@ -1970,8 +1973,14 @@ test("Ingredient 003D Reference Impact stays read-only behind Domain-owned publi
     `export type {
   CostAcceptedPurchaseReferenceImpactReadModelV1,
   CostIngredientQuoteReferenceImpactReadModelV1,
+  CostSnapshotReferenceImpactReadModelV1,
   CostIngredientReferenceImpactReadPort
 } from "./domain/ingredient-reference-impact-read-port.js";
+export { CostSnapshot, type CostSnapshotContractV1 } from "./domain/cost-snapshot.js";
+export type { CostSnapshotRepository } from "./domain/cost-snapshot-repository.js";
+export { SqliteCostSnapshotRepository } from "./infrastructure/sqlite-cost-snapshot-repository.js";
+export { RecipeCostSnapshotService } from "./application/recipe-cost-snapshot-service.js";
+export { RecipeCostSnapshotValidationFailure, RecipeCostSnapshotPersistenceFailure } from "./application/recipe-cost-snapshot-errors.js";
 `
   );
 
@@ -2845,7 +2854,7 @@ test("PR-COST-007 keeps Accepted Purchase actual-price evidence inside its exact
   ]);
   assert.equal(approvedCost007Paths.size, 28);
   const isCost007Responsibility = (source: string): boolean =>
-    !/VAL-2|ActualPurchase|QuoteFallback|findEligibleAcceptedPurchaseLines|AMBIGUOUS_ACCEPTED_PURCHASE_COST/.test(source)
+    !/VAL-2|ActualPurchase|QuoteFallback|findEligibleAcceptedPurchaseLines|AMBIGUOUS_ACCEPTED_PURCHASE_COST|CostSnapshot|cost_recipe_snapshot|\/snapshots/.test(source)
     && /\bAcceptedPurchase|cost_accepted_purchase|\/acceptances|acceptedPurchases/.test(source);
   assert.equal(isCost007Responsibility("new AcceptedPurchaseService(repository)"), true);
   const responsibilityFiles = [...filesUnder(sourceRoot, [".ts", ".tsx"]), ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"]), ...filesUnder(path.join(projectRoot, "migrations"), [".sql"])]
@@ -2883,7 +2892,7 @@ test("PR-COST-008 keeps actual-price-first valuation policy inside its exact res
   ]);
   assert.equal(approvedCost008Paths.size, 13);
   const isCost008Responsibility = (source: string): boolean =>
-    /VAL-2|ActualPurchase|QuoteFallback|findEligibleAcceptedPurchaseLines|AMBIGUOUS_ACCEPTED_PURCHASE_COST/.test(source);
+    !/CostSnapshot|cost_recipe_snapshot|\/snapshots/.test(source) && /VAL-2|ActualPurchase|QuoteFallback|findEligibleAcceptedPurchaseLines|AMBIGUOUS_ACCEPTED_PURCHASE_COST/.test(source);
   assert.equal(
     isCost008Responsibility("reader.findEligibleAcceptedPurchaseLines(ingredientId, valuedAt)"),
     true
@@ -2920,4 +2929,59 @@ test("PR-COST-008 keeps actual-price-first valuation policy inside its exact res
   assert.match(evaluationSource, /COST_VALUATION_POLICY = "VAL-2"/);
   assert.match(serviceSource, /AMBIGUOUS_ACCEPTED_PURCHASE_COST/);
   assert.doesNotMatch(serviceSource, /CostSnapshot|INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM/i);
+});
+
+test("PR-COST-009 keeps immutable Recipe Cost Snapshot evidence inside its exact responsibility boundary", () => {
+  const approvedCost009Paths = new Set([
+    "migrations/022_cost_recipe_snapshots.sql",
+    "src/domains/cost/domain/identities.ts",
+    "src/domains/cost/domain/errors.ts",
+    "src/domains/cost/domain/cost-snapshot.ts",
+    "src/domains/cost/domain/cost-snapshot-repository.ts",
+    "src/domains/cost/persistence/cost-snapshot-records.ts",
+    "src/domains/cost/infrastructure/sqlite-cost-snapshot-repository.ts",
+    "src/domains/cost/application/recipe-cost-snapshot-service.ts",
+    "src/domains/cost/application/recipe-cost-snapshot-errors.ts",
+    "src/domains/cost/index.ts",
+    "src/domains/cost/domain/ingredient-reference-impact-read-port.ts",
+    "src/domains/cost/infrastructure/sqlite-cost-repository.ts",
+    "src/application/canonical-ingredient-reference-impact-service.ts",
+    "src/server/app/cost-back-office-service.ts",
+    "src/server/app/routes.ts",
+    "src/server/index.ts",
+    "src/web/ingredients/page.ts",
+    "src/tests/cost-snapshot-domain.test.ts",
+    "src/tests/cost-snapshot-persistence.integration.test.ts",
+    "src/tests/cost-snapshot-application.test.ts",
+    "src/tests/cost-back-office-api.integration.test.ts",
+    "src/tests/canonical-ingredient-reference-impact-application.test.ts",
+    "src/tests/canonical-ingredient-reference-impact-persistence.integration.test.ts",
+    "src/tests/canonical-ingredient-reference-impact-api.integration.test.ts",
+    "src/tests/architecture-guards.test.ts",
+    "tests/e2e/canonical-ingredient-management.spec.ts",
+    "src/tests/recipe-migration-017.integration.test.ts",
+    "src/tests/recipe-migration-018.integration.test.ts"
+  ]);
+  assert.equal(approvedCost009Paths.size, 28);
+  const isCost009Responsibility = (source: string): boolean =>
+    /CostSnapshot(?:Id|Repository|Service|Contract)|RecipeCostSnapshot|cost_recipe_snapshot|costSnapshot(?:Count|Ids)|\/snapshots/.test(source);
+  assert.equal(isCost009Responsibility("new RecipeCostSnapshotService(repository)"), true);
+  const responsibilityFiles = [
+    ...filesUnder(sourceRoot, [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "migrations"), [".sql"])
+  ].filter((filename) => isCost009Responsibility(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts").sort();
+  const approvedResponsibilityFiles = [...approvedCost009Paths]
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => isCost009Responsibility(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8"))).sort();
+  assert.deepEqual(responsibilityFiles, approvedResponsibilityFiles);
+  assert.equal(approvedCost009Paths.has("src/tests/simulated-cost-snapshot.ts"), false);
+  assert.equal(isCost009Responsibility("export const snapshot = () => '/api/admin/cost/recipes/x/snapshots';"), true, "The same classifier must reject a simulated unauthorized twenty-ninth Snapshot responsibility path.");
+  const snapshotService = readFileSync(path.join(sourceRoot, "domains", "cost", "application", "recipe-cost-snapshot-service.ts"), "utf8");
+  const facade = readFileSync(path.join(sourceRoot, "server", "app", "cost-back-office-service.ts"), "utf8");
+  assert.doesNotMatch(snapshotService, /sqlite|DatabaseAdapter|better-sqlite|CostBackOffice/i);
+  assert.match(facade, /snapshotService\.capture/);
+  assert.doesNotMatch(snapshotService, /normalizeAt|findEligibleAcceptedPurchaseLines|INSERT\s+INTO/i);
 });

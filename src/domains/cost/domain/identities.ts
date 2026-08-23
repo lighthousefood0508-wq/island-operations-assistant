@@ -6,6 +6,7 @@ import {
   InvalidPurchaseLineIdentity,
   InvalidAcceptedPurchaseIdentity,
   InvalidAcceptedPurchaseLineIdentity,
+  InvalidCostSnapshotIdentity,
   InvalidSupplierIdentity
 } from "./errors.js";
 
@@ -105,6 +106,7 @@ export class PurchaseId extends PrefixedIdentity { private static readonly prefi
 export class PurchaseLineId extends PrefixedIdentity { private static readonly prefix = "pur_line_"; private constructor(value: string) { super(value, PurchaseLineId.prefix, () => new InvalidPurchaseLineIdentity()); } static parse(value: string): PurchaseLineId { return new PurchaseLineId(value); } static fromUuid(uuid: string): PurchaseLineId { return new PurchaseLineId(`${PurchaseLineId.prefix}${uuid}`); } }
 export class AcceptedPurchaseId extends PrefixedIdentity { private static readonly prefix = "accepted_purchase_"; private constructor(value: string) { super(value, AcceptedPurchaseId.prefix, () => new InvalidAcceptedPurchaseIdentity()); } static parse(value: string): AcceptedPurchaseId { return new AcceptedPurchaseId(value); } static fromUuid(uuid: string): AcceptedPurchaseId { return new AcceptedPurchaseId(`${AcceptedPurchaseId.prefix}${uuid}`); } }
 export class AcceptedPurchaseLineId extends PrefixedIdentity { private static readonly prefix = "accepted_purchase_line_"; private constructor(value: string) { super(value, AcceptedPurchaseLineId.prefix, () => new InvalidAcceptedPurchaseLineIdentity()); } static parse(value: string): AcceptedPurchaseLineId { return new AcceptedPurchaseLineId(value); } static fromUuid(uuid: string): AcceptedPurchaseLineId { return new AcceptedPurchaseLineId(`${AcceptedPurchaseLineId.prefix}${uuid}`); } }
+export class CostSnapshotId extends PrefixedIdentity { private static readonly prefix = "cost_snapshot_"; private constructor(value: string) { super(value, CostSnapshotId.prefix, () => new InvalidCostSnapshotIdentity()); } static parse(value: string): CostSnapshotId { return new CostSnapshotId(value); } static fromUuid(uuid: string): CostSnapshotId { return new CostSnapshotId(`${CostSnapshotId.prefix}${uuid}`); } }
 
 export class IngredientCostItem {
   readonly kind = "ingredient";

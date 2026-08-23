@@ -28,7 +28,7 @@ import {
   CostPurchaseInvalidStateFailure,
   CostPurchaseVersionConflictFailure,
   CostPurchasePersistenceFailure
-  ,AcceptedPurchaseService, AcceptedPurchaseValidationFailure, AcceptedPurchaseNotFound, AcceptedPurchaseInvalidStateFailure, AcceptedPurchaseVersionConflictFailure, AcceptedPurchaseMeasurementFailure, AcceptedPurchasePersistenceFailure
+  ,AcceptedPurchaseService, AcceptedPurchaseValidationFailure, AcceptedPurchaseNotFound, AcceptedPurchaseInvalidStateFailure, AcceptedPurchaseVersionConflictFailure, AcceptedPurchaseMeasurementFailure, AcceptedPurchasePersistenceFailure, RecipeCostSnapshotService, RecipeCostSnapshotValidationFailure, RecipeCostSnapshotPersistenceFailure
 } from "../../domains/cost/index.js";
 import { RecipeCanonicalProjectionService } from "../../domains/recipe/application/recipe-canonical-projection-service.js";
 import { RecipeCostingContractV2Service } from "../../domains/recipe/application/recipe-costing-contract-v2-service.js";
@@ -198,6 +198,7 @@ export class CostBackOfficeService {
     private readonly supplierService: Pick<CostSupplierService, "create" | "list">,
     private readonly purchaseService: Pick<CostPurchaseService, "create" | "revise" | "record">,
     private readonly acceptedPurchaseService: Pick<AcceptedPurchaseService,"accept">,
+    private readonly snapshotService: Pick<RecipeCostSnapshotService,"capture">,
     private readonly profileCreation: Pick<IngredientMeasurementProfileCreationService, "create">,
     private readonly profileSupersession: Pick<IngredientMeasurementProfileSupersessionService, "supersede">,
     private readonly profileDeprecation: Pick<IngredientMeasurementProfileDeprecationService, "deprecate">,
@@ -584,6 +585,20 @@ export class CostBackOfficeService {
     }
   }
 
+  captureSnapshot(recipeId: string, input: JsonObject) {
+    try {
+      const recipe = this.recipeRepository.findPublishedVersion(RecipeId.parse(recipeId));
+      if (recipe === undefined) throw new HttpError(404, "recipe_cost_snapshot_recipe_not_found", "Published Recipe was not found.");
+      const projection = this.recipeProjection.project(new RecipeSnapshotBuilder().build(recipe.aggregate));
+      if (projection.status === "failed") throw new RecipeCostSnapshotValidationFailure();
+      const costing = this.recipeCosting.create(projection.projection);
+      if (costing.status === "failed") throw new RecipeCostSnapshotValidationFailure();
+      const outcome = this.evaluator.evaluate({ recipe: costing.contract, evaluatedAt: text(input, "valuedAt") });
+      if (outcome.status !== "evaluated") throw new RecipeCostSnapshotValidationFailure();
+      return this.snapshotService.capture({ result: outcome.result, capturedAt: text(input, "capturedAt"), capturedBy: text(input, "capturedBy") });
+    } catch (error) { throw this.snapshotOperation(error); }
+  }
+
   private invalidOperation(code: string, error: unknown): HttpError {
     if (error instanceof HttpError) return error;
     if (error instanceof CostDomainError) {
@@ -637,6 +652,7 @@ export class CostBackOfficeService {
   }
   private purchaseOperation(error: unknown): HttpError { if(error instanceof CostPurchaseNotFound)return new HttpError(404,"cost_purchase_not_found",error.message);if(error instanceof CostPurchaseInvalidStateFailure)return new HttpError(409,"cost_purchase_invalid_state",error.message);if(error instanceof CostPurchaseVersionConflictFailure)return new HttpError(409,"cost_purchase_version_conflict",error.message);if(error instanceof CostPurchaseValidationFailure)return new HttpError(422,"cost_purchase_validation_failure",error.message);if(error instanceof CostPurchasePersistenceFailure)return new HttpError(500,"cost_purchase_persistence_failure",error.message);return new HttpError(500,"cost_purchase_persistence_failure","Purchase persistence failed."); }
   private acceptedPurchaseOperation(error: unknown): HttpError { if(error instanceof AcceptedPurchaseNotFound)return new HttpError(404,"accepted_purchase_not_found","Purchase was not found for acceptance.");if(error instanceof AcceptedPurchaseInvalidStateFailure)return new HttpError(409,"accepted_purchase_invalid_state","Purchase cannot be accepted in its current state.");if(error instanceof AcceptedPurchaseVersionConflictFailure)return new HttpError(409,"accepted_purchase_version_conflict","Purchase changed before acceptance could be persisted.");if(error instanceof AcceptedPurchaseMeasurementFailure)return new HttpError(422,"accepted_purchase_measurement_failed","Accepted Purchase measurement could not be resolved.");if(error instanceof AcceptedPurchaseValidationFailure)return new HttpError(422,"accepted_purchase_validation_failure","Accepted Purchase command is invalid.");if(error instanceof AcceptedPurchasePersistenceFailure)return new HttpError(500,"accepted_purchase_persistence_failed","Accepted Purchase persistence failed.");return new HttpError(500,"accepted_purchase_persistence_failed","Accepted Purchase persistence failed."); }
+  private snapshotOperation(error: unknown): HttpError { if(error instanceof HttpError)return error;if(error instanceof RecipeCostSnapshotValidationFailure)return new HttpError(422,"recipe_cost_snapshot_validation_failure","Recipe Cost Snapshot command is invalid.");if(error instanceof RecipeCostSnapshotPersistenceFailure)return new HttpError(500,"recipe_cost_snapshot_persistence_failure","Recipe Cost Snapshot could not be persisted.");return new HttpError(500,"recipe_cost_snapshot_persistence_failure","Recipe Cost Snapshot could not be persisted."); }
 
   private deprecationOperation(error: unknown): HttpError {
     if (error instanceof HttpError) {

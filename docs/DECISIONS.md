@@ -22,6 +22,28 @@
 
 ## Approval Register
 
+- **DECISIONS #083 - Immutable Recipe Cost Snapshot Evidence and Reference Impact Read Boundary**
+  - **Date**: 2026-08-23.
+  - **Status**: APPROVED by Architecture Owner for PR-COST-009 governance, implementation, verification, review, publication, merge, and integration closeout while the exact approved scope remains unchanged.
+  - **Single responsibility**: Establish an immutable Cost-owned Recipe Cost Snapshot as historically reproducible cost evidence. It captures one successful DECISIONS #082 VAL-2 evaluation; it does not reopen valuation selection, create Cost History or Analytics, or create Inventory/settlement/allocation authority.
+  - **Snapshot evidence**:
+    - A new immutable `cost_snapshot_<uuid>` is created only after the existing Recipe Cost Evaluation succeeds. It pins the published Recipe and Recipe Version identity, `VAL-2`, `NONE_EXACT`, `valuedAt`, explicit `capturedAt` and `capturedBy`, currency, exact batch/per-yield results, and every evaluated Recipe line.
+    - Each persisted line retains the Recipe-line position/Canonical Ingredient identity, exact line result, and the complete selected-source discriminator/evidence: immutable Accepted Purchase/line evidence for `ActualPurchase`, or the complete immutable Quote-normalization evidence for `QuoteFallback`.
+    - Capture never re-normalizes Measurement, re-selects a source, substitutes newer Quote/Accepted Purchase/Profile evidence, or mutates Recipe, Quote, Purchase, Accepted Purchase, Ingredient, or Profile history. Later data may change a future ephemeral evaluation but can never alter a stored Snapshot.
+  - **Application, persistence, and HTTP boundary**:
+    - Cost Snapshot Application Service receives only a successful existing Cost evaluation result, validates/pins its stable contract identity, creates Snapshot identity, and delegates one append-only save. It imports neither SQLite nor Recipe/Ingredient/Measurement persistence.
+    - Cost Back Office remains the existing facade that obtains the current published Recipe costing contract through already-authorized composition, calls the existing evaluator, then delegates capture. `POST /api/admin/cost/recipes/:recipeId/snapshots` returns `201`; command fields are `valuedAt`, `capturedAt`, and `capturedBy`.
+    - Migration 022 adds only Cost-owned Snapshot header/line persistence. Header and all lines write atomically; validation/read/write failure leaves no durable Snapshot. No update/delete/overwrite command or Snapshot aggregate CAS lifecycle is introduced in v1 because a Snapshot is append-only evidence.
+    - Stable failures distinguish invalid capture/evaluation (`422`), Recipe missing (`404`), and Snapshot persistence failure (`500`); raw SQLite/DB/table/stack/cause never serializes.
+  - **Read authority and Reference Impact**:
+    - Cost publishes a narrow formal Snapshot reference read operation. The Canonical Ingredient Reference Impact coordinator consumes only this public Cost read port and returns `costSnapshots: Available` with deterministic `costSnapshotCount` and `costSnapshotIds`.
+    - Snapshot availability does not authorize deletion. Deletion eligibility stays `Indeterminate` / blocked until an expressly governed deletion authority can evaluate all required authorities.
+  - **Protected boundary and exact scope**:
+    - PR-COST-009 fixes an exact twenty-seven-path allowlist: Migration 022; Cost Snapshot identity/domain/repository/persistence/SQLite/Application/error/export boundaries; Cost Snapshot reference read boundary and existing coordinator/facade/routes/composition/Ingredient panel; focused Snapshot, API, Reference Impact, migration, E2E, and Architecture Guard tests.
+    - No migration runner change, valuation-policy change, Recipe/Ingredient/Profile/Quote/Purchase/Accepted Purchase mutation, cross-Domain persistence read, Snapshot UI/navigation, Cost History, Analytics, Inventory, payment, tax, freight, allocation, package, legacy-Purchase promotion, or twenty-eighth path is authorized.
+    - Architecture Guard must substantively classify Cost Snapshot responsibility, permit only the exact allowlist, and reject a simulated unauthorized twenty-eighth substantive Snapshot path with the same classifier.
+  - **Verification**: Snapshot domain/application/persistence/API tests must prove immutable source/result pinning, atomic header/line persistence, zero-write failures, historical reproducibility after later source changes, deterministic Snapshot reference impact, and safe failures; plus Recipe/Profile/Quote/Accepted Purchase/Reference Impact/migration regressions, Architecture Guards, typecheck/lint/build, E2E, `npm test`, `npm run verify`, `npm run verify:full`, compiled collection, diff, encoding, newline, whitespace, and exact-scope audits.
+
 - **DECISIONS #082 - Actual-Price-First Cost Valuation Source Selection Boundary**
   - **Date**: 2026-08-23.
   - **Status**: APPROVED by Architecture Owner for PR-COST-008 governance, implementation, verification, review, publication, merge, and integration closeout while the exact approved scope remains unchanged.

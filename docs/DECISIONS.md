@@ -22,6 +22,31 @@
 
 ## Approval Register
 
+- **DECISIONS #082 - Actual-Price-First Cost Valuation Source Selection Boundary**
+  - **Date**: 2026-08-23.
+  - **Status**: APPROVED by Architecture Owner for PR-COST-008 governance, implementation, verification, review, publication, merge, and integration closeout while the exact approved scope remains unchanged.
+  - **Single responsibility**: Define Cost's immutable-evidence source-selection policy for ephemeral Recipe Cost Evaluation. This Decision does not create a Cost Snapshot, Cost History, Analytics, Inventory, allocation, settlement, tax, freight, package, or legacy-Purchase authority.
+  - **VAL-2 source policy**:
+    - An Accepted Purchase line is eligible for an Ingredient only when its immutable `acceptedAt` is no later than the request's canonical `valuedAt` and its Canonical Ingredient identity matches the Recipe line. Among eligible actual-price lines, the greatest `acceptedAt` ranks first.
+    - If more than one eligible Accepted Purchase line has that greatest `acceptedAt`, valuation fails closed as an actual-price ambiguity. Accepted Purchase ID or line position must not be used as an arbitrary tie breaker.
+    - An eligible Accepted Purchase line is authoritative actual-price evidence. Its immutable Accepted Purchase/line identities, source Purchase/version, Supplier, amount/currency, normalized quantity, dimension/canonical unit, and pinned Profile/Profile Version evidence are retained in the evaluation line.
+    - Only when no eligible Accepted Purchase line exists may VAL-2 select the existing effective Ingredient Cost Quote. That line is explicitly `QuoteFallback` expected-price evidence; it is never represented as actual-price evidence.
+    - An eligible actual-price line whose immutable measurement basis conflicts with the Recipe line is a typed valuation failure, not a reason to fall back to a Quote. Existing exact rational arithmetic and `NONE_EXACT` rounding remain unchanged.
+  - **Time and history**:
+    - `valuedAt` is the explicit business instant used for selection. Current evaluation remains an ephemeral read; a later Accepted Purchase entered with an earlier `acceptedAt` may affect a later re-evaluation of that historical instant.
+    - This Decision does not introduce bitemporal/knowledge-time history to prevent that later-entry behavior. A future immutable Snapshot must record both its selected source evidence and its capture time; it is a separately governed capability.
+    - Quote and Accepted Purchase evidence are immutable. VAL-2 must preserve their supplied/pinned facts and must not re-normalize Accepted Purchase or historical Profile evidence.
+  - **Read, application, and HTTP boundary**:
+    - Cost publishes the narrow, read-only valuation lookup through its existing Cost evaluation read Unit of Work. The SQLite adapter may read only Cost-owned Quote and Accepted Purchase tables; it must not read Recipe, Ingredient, Measurement Profile, legacy Purchase, Snapshot, or other Domain persistence.
+    - Recipe Cost Evaluation remains the Cost-owned Application service for recipe-costing-contract validation, source selection, exact arithmetic, typed failure, and immutable result construction. Cost Back Office remains its existing facade; no new route or composition site is needed.
+    - The existing `POST /api/admin/cost/evaluations` operation remains ephemeral and returns its current success shape extended with an explicit per-line selected-source discriminator and immutable source identity/evidence. No UI/navigation is added; the existing Cost trace may render the discriminator safely.
+    - Stable typed failures add actual-price ambiguity/evidence incompatibility while retaining current missing-cost, Quote ambiguity, normalization, currency, arithmetic, and read-transaction failure semantics. Raw SQLite/DB/table/stack/cause detail must not serialize.
+  - **Persistence and protected boundary**:
+    - No migration, schema, Aggregate mutation, Purchase mutation, Quote mutation, Accepted Purchase mutation, Reference Impact change, or Snapshot persistence is authorized. Existing immutable evidence remains the source of truth.
+    - The exact twelve-path implementation allowlist is fixed in PR-COST-008: Cost evaluation read-port/domain/service/SQLite adapter/public export; existing Cost trace page; focused unit, integration, API, E2E, and Architecture Guard tests. Any thirteenth path, new migration, Snapshot/History/Analytics persistence, UI/navigation expansion, valuation averaging/FIFO/LIFO, multi-currency policy expansion, or legacy promotion is a stop condition.
+    - The Architecture Guard must classify VAL-2 responsibility substantively and reject a simulated unauthorized thirteenth path using the same classifier/enforcement logic.
+  - **Verification**: focused Cost evaluation unit/integration/API tests must prove actual-price preference, deterministic eligibility, equal-rank fail-closed ambiguity, explicit Quote fallback, exact/no-rounding arithmetic, immutable source trace, historical pinned-evidence preservation, and no cross-Domain/persistence writes; plus Architecture Guards, typecheck, lint/build, E2E, `npm test`, `npm run verify`, `npm run verify:full`, complete compiled collection, diff, encoding, newline, whitespace, and exact-scope audits.
+
 - **DECISIONS #081 - Accepted Purchase Actual-Price Evidence and Reference Impact Read Boundary**
   - **Date**: 2026-08-23.
   - **Status**: APPROVED by Architecture Owner for PR-COST-007 governance, implementation, verification, review, publication, merge, and integration closeout while the exact approved scope remains unchanged.

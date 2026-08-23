@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("Cost Back Office completes the guided exact-cost workflow", async ({ page }) => {
+test("Cost Back Office renders QuoteFallback in the guided exact-cost workflow", async ({ page }) => {
   const category = await page.request.post("/api/admin/categories", {
     data: { displayName: "Costed meals", sortOrder: 1 }
   });
@@ -66,6 +66,7 @@ test("Cost Back Office completes the guided exact-cost workflow", async ({ page 
   await expect(page.locator("#evaluation-result")).toContainText("30 / 1");
   await expect(page.locator(".trace")).toContainText("豬五花");
   await expect(page.locator(".trace")).toContainText(initialQuoteId);
+  await expect(page.locator(".trace")).toContainText("預期報價");
 
   const replacementInstant = "2099-01-02T00:00:00.000Z";
   await page.locator("#quote-replacement-old").selectOption(initialQuoteId);

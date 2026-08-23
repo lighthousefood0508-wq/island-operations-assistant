@@ -1941,7 +1941,7 @@ test("Ingredient 003D Reference Impact stays read-only behind Domain-owned publi
   assert.equal(Array.from(recipeRead.matchAll(/queryMany</g)).length, 2);
   assert.doesNotMatch(recipeRead, /cost_|purchase|snapshot/i);
   assert.match(costRead, /cost_ingredient_cost_quotes/);
-  assert.equal(Array.from(costRead.matchAll(/queryMany</g)).length, 2);
+  assert.equal(Array.from(costRead.matchAll(/queryMany</g)).length, 3);
   assert.doesNotMatch(costRead, /recipe_|cost_purchases|cost_purchase_items/);
   assert.match(costSqliteSource, /findIngredientAcceptedPurchaseReferences[\s\S]*cost_accepted_purchase_lines/);
 
@@ -1962,7 +1962,7 @@ test("Ingredient 003D Reference Impact stays read-only behind Domain-owned publi
     createHash("sha256")
       .update(costIndexSource.slice(0, cost003DOffset))
       .digest("hex"),
-    "b08426f464f91a3077faf2168683c5d08ea68eda6ee1c357731c2b72205fbcfa",
+    "a4e1afc4d6d3885c5937017294f8a1e5d3ca8ced735c8b74ba322c57dd6a6de7",
     "003D must preserve the Cost public index as extended only by later Owner-approved Cost exports."
   );
   assert.equal(
@@ -2844,7 +2844,9 @@ test("PR-COST-007 keeps Accepted Purchase actual-price evidence inside its exact
     "src/tests/recipe-migration-018.integration.test.ts"
   ]);
   assert.equal(approvedCost007Paths.size, 28);
-  const isCost007Responsibility = (source: string): boolean => /\bAcceptedPurchase|cost_accepted_purchase|\/acceptances|acceptedPurchases/.test(source);
+  const isCost007Responsibility = (source: string): boolean =>
+    !/VAL-2|ActualPurchase|QuoteFallback|findEligibleAcceptedPurchaseLines|AMBIGUOUS_ACCEPTED_PURCHASE_COST/.test(source)
+    && /\bAcceptedPurchase|cost_accepted_purchase|\/acceptances|acceptedPurchases/.test(source);
   assert.equal(isCost007Responsibility("new AcceptedPurchaseService(repository)"), true);
   const responsibilityFiles = [...filesUnder(sourceRoot, [".ts", ".tsx"]), ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"]), ...filesUnder(path.join(projectRoot, "migrations"), [".sql"])]
     .filter((filename) => isCost007Responsibility(readFileSync(filename, "utf8")))
@@ -2861,4 +2863,61 @@ test("PR-COST-007 keeps Accepted Purchase actual-price evidence inside its exact
   assert.match(serviceSource, /normalizeAt/);
   assert.match(facadeSource, /acceptedPurchaseService\.accept/);
   assert.doesNotMatch(facadeSource, /AcceptedPurchaseId\.fromUuid|AcceptedPurchase\.create|new SqliteAcceptedPurchaseRepository/);
+});
+
+test("PR-COST-008 keeps actual-price-first valuation policy inside its exact responsibility boundary", () => {
+  const approvedCost008Paths = new Set([
+    "src/domains/cost/domain/cost-evaluation-read-unit-of-work.ts",
+    "src/domains/cost/domain/recipe-cost-evaluation.ts",
+    "src/domains/cost/application/recipe-cost-evaluation-service.ts",
+    "src/domains/cost/infrastructure/sqlite-cost-evaluation-read-unit-of-work.ts",
+    "src/domains/cost/infrastructure/sqlite-cost-repository.ts",
+    "src/domains/cost/index.ts",
+    "src/web/cost/page.ts",
+    "src/tests/cost-evaluation.test.ts",
+    "src/tests/cost-evaluation.integration.test.ts",
+    "src/tests/cost-back-office-api.integration.test.ts",
+    "src/tests/architecture-guards.test.ts",
+    "tests/e2e/cost-back-office.spec.ts",
+    "tests/e2e/canonical-ingredient-management.spec.ts"
+  ]);
+  assert.equal(approvedCost008Paths.size, 13);
+  const isCost008Responsibility = (source: string): boolean =>
+    /VAL-2|ActualPurchase|QuoteFallback|findEligibleAcceptedPurchaseLines|AMBIGUOUS_ACCEPTED_PURCHASE_COST/.test(source);
+  assert.equal(
+    isCost008Responsibility("reader.findEligibleAcceptedPurchaseLines(ingredientId, valuedAt)"),
+    true
+  );
+  const responsibilityFiles = [
+    ...filesUnder(sourceRoot, [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"])
+  ]
+    .filter((filename) => isCost008Responsibility(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .sort();
+  const approvedResponsibilityFiles = [...approvedCost008Paths]
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => isCost008Responsibility(
+      readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8")
+    ))
+    .sort();
+  assert.deepEqual(responsibilityFiles, approvedResponsibilityFiles);
+  assert.equal(approvedCost008Paths.has("src/tests/simulated-valuation.ts"), false);
+  assert.equal(
+    isCost008Responsibility("export const later = 'ActualPurchase';"),
+    true,
+    "The same classifier must reject an unauthorized thirteenth valuation responsibility path."
+  );
+  const serviceSource = readFileSync(
+    path.join(sourceRoot, "domains", "cost", "application", "recipe-cost-evaluation-service.ts"),
+    "utf8"
+  );
+  const evaluationSource = readFileSync(
+    path.join(sourceRoot, "domains", "cost", "domain", "recipe-cost-evaluation.ts"),
+    "utf8"
+  );
+  assert.match(evaluationSource, /COST_VALUATION_POLICY = "VAL-2"/);
+  assert.match(serviceSource, /AMBIGUOUS_ACCEPTED_PURCHASE_COST/);
+  assert.doesNotMatch(serviceSource, /CostSnapshot|INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM/i);
 });

@@ -15,7 +15,9 @@ implements CostEvaluationReadUnitOfWork {
     return this.database.transaction(() => {
       const repository = new SqliteCostRepository(this.database);
       const reader: CostEvaluationQuoteReader = Object.freeze({
-        findEffectiveQuoteAt: repository.findEffectiveQuoteAt.bind(repository)
+        findEffectiveQuoteAt: repository.findEffectiveQuoteAt.bind(repository),
+        findEligibleAcceptedPurchaseLines:
+          repository.findEligibleAcceptedPurchaseLines.bind(repository)
       });
       return work(reader);
     });

@@ -252,6 +252,10 @@ test("fresh database completes Ingredient to exact Cost Evaluation and survives 
     );
     assert.equal(evaluated.status, 200);
     assert.equal(evaluated.body.data.status, "evaluated");
+    assert.equal(
+      evaluated.body.data.result.lines[0].selectedSource.sourceType,
+      "QuoteFallback"
+    );
     assert.deepEqual(
       evaluated.body.data.result.exactStandardBatchCost,
       { numerator: "30", denominator: "1" }
@@ -261,7 +265,8 @@ test("fresh database completes Ingredient to exact Cost Evaluation and survives 
       { numerator: "15", denominator: "1" }
     );
     assert.equal(
-      evaluated.body.data.result.lines[0].quoteNormalizationEvidence.quoteId,
+      evaluated.body.data.result.lines[0].selectedSource
+        .quoteNormalizationEvidence.quoteId,
       initialQuoteId
     );
 
@@ -337,12 +342,12 @@ test("fresh database completes Ingredient to exact Cost Evaluation and survives 
       { numerator: "45", denominator: "1" }
     );
     assert.equal(
-      replacementEvaluation.body.data.result.lines[0]
+      replacementEvaluation.body.data.result.lines[0].selectedSource
         .quoteNormalizationEvidence.quoteId,
       replacementQuoteId
     );
     assert.notEqual(
-      replacementEvaluation.body.data.result.lines[0]
+      replacementEvaluation.body.data.result.lines[0].selectedSource
         .quoteNormalizationEvidence.quoteId,
       initialQuoteId
     );
@@ -354,7 +359,7 @@ test("fresh database completes Ingredient to exact Cost Evaluation and survives 
       { recipeId: recipe.body.data.recipeId, evaluatedAt: AT }
     );
     assert.equal(
-      historicalEvaluation.body.data.result.lines[0]
+      historicalEvaluation.body.data.result.lines[0].selectedSource
         .quoteNormalizationEvidence.quoteId,
       initialQuoteId
     );
@@ -379,9 +384,69 @@ test("fresh database completes Ingredient to exact Cost Evaluation and survives 
       { numerator: "45", denominator: "2" }
     );
     assert.equal(
-      repeated.body.data.result.lines[0].quoteNormalizationEvidence.quoteId,
+      repeated.body.data.result.lines[0].selectedSource
+        .quoteNormalizationEvidence.quoteId,
       replacementQuoteId
     );
+
+    const supplier = await request(
+      running.baseUrl,
+      "/api/admin/cost/suppliers",
+      "POST",
+      { displayName: "Actual-price supplier", occurredAt: "2026-09-01T00:00:00.000Z", actor: "owner" }
+    );
+    assert.equal(supplier.status, 201);
+    const purchase = await request(
+      running.baseUrl,
+      "/api/admin/cost/purchases",
+      "POST",
+      {
+        supplierId: supplier.body.data.supplierId,
+        lines: [{ ingredientId, quantityCoefficient: "1", quantityScale: 0, unitCode: "kg" }],
+        occurredAt: "2026-09-01T00:00:00.000Z",
+        actor: "owner"
+      }
+    );
+    assert.equal(purchase.status, 201);
+    const recordedPurchase = await request(
+      running.baseUrl,
+      `/api/admin/cost/purchases/${encodeURIComponent(purchase.body.data.purchaseId)}/records`,
+      "POST",
+      { expectedVersion: 0, recordedAt: "2026-09-01T00:00:00.000Z", recordedBy: "owner" }
+    );
+    assert.equal(recordedPurchase.status, 200);
+    const acceptedPurchase = await request(
+      running.baseUrl,
+      `/api/admin/cost/purchases/${encodeURIComponent(purchase.body.data.purchaseId)}/acceptances`,
+      "POST",
+      {
+        expectedVersion: 1,
+        currencyCode: "TWD",
+        lines: [{ sourcePurchaseLineId: purchase.body.data.lines[0].lineId, amountCoefficient: "400", amountScale: 0 }],
+        acceptedAt: "2026-09-01T00:00:00.000Z",
+        acceptedBy: "owner"
+      }
+    );
+    assert.equal(acceptedPurchase.status, 201);
+    const actualEvaluation = await request(
+      running.baseUrl,
+      "/api/admin/cost/evaluations",
+      "POST",
+      { recipeId: recipe.body.data.recipeId, evaluatedAt: "2026-09-01T00:00:00.000Z" }
+    );
+    assert.equal(actualEvaluation.status, 200);
+    assert.equal(
+      actualEvaluation.body.data.result.lines[0].selectedSource.sourceType,
+      "ActualPurchase"
+    );
+    assert.equal(
+      actualEvaluation.body.data.result.lines[0].selectedSource.acceptedPurchaseId,
+      acceptedPurchase.body.data.acceptedPurchaseId
+    );
+    assert.deepEqual(actualEvaluation.body.data.result.exactStandardBatchCost, {
+      numerator: "40",
+      denominator: "1"
+    });
   } finally {
     if (running.server.listening) await stop(running.server);
     cleanup(databasePath);

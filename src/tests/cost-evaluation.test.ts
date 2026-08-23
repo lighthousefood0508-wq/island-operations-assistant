@@ -10,6 +10,7 @@ import type {
 } from "../domains/cost/contracts/ingredient-cost-quote-normalization-evidence-contract.js";
 import { RecipeCostEvaluationService } from "../domains/cost/application/recipe-cost-evaluation-service.js";
 import type {
+  AcceptedPurchaseValuationEvidenceV1,
   CostEvaluationQuoteReader,
   CostEvaluationReadUnitOfWork
 } from "../domains/cost/domain/cost-evaluation-read-unit-of-work.js";
@@ -187,6 +188,32 @@ function quote(
   });
 }
 
+function acceptedPurchaseEvidence(
+  ingredientId: string,
+  input: Partial<AcceptedPurchaseValuationEvidenceV1> = {}
+): AcceptedPurchaseValuationEvidenceV1 {
+  return Object.freeze({
+    acceptedPurchaseId:
+      "accepted_purchase_11111111-1111-4111-8111-111111111111",
+    acceptedPurchaseLineId:
+      "accepted_purchase_line_11111111-1111-4111-8111-111111111111",
+    sourcePurchaseId: "purchase_11111111-1111-4111-8111-111111111111",
+    sourcePurchaseVersion: 1,
+    supplierId: "supplier_11111111-1111-4111-8111-111111111111",
+    acceptedAt: "2026-07-30T01:00:00.000Z",
+    currencyCode: "TWD",
+    amountCoefficient: "900",
+    amountScale: 0,
+    normalizedQuantityCoefficient: "3000",
+    normalizedQuantityScale: 0,
+    dimension: "mass",
+    canonicalUnitCode: "g",
+    profileId: `profile_${ingredientId}`,
+    profileVersionId: `profile_version_${ingredientId}`,
+    ...input
+  });
+}
+
 type NormalizedFacts = Readonly<{
   dimension: Dimension;
   unit: CanonicalUnit;
@@ -199,8 +226,16 @@ class FakeReader implements CostEvaluationQuoteReader {
 
   constructor(
     private readonly quotes: ReadonlyMap<string, IngredientCostQuote>,
-    private readonly ambiguous = new Set<string>()
+    private readonly ambiguous = new Set<string>(),
+    private readonly acceptedPurchaseLines:
+      ReadonlyMap<string, readonly AcceptedPurchaseValuationEvidenceV1[]> = new Map()
   ) {}
+
+  findEligibleAcceptedPurchaseLines(
+    ingredientId: IngredientId
+  ): readonly AcceptedPurchaseValuationEvidenceV1[] {
+    return this.acceptedPurchaseLines.get(ingredientId.value) ?? [];
+  }
 
   findEffectiveQuoteAt(ingredientId: IngredientId) {
     this.calls.push(ingredientId.value);
@@ -326,6 +361,10 @@ function setup(input: Readonly<{
   quotes?: ReadonlyMap<string, IngredientCostQuote>;
   normalized?: ReadonlyMap<string, NormalizedFacts>;
   ambiguous?: ReadonlySet<string>;
+  acceptedPurchaseLines?: ReadonlyMap<
+    string,
+    readonly AcceptedPurchaseValuationEvidenceV1[]
+  >;
   yieldCoefficient?: string;
   failureCode?: string;
   evidenceIdentityOverride?: Readonly<Record<string, unknown>>;
@@ -346,7 +385,11 @@ function setup(input: Readonly<{
       quantity: "2400"
     }]
   ]);
-  const reader = new FakeReader(quotes, new Set(input.ambiguous));
+  const reader = new FakeReader(
+    quotes,
+    new Set(input.ambiguous),
+    input.acceptedPurchaseLines
+  );
   const uow = new FakeReadUnitOfWork(reader);
   const normalizer = new FakeNormalizer(
     normalized,
@@ -430,8 +473,79 @@ test("calculates TWD 800 / 2400g * 600g and exact yield cost", () => {
     numerator: "200",
     denominator: "3"
   });
-  assert.equal(result.valuationPolicy, "VAL-1");
+  assert.equal(result.valuationPolicy, "VAL-2");
   assert.equal(result.roundingPolicy, "NONE_EXACT");
+});
+
+test("selects the latest eligible Accepted Purchase as actual-price evidence", () => {
+  const context = setup({
+    acceptedPurchaseLines: new Map([[INGREDIENT_A, [
+      acceptedPurchaseEvidence(INGREDIENT_A, {
+        acceptedPurchaseId:
+          "accepted_purchase_11111111-1111-4111-8111-111111111111",
+        amountCoefficient: "900",
+        normalizedQuantityCoefficient: "3000"
+      })
+    ]]])
+  });
+  const result = evaluated(context);
+  assert.equal(context.normalizer.calls.length, 0);
+  assert.equal(result.lines[0]?.selectedSource.sourceType, "ActualPurchase");
+  if (result.lines[0]?.selectedSource.sourceType === "ActualPurchase") {
+    assert.equal(
+      result.lines[0].selectedSource.acceptedPurchaseId,
+      "accepted_purchase_11111111-1111-4111-8111-111111111111"
+    );
+  }
+  assert.deepEqual(result.lines[0]?.exactLineCost, {
+    numerator: "180",
+    denominator: "1"
+  });
+});
+
+test("uses Quote only as an explicit fallback when no Accepted Purchase is eligible", () => {
+  const result = evaluated();
+  assert.equal(result.lines[0]?.selectedSource.sourceType, "QuoteFallback");
+});
+
+test("equally-ranked Accepted Purchases fail closed instead of silently choosing", () => {
+  const context = setup({
+    acceptedPurchaseLines: new Map([[INGREDIENT_A, [
+      acceptedPurchaseEvidence(INGREDIENT_A, {
+        acceptedPurchaseId:
+          "accepted_purchase_22222222-2222-4222-8222-222222222222"
+      }),
+      acceptedPurchaseEvidence(INGREDIENT_A, {
+        acceptedPurchaseId:
+          "accepted_purchase_11111111-1111-4111-8111-111111111111",
+        acceptedPurchaseLineId:
+          "accepted_purchase_line_22222222-2222-4222-8222-222222222222"
+      })
+    ]]])
+  });
+  const outcome = context.service.evaluate(context.command);
+  assert.equal(outcome.status, "failed");
+  if (outcome.status === "failed") {
+    assert.equal(outcome.failure.code, "AMBIGUOUS_ACCEPTED_PURCHASE_COST");
+  }
+  assert.deepEqual(context.normalizer.calls, []);
+});
+
+test("invalid Accepted Purchase measurement evidence fails without Quote fallback", () => {
+  const context = setup({
+    acceptedPurchaseLines: new Map([[INGREDIENT_A, [
+      acceptedPurchaseEvidence(INGREDIENT_A, {
+        dimension: "volume",
+        canonicalUnitCode: "ml"
+      })
+    ]]])
+  });
+  const outcome = context.service.evaluate(context.command);
+  assert.equal(outcome.status, "failed");
+  if (outcome.status === "failed") {
+    assert.equal(outcome.failure.code, "MEASUREMENT_INCOMPATIBILITY");
+  }
+  assert.deepEqual(context.normalizer.calls, []);
 });
 
 test("repeated Ingredient Lines reuse one Quote and normalization with independent trace", () => {
@@ -484,11 +598,14 @@ test("different valid Recipe and Quote Profile Versions do not trigger re-normal
     result.lines[0]?.recipeNormalizationEvidence.profileVersionId,
     "recipe_profile_version"
   );
-  assert.equal(
-    result.lines[0]?.quoteNormalizationEvidence.normalizationEvidence
-      .profileVersionId,
-    "quote_profile_version"
-  );
+  assert.equal(result.lines[0]?.selectedSource.sourceType, "QuoteFallback");
+  if (result.lines[0]?.selectedSource.sourceType === "QuoteFallback") {
+    assert.equal(
+      result.lines[0].selectedSource.quoteNormalizationEvidence
+        .normalizationEvidence.profileVersionId,
+      "quote_profile_version"
+    );
+  }
 });
 
 test("mass, volume, and count use their independent canonical quantities", () => {
@@ -695,7 +812,12 @@ test("identical inputs produce deeply equal immutable results", () => {
   assert.ok(Object.isFrozen(first));
   assert.ok(Object.isFrozen(first.recipe));
   assert.ok(Object.isFrozen(first.lines));
-  assert.ok(Object.isFrozen(first.lines[0]?.quoteNormalizationEvidence));
+  assert.ok(Object.isFrozen(first.lines[0]?.selectedSource));
+  if (first.lines[0]?.selectedSource.sourceType === "QuoteFallback") {
+    assert.ok(Object.isFrozen(
+      first.lines[0].selectedSource.quoteNormalizationEvidence
+    ));
+  }
   assert.ok(Object.isFrozen(first.exactStandardBatchCost));
 });
 

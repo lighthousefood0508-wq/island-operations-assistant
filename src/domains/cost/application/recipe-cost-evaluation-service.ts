@@ -13,6 +13,7 @@ import {
   type IngredientCostQuoteNormalizationEvidenceV1
 } from "../contracts/ingredient-cost-quote-normalization-evidence-contract.js";
 import type {
+  AcceptedPurchaseValuationEvidenceV1,
   CostEvaluationQuoteReader,
   CostEvaluationReadUnitOfWork
 } from "../domain/cost-evaluation-read-unit-of-work.js";
@@ -337,6 +338,62 @@ function validateQuoteEvidence(
   });
 }
 
+type CostFacts = Readonly<{
+  amount: ExactRational;
+  quantity: ExactRational;
+  currencyCode: string;
+  dimension: string;
+  canonicalUnitCode: string;
+}>;
+
+function validateAcceptedPurchaseEvidence(
+  evidence: AcceptedPurchaseValuationEvidenceV1,
+  ingredientId: string,
+  valuedAt: string
+): CostFacts {
+  try {
+    const acceptedAt = assertIsoInstant(evidence.acceptedAt, "acceptedAt");
+    if (
+      !evidence.acceptedPurchaseId.trim()
+      || !evidence.acceptedPurchaseLineId.trim()
+      || !evidence.sourcePurchaseId.trim()
+      || !evidence.supplierId.trim()
+      || !evidence.profileId.trim()
+      || !evidence.profileVersionId.trim()
+      || !evidence.currencyCode.trim()
+      || !evidence.dimension.trim()
+      || !evidence.canonicalUnitCode.trim()
+      || !Number.isSafeInteger(evidence.sourcePurchaseVersion)
+      || evidence.sourcePurchaseVersion < 0
+      || acceptedAt > valuedAt
+    ) throw new Error("invalid Accepted Purchase evidence");
+    const amount = ExactRational.fromExactDecimal(
+      evidence.amountCoefficient,
+      evidence.amountScale
+    );
+    const quantity = ExactRational.fromExactDecimal(
+      evidence.normalizedQuantityCoefficient,
+      evidence.normalizedQuantityScale
+    );
+    if (!quantity.isPositive || amount.numerator.startsWith("-")) {
+      throw new Error("invalid Accepted Purchase amount or quantity");
+    }
+    return Object.freeze({
+      amount,
+      quantity,
+      currencyCode: evidence.currencyCode,
+      dimension: evidence.dimension,
+      canonicalUnitCode: evidence.canonicalUnitCode
+    });
+  } catch {
+    throw new RecipeCostEvaluationError(
+      "ACCEPTED_PURCHASE_EVIDENCE_INVALID",
+      "Accepted Purchase evidence is incomplete or invalid.",
+      { ingredientId }
+    );
+  }
+}
+
 export class RecipeCostEvaluationService {
   constructor(
     private readonly readUnitOfWork: CostEvaluationReadUnitOfWork,
@@ -372,13 +429,10 @@ export class RecipeCostEvaluationService {
     evaluatedAt: string,
     reader: CostEvaluationQuoteReader
   ): RecipeCostEvaluationOutcomeV1 {
-    const cache = new Map<
-      string,
-      Readonly<{
-        selectedQuoteId: string;
-        evidence: IngredientCostQuoteNormalizationEvidenceV1;
-      }>
-    >();
+    const cache = new Map<string, Readonly<{
+      facts: CostFacts;
+      selectedSource: RecipeCostEvaluationLineV1["selectedSource"];
+    }>>();
     const lines: RecipeCostEvaluationLineV1[] = [];
     let currencyCode: string | undefined;
     let standardBatchCost = ExactRational.create("0", "1");
@@ -387,49 +441,86 @@ export class RecipeCostEvaluationService {
       const line of command.recipe.recipeProjection.lines
     ) {
       const ingredientId = IngredientId.parse(line.ingredientId);
-      let normalizedQuote = cache.get(ingredientId.value);
-      if (normalizedQuote === undefined) {
-        const quote = selectQuote(reader, ingredientId, evaluatedAt);
-        let normalization;
-        try {
-          normalization = this.quoteNormalization.normalize({
-            quote,
+      let selected = cache.get(ingredientId.value);
+      if (selected === undefined) {
+        const actualCandidates = reader.findEligibleAcceptedPurchaseLines(
+          ingredientId,
+          evaluatedAt
+        );
+        if (actualCandidates.length > 0) {
+          const rankedAt = actualCandidates[0]!.acceptedAt;
+          const equallyRanked = actualCandidates.filter(
+            (candidate) => candidate.acceptedAt === rankedAt
+          );
+          if (equallyRanked.length !== 1) {
+            throw new RecipeCostEvaluationError(
+              "AMBIGUOUS_ACCEPTED_PURCHASE_COST",
+              "Multiple Accepted Purchase lines are equally ranked at valuedAt.",
+              { ingredientId: ingredientId.value }
+            );
+          }
+          const evidence = equallyRanked[0]!;
+          const facts = validateAcceptedPurchaseEvidence(
+            evidence,
+            ingredientId.value,
             evaluatedAt
+          );
+          selected = Object.freeze({
+            facts,
+            selectedSource: Object.freeze({
+              sourceType: "ActualPurchase" as const,
+              acceptedPurchaseId: evidence.acceptedPurchaseId,
+              acceptedPurchaseLineId: evidence.acceptedPurchaseLineId,
+              sourcePurchaseId: evidence.sourcePurchaseId,
+              sourcePurchaseVersion: evidence.sourcePurchaseVersion,
+              supplierId: evidence.supplierId,
+              acceptedAt: evidence.acceptedAt,
+              currencyCode: facts.currencyCode,
+              amount: rationalEvidence(facts.amount),
+              normalizedQuantity: rationalEvidence(facts.quantity),
+              dimension: facts.dimension,
+              canonicalUnitCode: facts.canonicalUnitCode,
+              profileId: evidence.profileId,
+              profileVersionId: evidence.profileVersionId
+            })
           });
-        } catch {
-          throw new RecipeCostEvaluationError(
-            "QUOTE_NORMALIZATION_FAILED",
-            "Quote normalization authority failed.",
-            { ingredientId: ingredientId.value }
+        } else {
+          const quote = selectQuote(reader, ingredientId, evaluatedAt);
+          let normalization;
+          try {
+            normalization = this.quoteNormalization.normalize({ quote, evaluatedAt });
+          } catch {
+            throw new RecipeCostEvaluationError(
+              "QUOTE_NORMALIZATION_FAILED",
+              "Quote normalization authority failed.",
+              { ingredientId: ingredientId.value }
+            );
+          }
+          if (normalization.status === "failed") {
+            throw new RecipeCostEvaluationError(
+              "QUOTE_NORMALIZATION_FAILED",
+              normalization.failure.message,
+              { ingredientId: ingredientId.value, sourceFailureCode: normalization.failure.code }
+            );
+          }
+          const quoteEvidence = cloneAndFreeze(normalization.evidence);
+          const quoteFacts = validateQuoteEvidence(
+            quoteEvidence, quote.quoteId.value, ingredientId.value, evaluatedAt
           );
+          selected = Object.freeze({
+            facts: quoteFacts,
+            selectedSource: Object.freeze({
+              sourceType: "QuoteFallback" as const,
+              quoteNormalizationEvidence: quoteEvidence
+            })
+          });
         }
-        if (normalization.status === "failed") {
-          throw new RecipeCostEvaluationError(
-            "QUOTE_NORMALIZATION_FAILED",
-            normalization.failure.message,
-            {
-              ingredientId: ingredientId.value,
-              sourceFailureCode: normalization.failure.code
-            }
-          );
-        }
-        normalizedQuote = Object.freeze({
-          selectedQuoteId: quote.quoteId.value,
-          evidence: cloneAndFreeze(normalization.evidence)
-        });
-        cache.set(ingredientId.value, normalizedQuote);
+        cache.set(ingredientId.value, selected);
       }
-
-      const quoteEvidence = normalizedQuote.evidence;
-      const quoteFacts = validateQuoteEvidence(
-        quoteEvidence,
-        normalizedQuote.selectedQuoteId,
-        ingredientId.value,
-        evaluatedAt
-      );
+      const sourceFacts = selected.facts;
       if (currencyCode === undefined) {
-        currencyCode = quoteFacts.currencyCode;
-      } else if (currencyCode !== quoteFacts.currencyCode) {
+        currencyCode = sourceFacts.currencyCode;
+      } else if (currencyCode !== sourceFacts.currencyCode) {
         throw new RecipeCostEvaluationError(
           "CURRENCY_MISMATCH",
           "All selected Ingredient Cost Quotes must use one Currency.",
@@ -439,13 +530,13 @@ export class RecipeCostEvaluationService {
       const recipeMeasurement =
         line.normalizationEvidence.measurementEvidence;
       if (
-        recipeMeasurement.dimension !== quoteFacts.dimension
+        recipeMeasurement.dimension !== sourceFacts.dimension
         || recipeMeasurement.canonicalUnitCode
-          !== quoteFacts.canonicalUnitCode
+          !== sourceFacts.canonicalUnitCode
       ) {
         throw new RecipeCostEvaluationError(
           "MEASUREMENT_INCOMPATIBILITY",
-          "Recipe and Quote canonical Measurement evidence are incompatible.",
+          "Recipe and selected Cost evidence have incompatible canonical Measurement facts.",
           { ingredientId: ingredientId.value, linePosition: line.linePosition }
         );
       }
@@ -453,16 +544,16 @@ export class RecipeCostEvaluationService {
         recipeMeasurement.normalizedQuantity.coefficient,
         recipeMeasurement.normalizedQuantity.scale
       );
-      const lineCost = quoteFacts.amount
+      const lineCost = sourceFacts.amount
         .multiply(recipeQuantity)
-        .divide(quoteFacts.quantity);
+        .divide(sourceFacts.quantity);
       standardBatchCost = standardBatchCost.add(lineCost);
       lines.push(Object.freeze({
         linePosition: line.linePosition,
         ingredientId: ingredientId.value,
         recipeNormalizationEvidence:
           cloneAndFreeze(line.normalizationEvidence),
-        quoteNormalizationEvidence: quoteEvidence,
+        selectedSource: selected.selectedSource,
         exactLineCost: rationalEvidence(lineCost)
       }));
     }
@@ -476,7 +567,7 @@ export class RecipeCostEvaluationService {
     if (currencyCode !== "TWD") {
       throw new RecipeCostEvaluationError(
         "UNSUPPORTED_CURRENCY",
-        "VAL-1 supports TWD only."
+        "VAL-2 supports TWD only."
       );
     }
     const yieldQuantity = ExactRational.fromExactDecimal(

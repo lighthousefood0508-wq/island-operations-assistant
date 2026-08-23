@@ -98,6 +98,24 @@ test("Cost Purchase API records an unaccepted Supplier-backed document without a
   } finally { await stop(running.server); cleanup(databasePath); }
 });
 
+test("Cost Back Office accepts a Recorded Purchase as immutable actual-price evidence", async () => {
+  const databasePath = path.resolve("data", `accepted-purchase-api-${randomUUID()}.sqlite`);
+  const running = await start(databasePath);
+  try {
+    const ingredient = await request(running.baseUrl,"/api/admin/cost/ingredients","POST",{name:"Accepted salt",categoryCode:"other",occurredAt:AT,actor:"owner"});
+    const profile = await request(running.baseUrl,"/api/admin/cost/profiles","POST",{ingredientId:ingredient.body.data.ingredientId,dimension:"mass",canonicalUnitCode:"g",allowedUnitCodes:["g","kg"],occurredAt:AT,actor:"owner"});
+    assert.equal(profile.status,201);
+    const supplier=await request(running.baseUrl,"/api/admin/cost/suppliers","POST",{displayName:"Accepted supplier",occurredAt:AT,actor:"owner"});
+    const created=await request(running.baseUrl,"/api/admin/cost/purchases","POST",{supplierId:supplier.body.data.supplierId,lines:[{ingredientId:ingredient.body.data.ingredientId,quantityCoefficient:"2",quantityScale:0,unitCode:"kg"}],occurredAt:AT,actor:"owner"});
+    const recorded=await request(running.baseUrl,`/api/admin/cost/purchases/${encodeURIComponent(created.body.data.purchaseId)}/records`,"POST",{expectedVersion:0,recordedAt:REPLACEMENT_AT,recordedBy:"owner"});
+    assert.equal(recorded.status,200);
+    const accepted=await request(running.baseUrl,`/api/admin/cost/purchases/${encodeURIComponent(created.body.data.purchaseId)}/acceptances`,"POST",{expectedVersion:1,currencyCode:"TWD",lines:[{sourcePurchaseLineId:created.body.data.lines[0].lineId,amountCoefficient:"80",amountScale:0}],acceptedAt:"2026-08-02T00:00:00.000Z",acceptedBy:"owner"});
+    assert.equal(accepted.status,201);assert.match(accepted.body.data.acceptedPurchaseId,/^accepted_purchase_/);assert.equal(accepted.body.data.lines[0].normalizedQuantityCoefficient,"2000");assert.equal(accepted.body.data.lines[0].profileId,profile.body.data.profileId);
+    const duplicate=await request(running.baseUrl,`/api/admin/cost/purchases/${encodeURIComponent(created.body.data.purchaseId)}/acceptances`,"POST",{expectedVersion:1,currencyCode:"TWD",lines:[{sourcePurchaseLineId:created.body.data.lines[0].lineId,amountCoefficient:"80",amountScale:0}],acceptedAt:"2026-08-02T00:00:00.000Z",acceptedBy:"owner"});
+    assert.equal(duplicate.status,409);assert.equal(duplicate.body.error.code,"accepted_purchase_invalid_state");assert.doesNotMatch(JSON.stringify(duplicate.body),/sqlite|database|table|stack|cause/i);
+  } finally { await stop(running.server);cleanup(databasePath); }
+});
+
 function cleanup(databasePath: string): void {
   for (const suffix of ["", "-shm", "-wal"]) {
     rmSync(`${databasePath}${suffix}`, { force: true });

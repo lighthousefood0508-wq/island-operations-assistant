@@ -5,6 +5,7 @@ import {
   type EffectiveIngredientCostQuoteLookup
 } from "../domain/cost-repository.js";
 import type {
+  CostAcceptedPurchaseReferenceImpactReadModelV1,
   CostIngredientQuoteReferenceImpactReadModelV1,
   CostIngredientReferenceImpactReadPort
 } from "../domain/ingredient-reference-impact-read-port.js";
@@ -257,6 +258,10 @@ export class SqliteCostRepository implements
         error
       );
     }
+  }
+
+  findIngredientAcceptedPurchaseReferences(ingredientId: IngredientId): CostAcceptedPurchaseReferenceImpactReadModelV1 {
+    try { const rows=this.database.queryMany<{acceptedPurchaseId:string}>(`SELECT DISTINCT accepted_purchase_id AS acceptedPurchaseId FROM cost_accepted_purchase_lines WHERE ingredient_id=? ORDER BY accepted_purchase_id ASC`,[ingredientId.value]);return Object.freeze({contractName:"CostAcceptedPurchaseReferenceImpact",contractVersion:1,acceptedPurchaseIds:Object.freeze(rows.map(row=>row.acceptedPurchaseId))}); } catch(error) { return mapTechnicalFailure("find Accepted Purchase references",error); }
   }
 
   findEffectiveQuoteAt(

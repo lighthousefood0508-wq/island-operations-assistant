@@ -52,7 +52,7 @@ export type CanonicalIngredientReferenceImpactV1 = Readonly<{
     quoteCount: number;
     quoteIds: readonly string[];
   }>;
-  acceptedPurchases: Readonly<{ availability: "Unavailable" }>;
+  acceptedPurchases: Readonly<{ availability: "Available"; acceptedPurchaseCount:number; acceptedPurchaseIds:readonly string[] }>;
   costSnapshots: Readonly<{ availability: "Unavailable" }>;
   deletionEligibility: Readonly<{
     status: "Indeterminate";
@@ -184,6 +184,7 @@ export class CanonicalIngredientReferenceImpactService {
       const cost = this.costReader.findIngredientQuoteReferences(
         IngredientId.parse(loadedIngredientId)
       );
+      const acceptedPurchaseReferences=this.costReader.findIngredientAcceptedPurchaseReferences(IngredientId.parse(loadedIngredientId));
       const draftReferences = uniqueDraftReferences(recipe.draftReferences);
       const publishedReferences = uniquePublishedReferences(
         recipe.publishedReferences
@@ -234,7 +235,7 @@ export class CanonicalIngredientReferenceImpactService {
           quoteCount: quoteIds.length,
           quoteIds
         },
-        acceptedPurchases: { availability: "Unavailable" },
+        acceptedPurchases: { availability: "Available",acceptedPurchaseCount:uniqueSorted(acceptedPurchaseReferences.acceptedPurchaseIds).length,acceptedPurchaseIds:uniqueSorted(acceptedPurchaseReferences.acceptedPurchaseIds) },
         costSnapshots: { availability: "Unavailable" },
         deletionEligibility: {
           status: "Indeterminate",

@@ -214,7 +214,7 @@ test("Reference Impact API reports exact Active and Archived historical impact",
       "cost_quote_bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
     ]);
     assert.deepEqual(response.body.data.acceptedPurchases, {
-      availability: "Unavailable"
+      availability: "Available", acceptedPurchaseCount: 0, acceptedPurchaseIds: []
     });
     assert.deepEqual(response.body.data.costSnapshots, {
       availability: "Unavailable"

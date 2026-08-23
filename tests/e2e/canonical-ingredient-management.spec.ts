@@ -140,7 +140,7 @@ function referenceImpactRecord(ingredientId: string) {
       quoteCount: 3,
       quoteIds: ["quote-superseded", "quote-recorded", "quote-history"]
     },
-    acceptedPurchases: { availability: "Unavailable" },
+    acceptedPurchases: { availability: "Available", acceptedPurchaseCount: 0, acceptedPurchaseIds: [] },
     costSnapshots: { availability: "Unavailable" },
     deletionEligibility: { status: "Indeterminate", blocked: true }
   };

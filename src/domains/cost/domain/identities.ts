@@ -4,6 +4,8 @@ import {
   InvalidIngredientIdentity,
   InvalidPurchaseIdentity,
   InvalidPurchaseLineIdentity,
+  InvalidAcceptedPurchaseIdentity,
+  InvalidAcceptedPurchaseLineIdentity,
   InvalidSupplierIdentity
 } from "./errors.js";
 
@@ -101,6 +103,8 @@ export class SupplierId extends PrefixedIdentity {
 
 export class PurchaseId extends PrefixedIdentity { private static readonly prefix = "pur_"; private constructor(value: string) { super(value, PurchaseId.prefix, () => new InvalidPurchaseIdentity()); } static parse(value: string): PurchaseId { return new PurchaseId(value); } static fromUuid(uuid: string): PurchaseId { return new PurchaseId(`${PurchaseId.prefix}${uuid}`); } }
 export class PurchaseLineId extends PrefixedIdentity { private static readonly prefix = "pur_line_"; private constructor(value: string) { super(value, PurchaseLineId.prefix, () => new InvalidPurchaseLineIdentity()); } static parse(value: string): PurchaseLineId { return new PurchaseLineId(value); } static fromUuid(uuid: string): PurchaseLineId { return new PurchaseLineId(`${PurchaseLineId.prefix}${uuid}`); } }
+export class AcceptedPurchaseId extends PrefixedIdentity { private static readonly prefix = "accepted_purchase_"; private constructor(value: string) { super(value, AcceptedPurchaseId.prefix, () => new InvalidAcceptedPurchaseIdentity()); } static parse(value: string): AcceptedPurchaseId { return new AcceptedPurchaseId(value); } static fromUuid(uuid: string): AcceptedPurchaseId { return new AcceptedPurchaseId(`${AcceptedPurchaseId.prefix}${uuid}`); } }
+export class AcceptedPurchaseLineId extends PrefixedIdentity { private static readonly prefix = "accepted_purchase_line_"; private constructor(value: string) { super(value, AcceptedPurchaseLineId.prefix, () => new InvalidAcceptedPurchaseLineIdentity()); } static parse(value: string): AcceptedPurchaseLineId { return new AcceptedPurchaseLineId(value); } static fromUuid(uuid: string): AcceptedPurchaseLineId { return new AcceptedPurchaseLineId(`${AcceptedPurchaseLineId.prefix}${uuid}`); } }
 
 export class IngredientCostItem {
   readonly kind = "ingredient";

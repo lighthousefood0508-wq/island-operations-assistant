@@ -22,6 +22,29 @@
 
 ## Approval Register
 
+- **DECISIONS #084 - Cost Evidence Read Contracts and Back Office Query Boundary**
+  - **Date**: 2026-08-24.
+  - **Status**: APPROVED by Architecture Owner for PR-COST-010 governance, implementation, verification, review, publication, merge, and integration closeout while the exact approved scope remains unchanged.
+  - **Single responsibility**: Publish the smallest stable, read-only Cost evidence contracts needed to inspect existing Supplier, formal Purchase, Accepted Purchase, and immutable Recipe Cost Snapshot evidence. This is a query boundary for operational visibility and later History/Analytics consumers; it does not create, revise, value, accept, or mutate evidence.
+  - **Authority and representations**:
+    - Supplier remains Cost-owned identity/master evidence; the existing deterministic Supplier collection is retained and one Supplier can be read by its governed identity.
+    - Formal Purchase remains a Supplier-backed commercial document. Its Draft/Recorded state, lines, audit data, and aggregate version are returned only as its existing immutable contract at the read instant; raw Purchase is not actual-price evidence.
+    - Accepted Purchase remains the DECISIONS #081 immutable actual-price authority. A read returns its complete pinned source Purchase/version, Supplier, currency, actor/time, exact raw/normalized quantities, amount, and Profile/Profile Version line evidence. A Purchase-scoped collection is deterministic and does not imply a second acceptance or acceptance mutation.
+    - Recipe Cost Snapshot remains the DECISIONS #083 immutable historical-cost authority. A Snapshot read returns its captured immutable contract, including pinned Recipe/Version, VAL-2 result, exact values, and selected Accepted-Purchase or Quote-fallback evidence. A Recipe-scoped collection is deterministic and is a collection of evidence, not a Cost History/Analytics policy.
+  - **Application, persistence, and HTTP boundary**:
+    - Cost owns one narrow public `CostEvidenceReadPort` and a Cost Application read coordinator. The coordinator accepts only governed identities, maps absence to typed not-found results, maps technical read failures to a typed safe failure, and exposes no SQLite, table, query, stack, cause, or raw persistence details.
+    - The SQLite Cost adapter may read only already-authoritative Cost evidence tables and reconstruct existing public contracts. It does not read Recipe, Ingredient, Profile, or legacy `cost_purchases`/`cost_purchase_items` authority, and it neither writes nor changes migration/schema.
+    - Cost Back Office is a facade/delegator; `src/server/index.ts` remains the sole production composition site. The approved read operations are `GET /api/admin/cost/suppliers`, `GET /api/admin/cost/suppliers/:supplierId`, `GET /api/admin/cost/purchases/:purchaseId`, `GET /api/admin/cost/purchases/:purchaseId/accepted-purchases`, `GET /api/admin/cost/accepted-purchases/:acceptedPurchaseId`, `GET /api/admin/cost/recipes/:recipeId/snapshots`, and `GET /api/admin/cost/snapshots/:costSnapshotId`.
+    - Successful reads return `200`. Invalid governed identities map to `422 cost_evidence_read_invalid`; an absent requested evidence record maps to `404 cost_evidence_not_found`; technical/hydration/read failure maps to `500 cost_evidence_read_failed`. Collections are empty `200` results when their governed parent exists but has no evidence. No persistence detail serializes.
+  - **Ordering and historical safety**:
+    - Supplier collection remains Supplier-ID ascending. Purchase-scoped Accepted Purchases order by `acceptedAt` ascending then Accepted Purchase ID ascending. Recipe-scoped Snapshots order by `capturedAt` ascending then Snapshot ID ascending. These deterministic collections are read contracts only; they establish no rank, valuation selection, timeline interpretation, retention, or aggregation rule.
+    - Reads preserve persisted historical evidence exactly. They do not re-normalize quantities, re-run VAL-2, substitute current Profile/Supplier/Quote/Accepted Purchase facts, or make a later evidence record alter an earlier Snapshot.
+  - **Protected boundary and exact scope**:
+    - PR-COST-010 fixes an exact thirteen-path allowlist: Cost Evidence Read port/Application/error/SQLite adapter/export; existing Cost Back Office/routes/composition; focused Application, persistence, API, E2E, and Architecture Guard tests.
+    - No migration/schema, lifecycle mutation, valuation selection, Snapshot mutation, History/Analytics, broad CRUD/list search, production UI/navigation, Recipe/Ingredient/Profile access, Inventory/receiving/payment/tax/freight/allocation/multi-currency, package, or legacy-Purchase authority is authorized.
+    - The Architecture Guard must substantively classify Cost Evidence Read responsibility, permit only the exact thirteen paths, and reject a simulated unauthorized fourteenth substantive responsibility path with the same classifier.
+  - **Verification**: focused Application/persistence/API tests must prove deterministic collections, identity lookup, complete immutable evidence shape, safe 422/404/500 failures, no write behavior, and Snapshot/Accepted Purchase historical preservation; plus Supplier/Purchase/Accepted Purchase/VAL-2/Snapshot/Reference Impact regressions, Architecture Guards, typecheck/lint/build, E2E, `npm test`, `npm run verify`, `npm run verify:full`, complete compiled collection, diff, encoding, newline, whitespace, and exact-scope audits.
+
 - **DECISIONS #083 - Immutable Recipe Cost Snapshot Evidence and Reference Impact Read Boundary**
   - **Date**: 2026-08-23.
   - **Status**: APPROVED by Architecture Owner for PR-COST-009 governance, implementation, verification, review, publication, merge, and integration closeout while the exact approved scope remains unchanged.

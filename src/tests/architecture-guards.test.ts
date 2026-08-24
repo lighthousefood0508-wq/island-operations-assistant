@@ -3176,3 +3176,45 @@ test("PR-COST-013 keeps the Cost Evidence Back Office bridge inside its exact UI
   assert.match(page, /\/analytics/);
   assert.doesNotMatch(page, /sqlite|DatabaseAdapter|better-sqlite|CostEvidenceReadService|RecipeCostHistoryReadService|RecipeCostAnalyticsService|INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|cost_purchases|cost_purchase_items/i);
 });
+
+test("PR-OPERATIONS-001 keeps Scheduled Pickup inside its exact Operations command boundary", () => {
+  const approvedOperations001Paths = new Set([
+    "src/domains/operations/domain/types.ts",
+    "src/domains/operations/application/order-service.ts",
+    "src/web/pos/page.ts",
+    "src/tests/order-core.test.ts",
+    "src/tests/order-core-api.integration.test.ts",
+    "src/tests/lifecycle-api.integration.test.ts",
+    "tests/e2e/pos-ordering.spec.ts",
+    "src/tests/architecture-guards.test.ts"
+  ]);
+  assert.equal(approvedOperations001Paths.size, 8);
+  const isOperations001Responsibility = (source: string): boolean => /ScheduledPickupOrderLifecycleBoundary/.test(source);
+  assert.equal(isOperations001Responsibility("ScheduledPickupOrderLifecycleBoundary"), true);
+  const responsibilityFiles = [
+    ...filesUnder(sourceRoot, [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"])
+  ].filter((filename) => isOperations001Responsibility(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .sort();
+  const approvedResponsibilityFiles = [...approvedOperations001Paths]
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => isOperations001Responsibility(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8")))
+    .sort();
+  assert.deepEqual(responsibilityFiles, approvedResponsibilityFiles);
+  assert.equal(approvedOperations001Paths.has("src/domains/operations/application/scheduled-pickup-service.ts"), false);
+  assert.equal(
+    isOperations001Responsibility("export class ScheduledPickupOrderLifecycleBoundaryService {}"),
+    true,
+    "The same classifier must reject a simulated unauthorized ninth Scheduled Pickup responsibility path."
+  );
+  const service = readFileSync(path.join(sourceRoot, "domains", "operations", "application", "order-service.ts"), "utf8");
+  const pos = readFileSync(path.join(sourceRoot, "web", "pos", "page.ts"), "utf8");
+  const kitchen = readFileSync(path.join(sourceRoot, "web", "kitchen", "page.ts"), "utf8");
+  assert.match(service, /scheduledPickupAt/);
+  assert.match(service, /SCHEDULED_PICKUP_(INVALID|OUTSIDE_EVENT)/);
+  assert.match(pos, /scheduledPickupAt:pickupInstant/);
+  assert.match(kitchen, /scheduledPickupAt/);
+  assert.doesNotMatch(service, /sqlite|DatabaseAdapter|better-sqlite|INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM/i);
+});

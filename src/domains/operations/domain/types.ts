@@ -46,6 +46,7 @@ export type CreatePosOrderInput = Readonly<{
   eventId: string;
   idempotencyKey: string;
   items: readonly PosOrderItemInput[];
+  // ScheduledPickupOrderLifecycleBoundary: validated Event-local command instant.
   scheduledPickupAt: string | null;
   paymentCollected: boolean;
   customerName: string | null;

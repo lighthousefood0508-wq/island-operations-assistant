@@ -47,17 +47,20 @@ function nextDate(date: string): string {
   value.setUTCDate(value.getUTCDate() + 1);
   return value.toISOString().slice(0, 10);
 }
+// ScheduledPickupOrderLifecycleBoundary: Operations validates the complete instant.
 function scheduledPickupAt(value: unknown, event: Readonly<{ date: string; start_time: string; end_time: string }>): string | null {
-  const pickupTime = optionalText(value, "pickupTime");
-  if (pickupTime === null) return null;
-  if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(pickupTime)) throw new HttpError(400, "VALIDATION_ERROR", "pickupTime must use HH:mm.", { field: "pickupTime" });
+  const instant = optionalText(value, "scheduledPickupAt");
+  if (instant === null) return null;
+  const match = /^(\d{4}-\d{2}-\d{2})T((?:[01]\d|2[0-3]):[0-5]\d):[0-5]\d(?:\.\d{1,3})?\+08:00$/.exec(instant);
+  if (!match?.[1] || !match[2]) throw new HttpError(400, "SCHEDULED_PICKUP_INVALID", "scheduledPickupAt must be an offset-bearing Event-local ISO instant.", { field: "scheduledPickupAt" });
+  const [date, pickupTime] = [match[1], match[2]];
   const starts = event.start_time;
   const ends = event.end_time;
   const overnight = starts > ends;
   const valid = overnight ? pickupTime >= starts || pickupTime <= ends : pickupTime >= starts && pickupTime <= ends;
-  if (!valid) throw new HttpError(400, "PICKUP_TIME_OUTSIDE_EVENT", "pickupTime must be within the Event operating time.", { field: "pickupTime" });
-  const date = overnight && pickupTime <= ends ? nextDate(event.date) : event.date;
-  return `${date}T${pickupTime}:00+08:00`;
+  const expectedDate = overnight && pickupTime <= ends ? nextDate(event.date) : event.date;
+  if (!valid || date !== expectedDate) throw new HttpError(400, "SCHEDULED_PICKUP_OUTSIDE_EVENT", "scheduledPickupAt must be within the Event operating time.", { field: "scheduledPickupAt" });
+  return instant;
 }
 function parseItem(value: unknown): PosOrderItemInput {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new HttpError(400, "VALIDATION_ERROR", "items must contain objects.", { field: "items" });
@@ -74,7 +77,8 @@ function parseInput(value: unknown): CreatePosOrderInput {
   if (!Array.isArray(record.items) || record.items.length === 0) throw new HttpError(400, "VALIDATION_ERROR", "items must not be empty.", { field: "items" });
   const idempotencyKey = requiredText(record.idempotencyKey, "idempotencyKey");
   if (idempotencyKey.length > 200) throw new HttpError(400, "VALIDATION_ERROR", "idempotencyKey is too long.", { field: "idempotencyKey" });
-  return { source: "pos", eventId: requiredText(record.eventId, "eventId"), idempotencyKey, items: record.items.map(parseItem), scheduledPickupAt: null, paymentCollected: optionalCollected(record.paymentCollected), customerName: optionalText(record.customerName, "customerName"), customerPhoneTail: optionalPhoneTail(record.customerPhoneTail), paymentMethod: optionalPaymentMethod(record.paymentMethod), operator: clientText(record.operator, "operator", "local-pos"), deviceId: clientText(record.deviceId, "deviceId", "POS"), notes: optionalText(record.notes, "notes") };
+  if (record.pickupTime !== undefined) throw new HttpError(400, "SCHEDULED_PICKUP_INVALID", "Use scheduledPickupAt instead of pickupTime.", { field: "scheduledPickupAt" });
+  return { source: "pos", eventId: requiredText(record.eventId, "eventId"), idempotencyKey, items: record.items.map(parseItem), scheduledPickupAt: optionalText(record.scheduledPickupAt, "scheduledPickupAt"), paymentCollected: optionalCollected(record.paymentCollected), customerName: optionalText(record.customerName, "customerName"), customerPhoneTail: optionalPhoneTail(record.customerPhoneTail), paymentMethod: optionalPaymentMethod(record.paymentMethod), operator: clientText(record.operator, "operator", "local-pos"), deviceId: clientText(record.deviceId, "deviceId", "POS"), notes: optionalText(record.notes, "notes") };
 }
 
 function normalizeItems(items: readonly PosOrderItemInput[]): PosOrderItemInput[] {
@@ -106,7 +110,7 @@ export class OrderService {
     return this.repository.transactionImmediate(() => {
       const event = this.repository.findEvent(parsed.eventId);
       if (!event) throw new HttpError(404, "EVENT_NOT_FOUND", "Event was not found.");
-      const input = { ...parsed, scheduledPickupAt: scheduledPickupAt((payload as Record<string, unknown>).pickupTime, event) };
+      const input = { ...parsed, scheduledPickupAt: scheduledPickupAt(parsed.scheduledPickupAt, event) };
       if (input.scheduledPickupAt && input.paymentCollected) throw new HttpError(400, "RESERVATION_PREPAY_NOT_SUPPORTED", "Scheduled pickup Orders cannot be marked paid at creation in this phase.");
       if (input.paymentCollected && !input.paymentMethod) throw new HttpError(400, "PAYMENT_METHOD_REQUIRED", "Collected onsite payment requires paymentMethod.");
       const requestFingerprint = fingerprint(input, items);

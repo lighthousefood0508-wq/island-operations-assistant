@@ -46,9 +46,9 @@ test("POS order atomically creates frozen snapshots and decrements sellable quan
   database.close();
 });
 
-test("scheduled POS order stores its pickup time and uses the same sellable quantity", () => {
+test("ScheduledPickupOrderLifecycleBoundary stores its explicit instant and uses the same sellable quantity", () => {
   const { database, event, orders, inventory } = fixture(2);
-  const result = orders.createPosOrder({ ...payload(event.eventId, "terminal-preorder-1"), pickupTime: "18:30" });
+  const result = orders.createPosOrder({ ...payload(event.eventId, "terminal-preorder-1"), scheduledPickupAt: "2026-07-20T18:30:00+08:00" });
 
   assert.equal(result.order.source, "pos");
   assert.equal(result.order.scheduledPickupAt, "2026-07-20T18:30:00+08:00");
@@ -80,11 +80,21 @@ test("scheduled POS orders cannot be marked paid during creation", () => {
   const { database, event, orders } = fixture(2);
   assert.throws(() => orders.createPosOrder({
     ...payload(event.eventId, "scheduled-prepay"),
-    pickupTime: "18:30",
+    scheduledPickupAt: "2026-07-20T18:30:00+08:00",
     paymentCollected: true
   }), (error: unknown) => (error as { code?: string }).code === "RESERVATION_PREPAY_NOT_SUPPORTED");
   assert.equal(database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_orders")?.count, 0);
   assert.equal(database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_payments")?.count, 0);
+  database.close();
+});
+
+test("ScheduledPickupOrderLifecycleBoundary rejects malformed and outside Event instants without writes", () => {
+  const { database, event, orders, inventory } = fixture(2);
+  for (const scheduledPickupAt of ["18:30", "2026-07-20T16:30:00+08:00", "2026-07-21T18:30:00+08:00"]) {
+    assert.throws(() => orders.createPosOrder({ ...payload(event.eventId, `invalid-${scheduledPickupAt}`), scheduledPickupAt }), (error: unknown) => ["SCHEDULED_PICKUP_INVALID", "SCHEDULED_PICKUP_OUTSIDE_EVENT"].includes((error as { code?: string }).code ?? ""));
+  }
+  assert.deepEqual(inventory.getInventoryState(event.eventId, product.productVersionId), { soldQuantity: 0, remainingQuantity: 2 });
+  assert.equal(database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_orders")?.count, 0);
   database.close();
 });
 

@@ -67,6 +67,20 @@ test("Order API creates, replays, retrieves public snapshots, and never exposes 
   }
 });
 
+test("ScheduledPickupOrderLifecycleBoundary accepts only the explicit Event-local instant", async () => {
+  const { server, baseUrl, eventId, product } = await setup(2);
+  try {
+    const scheduled = await request(baseUrl, "/api/orders", "POST", { ...payload(eventId, product, "scheduled-api"), scheduledPickupAt: "2026-07-20T18:30:00+08:00" });
+    assert.equal(scheduled.status, 201);
+    assert.equal(scheduled.body.data.scheduledPickupAt, "2026-07-20T18:30:00+08:00");
+    const legacy = await request(baseUrl, "/api/orders", "POST", { ...payload(eventId, product, "scheduled-legacy"), pickupTime: "18:30" });
+    assert.equal(legacy.status, 400);
+    assert.equal(legacy.body.error.code, "SCHEDULED_PICKUP_INVALID");
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("two POS requests for the final sellable portion produce one success and one insufficient response", async () => {
   const { server, baseUrl, databasePath, eventId, product } = await setup(1);
   try {

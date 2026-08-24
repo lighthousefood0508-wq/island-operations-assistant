@@ -143,6 +143,46 @@ test("Cost Analytics remains an API-only projection of immutable Recipe History"
   await expect(page.getByRole("heading", { name: "成本中心" })).toBeVisible();
 });
 
+test("CostEvidenceBackOfficeBridge lets an operator create accepted evidence and read immutable snapshot history", async ({ page }) => {
+  const category = await page.request.post("/api/admin/categories", { data: { displayName: "Evidence bridge meals", sortOrder: 1 } });
+  const categoryId = (await category.json()).data.categoryId as string;
+  const product = await page.request.post("/api/admin/products", { data: { internalName: "Evidence bridge meal", categoryId, displayName: "Evidence bridge meal", posName: "Bridge meal", sellingPrice: 180, channels: ["pos"] } });
+  const productId = (await product.json()).data.productId as string;
+  await page.request.post(`/api/admin/products/${productId}/publish`, { data: {} });
+  const instant = "2099-02-01T00:00:00.000Z";
+  const ingredient = await page.request.post("/api/admin/cost/ingredients", { data: { name: "Bridge pork", categoryCode: "meat", occurredAt: instant, actor: "owner" } });
+  const ingredientId = (await ingredient.json()).data.ingredientId as string;
+  const profile = await page.request.post("/api/admin/cost/profiles", { data: { ingredientId, dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g", "kg"], occurredAt: instant, actor: "owner" } });
+  expect(profile.status()).toBe(201);
+  const recipe = await page.request.post("/api/admin/cost/recipes", { data: { name: "Evidence bridge recipe", productId, productVersionId: (await (await page.request.get(`/api/admin/products/${productId}`)).json()).data.versions[0].productVersionId, lines: [{ ingredientId, coefficient: "100", scale: 0, unitCode: "g", dimension: "mass" }], standardOutput: { coefficient: "1", scale: 0, unitCode: "each", dimension: "count" }, standardYield: { coefficient: "1", scale: 0, unitCode: "each", dimension: "count" }, occurredAt: instant, actor: "owner" } });
+  expect(recipe.status()).toBe(201);
+
+  await page.goto("/admin/cost");
+  await page.locator("#supplier-name").fill("Bridge supplier");
+  await page.locator("#supplier-form button[type=submit]").click();
+  await expect(page.locator("#supplier-list")).toContainText("Bridge supplier");
+  await page.locator("#purchase-supplier").selectOption({ label: "Bridge supplier" });
+  await page.locator("#purchase-line-list select").selectOption({ label: "Bridge pork" });
+  await page.locator("#purchase-line-list input[data-purchase-field=quantityCoefficient]").fill("1");
+  await page.locator("#purchase-line-list input[data-purchase-field=unitCode]").fill("kg");
+  await page.locator("#purchase-form button[type=submit]").click();
+  await expect(page.locator("#purchase-current")).toContainText("Draft");
+  await page.locator("#purchase-record").click();
+  await expect(page.locator("#purchase-current")).toContainText("Recorded");
+  await page.locator("#purchase-accept-lines input").fill("480");
+  await page.locator("#purchase-accepted-at").fill(instant);
+  await page.locator("#purchase-accept-form button[type=submit]").click();
+  await expect(page.locator("#accepted-purchase-result")).toContainText("不可變實際採購證據");
+
+  await page.locator("#cost-evidence-recipe").selectOption({ label: "Evidence bridge recipe · v1" });
+  await page.locator("#snapshot-valued-at").fill(instant);
+  await page.locator("#snapshot-captured-at").fill(instant);
+  await page.locator("#cost-evidence-form button[type=submit]").click();
+  await expect(page.locator("#cost-evidence-result")).toContainText("不可變成本快照");
+  await expect(page.locator("#cost-evidence-result")).toContainText("實際採購明細：1");
+  await expect(page.locator("#cost-evidence-result")).toContainText("預期報價 fallback：0");
+});
+
 test("Cost Back Office keeps CanonicalIngredientCreation on its existing facade", async ({ page }) => {
   await page.goto("/admin/cost");
   const creationResponse = page.waitForResponse((response) =>

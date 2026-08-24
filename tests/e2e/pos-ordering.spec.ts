@@ -258,6 +258,7 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await page.locator('[data-payment-method="LINE_PAY"]').click();
     await page.locator("#toggle-preorder").click();
     await expect(page.locator("#reservation-fields")).toBeVisible();
+    // ScheduledPickupOrderLifecycleBoundary: POS submits the formal Event-local instant.
     await page.locator("#pickup-time").selectOption("18:30");
     await page.locator("#create-order").click();
     await expect(page.locator("#notice")).toContainText("預約單 POSUI-002 建立成功");

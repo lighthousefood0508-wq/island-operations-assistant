@@ -79,7 +79,7 @@ test("served reservation payment is authoritative, idempotent, audited, projecte
       eventId,
       idempotencyKey: "reservation-payment",
       items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }],
-      pickupTime: "18:30",
+      scheduledPickupAt: "2026-07-20T18:30:00+08:00",
       paymentCollected: false,
       customerName: "Miles",
       customerPhoneTail: "123",
@@ -415,7 +415,7 @@ test("production completion reversal is conditional, concurrent-safe, and persis
   }
 });
 
-test("scheduled POS order is projected to lifecycle and statistics read models", async () => {
+test("ScheduledPickupOrderLifecycleBoundary is projected to lifecycle and statistics read models", async () => {
   const { server, baseUrl, eventId, product } = await setup();
   try {
     const created = await request(baseUrl, "/api/orders", "POST", {
@@ -423,7 +423,7 @@ test("scheduled POS order is projected to lifecycle and statistics read models",
       eventId,
       idempotencyKey: "scheduled-life-a",
       items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }],
-      pickupTime: "18:30",
+      scheduledPickupAt: "2026-07-20T18:30:00+08:00",
       customerName: "Miles",
       customerPhoneTail: "123",
       paymentMethod: "CASH",

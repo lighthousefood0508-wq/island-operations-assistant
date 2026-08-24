@@ -339,6 +339,8 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "GET" && recipeCostHistoryEntryMatch?.[1] && recipeCostHistoryEntryMatch[2]) return success(response, 200, services.costBackOffice.getRecipeCostHistoryEntry(decodeURIComponent(recipeCostHistoryEntryMatch[1]), decodeURIComponent(recipeCostHistoryEntryMatch[2])));
     const recipeCostHistoryMatch = pathname.match(/^\/api\/admin\/cost\/recipes\/([^/]+)\/cost-history$/);
     if (request.method === "GET" && recipeCostHistoryMatch?.[1]) return success(response, 200, services.costBackOffice.listRecipeCostHistory(decodeURIComponent(recipeCostHistoryMatch[1])));
+    const recipeCostAnalyticsMatch = pathname.match(/^\/api\/admin\/cost\/recipes\/([^/]+)\/analytics$/);
+    if (request.method === "GET" && recipeCostAnalyticsMatch?.[1]) return success(response, 200, services.costBackOffice.getRecipeCostAnalytics(decodeURIComponent(recipeCostAnalyticsMatch[1])));
     const snapshotMatch = pathname.match(/^\/api\/admin\/cost\/snapshots\/([^/]+)$/);
     if (request.method === "GET" && snapshotMatch?.[1]) return success(response, 200, services.costBackOffice.getSnapshot(decodeURIComponent(snapshotMatch[1])));
     if (request.method === "POST" && pathname === "/api/admin/cost/quotes") {

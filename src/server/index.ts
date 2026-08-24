@@ -27,6 +27,7 @@ import {
   SqliteAcceptedPurchaseRepository,
   RecipeCostSnapshotService,
   RecipeCostHistoryReadService,
+  RecipeCostAnalyticsService,
   SqliteCostSnapshotRepository,
   CostEvidenceReadService,
   SqliteCostEvidenceReadPort
@@ -96,6 +97,7 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
   const costEvidenceReadPort = new SqliteCostEvidenceReadPort(database);
   const costEvidenceReads = new CostEvidenceReadService(costEvidenceReadPort);
   const recipeCostHistory = new RecipeCostHistoryReadService(costEvidenceReadPort);
+  const recipeCostAnalytics = new RecipeCostAnalyticsService(recipeCostHistory);
   const profileCreation = new IngredientMeasurementProfileCreationService(
     canonicalIngredientRepository,
     new SqliteIngredientMeasurementProfileRepository(database, measurementUnits),
@@ -127,6 +129,7 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
     snapshotService,
     costEvidenceReads,
     recipeCostHistory,
+    recipeCostAnalytics,
     profileCreation,
     profileSupersession,
     profileDeprecation,

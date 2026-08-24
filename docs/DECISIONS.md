@@ -22,6 +22,27 @@
 
 ## Approval Register
 
+- **DECISIONS #085 - Immutable Recipe Cost History Read Model Boundary**
+  - **Date**: 2026-08-24.
+  - **Status**: APPROVED by Architecture Owner for PR-COST-011 governance, implementation, verification, review, publication, merge, and integration closeout while the exact approved scope remains unchanged.
+  - **Single responsibility**: Publish a deterministic, read-only Recipe Cost History contract assembled exclusively from immutable Cost Snapshot evidence already governed by DECISIONS #083 and exposed through DECISIONS #084. It is neither a valuation operation nor a new evidence authority.
+  - **History contract and ordering**:
+    - A Recipe timeline is an ascending immutable sequence of complete Snapshot contracts, ordered by `capturedAt` ascending and then `costSnapshotId` ascending. Each entry preserves the Snapshot's Recipe/Recipe Version identity, `valuedAt`, `capturedAt`, capture actor, VAL-2/NONE_EXACT policy identities, exact results, and every pinned Accepted-Purchase or explicit Quote-fallback source trace.
+    - `latest` is the final entry under that same deterministic ordering. A Recipe timeline with no Snapshot evidence returns `200` with an empty timeline; a latest or identity lookup with no matching Snapshot returns a typed `404`. A Recipe-scoped identity lookup must reject a Snapshot belonging to another Recipe as not found.
+    - The existing DECISIONS #084 Snapshot identity read remains available. PR-COST-011 adds the Recipe-scoped timeline, latest, and identity history views without creating a second Snapshot representation or a new persistence truth.
+  - **Historical and authority boundary**:
+    - History reads only stored Snapshot contracts through the existing public Cost evidence read port. They never read raw Purchase, Accepted Purchase, Quote, Recipe, Ingredient, Measurement Profile, or legacy Purchase persistence to reconstruct, revalue, re-normalize, rank, or substitute evidence.
+    - A later Snapshot, current Quote, Accepted Purchase, Profile, Recipe revision, Supplier, or valuation outcome cannot alter an earlier History entry. Snapshot capture/mutation, valuation-policy revision, Cost History retention/aggregation, Cost Analytics, Inventory, receiving, payment, tax, freight, allocation, multi-currency, and production UI/navigation are expressly excluded.
+  - **Application, HTTP, and safe failures**:
+    - Cost owns a narrow Application read coordinator that accepts a nonblank Recipe identity and optional governed Snapshot identity, delegates only to `CostEvidenceReadPort`, and returns frozen History contracts. It imports neither SQLite, `DatabaseAdapter`, Recipe persistence, or Cost Back Office.
+    - Cost Back Office remains facade/delegator and `src/server/index.ts` remains the sole production composition site. The approved operations are `GET /api/admin/cost/recipes/:recipeId/cost-history`, `GET /api/admin/cost/recipes/:recipeId/cost-history/latest`, and `GET /api/admin/cost/recipes/:recipeId/cost-history/:costSnapshotId`.
+    - Success is `200`; malformed identities map to `422 recipe_cost_history_invalid`; absent latest or Snapshot evidence maps to `404 recipe_cost_history_not_found`; technical/hydration/read failure maps to `500 recipe_cost_history_read_failed`. No SQLite/DB/table/query/stack/cause detail serializes.
+  - **Protected boundary and exact scope**:
+    - PR-COST-011 fixes an exact twelve-path allowlist: Cost History contract/Application/error/export; Cost Back Office/routes/composition; focused Application, persistence, API, E2E, and Architecture Guard tests.
+    - No migration/schema, Snapshot repository/adapter/contract modification, new read persistence adapter, lifecycle mutation, valuation selection, Snapshot mutation, Analytics, broad search/filtering, production UI/navigation, package, or legacy authority promotion is authorized.
+    - The Architecture Guard must substantively classify Cost History responsibility, permit only the exact twelve paths, and reject a simulated unauthorized thirteenth substantive responsibility path with the same classifier.
+  - **Verification**: focused Cost History Application/persistence/API tests must prove ordering, empty timeline, latest and Recipe-scoped identity behavior, exact pinned source preservation, safe failures, and no writes; plus Snapshot/VAL-2/Accepted Purchase/Recipe/Profile/Reference Impact regressions, Architecture Guards, typecheck/lint/build, E2E, `npm test`, `npm run verify`, `npm run verify:full`, complete compiled collection, diff, encoding, newline, whitespace, and exact-scope audits.
+
 - **DECISIONS #084 - Cost Evidence Read Contracts and Back Office Query Boundary**
   - **Date**: 2026-08-24.
   - **Status**: APPROVED by Architecture Owner for PR-COST-010 governance, implementation, verification, review, publication, merge, and integration closeout while the exact approved scope remains unchanged.

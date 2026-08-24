@@ -22,6 +22,26 @@
 
 ## Approval Register
 
+- **DECISIONS #087 - Scheduled Pickup Order Lifecycle Boundary**
+  - **Date**: 2026-08-24.
+  - **Status**: APPROVED by Architecture Owner for PR-OPERATIONS-001 governance, implementation, verification, review, publication, merge, and integration closeout while the exact approved scope remains unchanged.
+  - **Single responsibility**: Make a scheduled pickup an explicit Operations-owned POS Order command fact.  A scheduled Order remains the same Event Order authority as an onsite Order; it is not a Reservation aggregate, Customer authority, or a browser-local workflow.
+  - **Command and lifecycle semantics**:
+    - `POST /api/orders` accepts `scheduledPickupAt: null | ISO-8601 instant`.  `null` is an ordinary onsite Order.  A non-null instant must resolve to the requesting Event's local operating interval, including the existing overnight Event convention; malformed, offset-less, outside-event, or mismatched-date values fail safely before any Order, inventory, audit, or payment write.
+    - POS may form the candidate instant from the selected Event date/time for presentation convenience, but Operations validates the complete instant and remains the source of truth.  The retired browser-oriented `pickupTime` request member is not an alternate authority or command path.
+    - Idempotency fingerprints include the exact nullable `scheduledPickupAt`.  Product/version/price snapshots, atomic sellable-quantity handling, Order numbers, cancellation/no-show, one-time release, payment, Event Close, daily report, and audit behavior remain the existing Operations behavior.
+    - A scheduled Order is unpaid on creation under the existing policy.  It follows the same confirmed Order, Kitchen production, payment, completion, cancellation, no-show, release, closeout, and daily-report semantics as an onsite Order.
+  - **Kitchen and historical projection**:
+    - Kitchen reads the existing Operations event-order projection only.  Scheduled Orders sort by `scheduledPickupAt` (then existing Order ordering); they are actionable in the existing preparation window and remain visible in the existing upcoming/reservation projection.  Kitchen creates no timing, Order, or Payment authority.
+    - Statistics and closed daily-report evidence retain the stored scheduled-pickup identity.  No current or later Event configuration may reinterpret a persisted Order's scheduled instant.
+  - **Authority and protected boundary**:
+    - Operations Order Service remains the validation, idempotency, transaction, snapshot, inventory, audit, and persistence coordinator.  POS and Kitchen remain API clients; neither writes SQLite nor owns lifecycle logic.
+    - No new route, Order aggregate, Reservation domain, Customer/Kiosk flow, Payment-provider, printer, webhook, physical Inventory, Cost, migration/schema/package, runtime-composition, deployment, or Legacy work is authorized.
+  - **Exact implementation scope**:
+    - PR-OPERATIONS-001 fixes exactly eight implementation paths: Operations types and Order Service; POS page; focused Order unit/API/lifecycle tests; POS/Kitchen E2E; and Architecture Guards.  The existing migration, repository, route, Kitchen page, Event Close, Payment, and persistence contracts remain untouched.
+    - The Architecture Guard must substantively classify Scheduled Pickup command responsibility, permit only the exact eight paths, and reject a simulated unauthorized ninth responsibility path with the same classifier.
+  - **Verification**: focused Order/API/lifecycle and POS/Kitchen E2E tests must prove explicit instant validation, idempotency, same inventory/payment/closeout behavior, Kitchen window projection, and safe no-write failures; plus Architecture Guards, typecheck/lint/build, `npm test`, `npm run verify`, `npm run verify:full`, compiled collection, diff, encoding, newline, whitespace, and exact-scope audit.
+
 - **DECISIONS #086 - Cost Analytics Foundation Read Boundary**
   - **Date**: 2026-08-24.
   - **Status**: APPROVED by Architecture Owner for PR-COST-012 governance, implementation, verification, review, publication, merge, and integration closeout while the exact approved scope remains unchanged.

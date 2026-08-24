@@ -179,3 +179,15 @@ export {
   CostEvidenceReadValidationFailure
 } from "./application/cost-evidence-read-errors.js";
 export { SqliteCostEvidenceReadPort } from "./infrastructure/sqlite-cost-evidence-read-port.js";
+export {
+  RECIPE_COST_HISTORY_CONTRACT_NAME,
+  RECIPE_COST_HISTORY_CONTRACT_VERSION,
+  type RecipeCostHistoryContractV1,
+  type RecipeCostHistoryEntryV1
+} from "./domain/recipe-cost-history-read-contract.js";
+export { RecipeCostHistoryReadService } from "./application/recipe-cost-history-read-service.js";
+export {
+  RecipeCostHistoryReadNotFound,
+  RecipeCostHistoryReadPersistenceFailure,
+  RecipeCostHistoryReadValidationFailure
+} from "./application/recipe-cost-history-read-errors.js";

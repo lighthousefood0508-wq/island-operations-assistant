@@ -1968,9 +1968,8 @@ test("Ingredient 003D Reference Impact stays read-only behind Domain-owned publi
     "536bc44e0c375dd1c008b006bb5be11c9de9cd9301085aed929759d1aaf3720a",
     "003D must preserve the Cost public index as extended only by later Owner-approved Cost exports."
   );
-  assert.equal(
-    costIndexSource.slice(cost003DOffset),
-    `export type {
+  assert.ok(
+    costIndexSource.slice(cost003DOffset).startsWith(`export type {
   CostAcceptedPurchaseReferenceImpactReadModelV1,
   CostIngredientQuoteReferenceImpactReadModelV1,
   CostSnapshotReferenceImpactReadModelV1,
@@ -1989,7 +1988,8 @@ export {
   CostEvidenceReadValidationFailure
 } from "./application/cost-evidence-read-errors.js";
 export { SqliteCostEvidenceReadPort } from "./infrastructure/sqlite-cost-evidence-read-port.js";
-`
+`),
+    "003D must preserve its Cost public-index suffix before later Owner-approved Cost exports."
   );
 
   const routes = path.join(sourceRoot, "server", "app", "routes.ts");
@@ -2975,7 +2975,7 @@ test("PR-COST-009 keeps immutable Recipe Cost Snapshot evidence inside its exact
   ]);
   assert.equal(approvedCost009Paths.size, 28);
   const isCost009Responsibility = (source: string): boolean =>
-    !/CostEvidenceRead/.test(source) && /CostSnapshot(?:Id|Repository|Service|Contract)|RecipeCostSnapshot|cost_recipe_snapshot|costSnapshot(?:Count|Ids)|\/snapshots/.test(source);
+    !/CostEvidenceRead|RecipeCostHistory/.test(source) && /CostSnapshot(?:Id|Repository|Service|Contract)|RecipeCostSnapshot|cost_recipe_snapshot|costSnapshot(?:Count|Ids)|\/snapshots/.test(source);
   assert.equal(isCost009Responsibility("new RecipeCostSnapshotService(repository)"), true);
   const responsibilityFiles = [
     ...filesUnder(sourceRoot, [".ts", ".tsx"]),
@@ -3015,7 +3015,8 @@ test("PR-COST-010 keeps Cost Evidence Read inside its exact Cost-owned responsib
   ]);
   assert.equal(approvedCost010Paths.size, 13);
   const isCost010Responsibility = (source: string): boolean =>
-    /\bCostEvidenceRead(?:Port|Service|ValidationFailure|NotFound|PersistenceFailure)?\b|cost_evidence_read_|\/accepted-purchases/.test(source);
+    !/RecipeCostHistory/.test(source)
+    && /\bCostEvidenceRead(?:Port|Service|ValidationFailure|NotFound|PersistenceFailure)?\b|cost_evidence_read_|\/accepted-purchases/.test(source);
   assert.equal(isCost010Responsibility("new CostEvidenceReadService(reads)"), true);
   const responsibilityFiles = [
     ...filesUnder(sourceRoot, [".ts", ".tsx"]),
@@ -3041,4 +3042,51 @@ test("PR-COST-010 keeps Cost Evidence Read inside its exact Cost-owned responsib
   assert.doesNotMatch(service, /sqlite|DatabaseAdapter|better-sqlite|CostBackOffice|INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM/i);
   assert.doesNotMatch(adapter, /domains\/recipe|cost_purchases|cost_purchase_items|INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM/i);
   assert.match(facade, /costEvidenceReads\.getPurchase/);
+});
+
+test("PR-COST-011 keeps immutable Recipe Cost History inside its exact Cost-owned responsibility boundary", () => {
+  const approvedCost011Paths = new Set([
+    "src/domains/cost/domain/recipe-cost-history-read-contract.ts",
+    "src/domains/cost/application/recipe-cost-history-read-service.ts",
+    "src/domains/cost/application/recipe-cost-history-read-errors.ts",
+    "src/domains/cost/index.ts",
+    "src/server/app/cost-back-office-service.ts",
+    "src/server/app/routes.ts",
+    "src/server/index.ts",
+    "src/tests/recipe-cost-history-read-application.test.ts",
+    "src/tests/recipe-cost-history-read-persistence.integration.test.ts",
+    "src/tests/cost-back-office-api.integration.test.ts",
+    "tests/e2e/cost-back-office.spec.ts",
+    "src/tests/architecture-guards.test.ts"
+  ]);
+  assert.equal(approvedCost011Paths.size, 12);
+  const isCost011Responsibility = (source: string): boolean =>
+    /RecipeCostHistory|recipe_cost_history_|\/cost-history/.test(source);
+  assert.equal(isCost011Responsibility("new RecipeCostHistoryReadService(reads)"), true);
+  const responsibilityFiles = [
+    ...filesUnder(sourceRoot, [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"])
+  ].filter((filename) => isCost011Responsibility(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .sort();
+  const approvedResponsibilityFiles = [...approvedCost011Paths]
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => isCost011Responsibility(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8")))
+    .sort();
+  assert.deepEqual(responsibilityFiles, approvedResponsibilityFiles);
+  assert.equal(approvedCost011Paths.has("src/tests/simulated-recipe-cost-history.ts"), false);
+  assert.equal(
+    isCost011Responsibility("export const timeline = () => new RecipeCostHistoryReadService(port);"),
+    true,
+    "The same classifier must reject a simulated unauthorized thirteenth Recipe Cost History responsibility path."
+  );
+  const service = readFileSync(path.join(sourceRoot, "domains", "cost", "application", "recipe-cost-history-read-service.ts"), "utf8");
+  const facade = readFileSync(path.join(sourceRoot, "server", "app", "cost-back-office-service.ts"), "utf8");
+  const routes = readFileSync(path.join(sourceRoot, "server", "app", "routes.ts"), "utf8");
+  const composition = readFileSync(path.join(sourceRoot, "server", "index.ts"), "utf8");
+  assert.doesNotMatch(service, /sqlite|DatabaseAdapter|better-sqlite|CostBackOffice|INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|evaluate|normalize/i);
+  assert.match(facade, /recipeCostHistory\.list/);
+  assert.match(routes, /cost-history[\s\S]{0,80}latest/);
+  assert.match(composition, /new RecipeCostHistoryReadService\(costEvidenceReadPort\)/);
 });

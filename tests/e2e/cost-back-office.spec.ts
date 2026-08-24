@@ -118,6 +118,18 @@ test("Cost Evidence Read remains an API-only operational bridge without a new Co
   await expect(page.getByRole("heading", { name: "成本中心" })).toBeVisible();
 });
 
+test("Recipe Cost History remains an API-only immutable Snapshot timeline", async ({ page }) => {
+  const response = await page.request.get(
+    "/api/admin/cost/recipes/recipe_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/cost-history"
+  );
+  expect(response.status()).toBe(200);
+  const body = await response.json();
+  expect(body.data.contractName).toBe("RecipeCostHistory");
+  expect(body.data.entries).toEqual([]);
+  await page.goto("/admin/cost");
+  await expect(page.getByRole("heading", { name: "成本中心" })).toBeVisible();
+});
+
 test("Cost Back Office keeps CanonicalIngredientCreation on its existing facade", async ({ page }) => {
   await page.goto("/admin/cost");
   const creationResponse = page.waitForResponse((response) =>

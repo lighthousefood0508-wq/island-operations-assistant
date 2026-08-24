@@ -2975,7 +2975,7 @@ test("PR-COST-009 keeps immutable Recipe Cost Snapshot evidence inside its exact
   ]);
   assert.equal(approvedCost009Paths.size, 28);
   const isCost009Responsibility = (source: string): boolean =>
-    !/CostEvidenceRead|RecipeCostHistory/.test(source) && /CostSnapshot(?:Id|Repository|Service|Contract)|RecipeCostSnapshot|cost_recipe_snapshot|costSnapshot(?:Count|Ids)|\/snapshots/.test(source);
+    !/CostEvidenceRead|RecipeCostHistory|CostEvidenceBackOfficeBridge|cost-evidence-bridge/.test(source) && /CostSnapshot(?:Id|Repository|Service|Contract)|RecipeCostSnapshot|cost_recipe_snapshot|costSnapshot(?:Count|Ids)|\/snapshots/.test(source);
   assert.equal(isCost009Responsibility("new RecipeCostSnapshotService(repository)"), true);
   const responsibilityFiles = [
     ...filesUnder(sourceRoot, [".ts", ".tsx"]),
@@ -3061,7 +3061,7 @@ test("PR-COST-011 keeps immutable Recipe Cost History inside its exact Cost-owne
   ]);
   assert.equal(approvedCost011Paths.size, 12);
   const isCost011Responsibility = (source: string): boolean =>
-    !/RecipeCostAnalytics/.test(source)
+    !/RecipeCostAnalytics|CostEvidenceBackOfficeBridge|cost-evidence-bridge/.test(source)
     && /RecipeCostHistory|recipe_cost_history_|\/cost-history/.test(source);
   assert.equal(isCost011Responsibility("new RecipeCostHistoryReadService(reads)"), true);
   const responsibilityFiles = [
@@ -3108,7 +3108,8 @@ test("PR-COST-012 keeps Cost Analytics inside its exact immutable-History respon
   ]);
   assert.equal(approvedCost012Paths.size, 11);
   const isCost012Responsibility = (source: string): boolean =>
-    /RecipeCostAnalytics|recipe_cost_analytics_|\/analytics/.test(source);
+    !/CostEvidenceBackOfficeBridge|cost-evidence-bridge/.test(source)
+    && /RecipeCostAnalytics|recipe_cost_analytics_|\/analytics/.test(source);
   assert.equal(isCost012Responsibility("new RecipeCostAnalyticsService(history)"), true);
   const responsibilityFiles = [
     ...filesUnder(sourceRoot, [".ts", ".tsx"]),
@@ -3136,4 +3137,42 @@ test("PR-COST-012 keeps Cost Analytics inside its exact immutable-History respon
   assert.match(facade, /recipeCostAnalytics\.get/);
   assert.match(routes, /\/analytics/);
   assert.match(composition, /new RecipeCostAnalyticsService\(recipeCostHistory\)/);
+});
+
+test("PR-COST-013 keeps the Cost Evidence Back Office bridge inside its exact UI-only responsibility boundary", () => {
+  const approvedCost013Paths = new Set([
+    "src/web/cost/page.ts",
+    "tests/e2e/cost-back-office.spec.ts",
+    "src/tests/architecture-guards.test.ts"
+  ]);
+  assert.equal(approvedCost013Paths.size, 3);
+  const isCost013Responsibility = (source: string): boolean =>
+    /CostEvidenceBackOfficeBridge|cost-evidence-bridge/.test(source);
+  assert.equal(isCost013Responsibility('<section data-cost-evidence-bridge>'), true);
+  const responsibilityFiles = [
+    ...filesUnder(sourceRoot, [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"])
+  ].filter((filename) => isCost013Responsibility(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .sort();
+  const approvedResponsibilityFiles = [...approvedCost013Paths]
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => isCost013Responsibility(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8")))
+    .sort();
+  assert.deepEqual(responsibilityFiles, approvedResponsibilityFiles);
+  assert.equal(approvedCost013Paths.has("src/web/cost/evidence-bridge.ts"), false);
+  assert.equal(
+    isCost013Responsibility('export const CostEvidenceBackOfficeBridge = () => null;'),
+    true,
+    "The same classifier must reject a simulated unauthorized fourth Cost Evidence Back Office responsibility path."
+  );
+  const page = readFileSync(path.join(sourceRoot, "web", "cost", "page.ts"), "utf8");
+  assert.match(page, /\/api\/admin\/cost\/suppliers/);
+  assert.match(page, /\/api\/admin\/cost\/purchases/);
+  assert.match(page, /\/acceptances/);
+  assert.match(page, /\/snapshots/);
+  assert.match(page, /\/cost-history/);
+  assert.match(page, /\/analytics/);
+  assert.doesNotMatch(page, /sqlite|DatabaseAdapter|better-sqlite|CostEvidenceReadService|RecipeCostHistoryReadService|RecipeCostAnalyticsService|INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|cost_purchases|cost_purchase_items/i);
 });

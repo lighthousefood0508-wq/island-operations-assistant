@@ -22,6 +22,25 @@
 
 ## Approval Register
 
+- **DECISIONS #088 - Payment and Closeout Reconciliation Boundary**
+  - **Date**: 2026-08-24.
+  - **Status**: APPROVED by Architecture Owner for PR-OPERATIONS-002 governance, implementation, verification, review, publication, merge, and integration closeout while the exact approved scope remains unchanged.
+  - **Single responsibility**: Reconcile Operations-owned client-reported paid-payment evidence against the operator's declared Event closeout receipts.  This is an Event Close gate and immutable close evidence; it is not payment-provider settlement, a refund flow, or a second Payment authority.
+  - **Deterministic reconciliation semantics**:
+    - Expected receipts are the exact sum of this Event's existing `paid` Operations Payment evidence, partitioned by `CASH` and `LINE_PAY`.  They are never inferred from Order totals, browser state, or a provider feed.
+    - Declared receipts are the existing saved Event closeout `cashReceived` and `linePayReceived` values.  Each method's variance is `declared - expected`; methods reconcile only when both variances are zero.  `otherReceived` remains a separately declared closeout amount and cannot offset, conceal, or reconcile a Cash or LINE Pay variance.
+    - An exact match closes normally.  A variance blocks Event Close unless the close command contains an explicit confirmed exception with a nonblank bounded reason.  An accepted exception neither adjusts the declaration nor rewrites any Payment, Order, closeout, or inventory fact.
+    - The final Daily Report pins expected, declared, per-method variances, outcome (`matched` or `exception_accepted`), and any exception reason/actor.  This snapshot and its existing Event Close audit are immutable evidence.  Existing pre-#088 Daily Reports are represented as having no reconciliation snapshot rather than being rewritten.
+  - **Authority and lifecycle boundary**:
+    - Operations continues to own Orders, Payments, Event closeout declarations, Event Close, Daily Reports, and audit.  The existing Lifecycle Service orchestrates the close gate; its repository reads only Operations payment and closeout evidence in the same SQLite transaction.
+    - Statistics and the existing closeout page may display expected-versus-declared candidates and collect an explicit exception acknowledgement, but the browser does not decide reconciliation.  The existing `POST /api/events/:eventId/close` command remains the only close operation and returns its existing Daily Report shape extended with the pinned reconciliation snapshot.
+    - Existing unresolved-Order and complete-inventory-closeout gates remain required.  Reconciliation runs after those existing checks and before the Event Close write.  Replays return the already-pinned Daily Report and do not re-evaluate later Payments or declarations.
+  - **Protected boundary and exact scope**:
+    - PR-OPERATIONS-002 fixes exactly seven implementation paths: Operations types, Lifecycle Service and repository, the existing statistics/closeout page, focused lifecycle API and E2E tests, and Architecture Guards.
+    - No route, runtime composition, migration/schema, Payment repository/service, Order lifecycle, provider integration, refund, tax, printer, webhook, physical Inventory, Cost, deployment, or Legacy authority change is authorized.
+    - The Architecture Guard must substantively classify Payment/Closeout reconciliation responsibility, permit only the exact seven paths, and reject a simulated unauthorized eighth substantive responsibility path with the same classifier.
+  - **Verification**: focused API/E2E coverage must prove method-specific exact match, blocked variance, explicit exception evidence, immutable replay, zero-write blocking, existing unresolved/inventory gates, and safe errors; plus Architecture Guards, typecheck/lint/build, `npm test`, `npm run verify`, `npm run verify:full`, compiled collection, diff, encoding, newline, whitespace, and exact-scope audit.
+
 - **DECISIONS #087 - Scheduled Pickup Order Lifecycle Boundary**
   - **Date**: 2026-08-24.
   - **Status**: APPROVED by Architecture Owner for PR-OPERATIONS-001 governance, implementation, verification, review, publication, merge, and integration closeout while the exact approved scope remains unchanged.

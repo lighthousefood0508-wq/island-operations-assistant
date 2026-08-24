@@ -191,3 +191,18 @@ export {
   RecipeCostHistoryReadPersistenceFailure,
   RecipeCostHistoryReadValidationFailure
 } from "./application/recipe-cost-history-read-errors.js";
+export {
+  RECIPE_COST_ANALYTICS_CONTRACT_NAME,
+  RECIPE_COST_ANALYTICS_CONTRACT_VERSION,
+  type CostAnalyticsDirectionV1,
+  type CostAnalyticsSupplierVisibilityV1,
+  type ExactCostChangeV1,
+  type RecipeCostAnalyticsChangeV1,
+  type RecipeCostAnalyticsContractV1,
+  type RecipeCostAnalyticsSnapshotV1
+} from "./domain/recipe-cost-analytics-contract.js";
+export { RecipeCostAnalyticsService } from "./application/recipe-cost-analytics-service.js";
+export {
+  RecipeCostAnalyticsReadFailure,
+  RecipeCostAnalyticsValidationFailure
+} from "./application/recipe-cost-analytics-errors.js";

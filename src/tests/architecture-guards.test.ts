@@ -2903,7 +2903,7 @@ test("PR-COST-008 keeps actual-price-first valuation policy inside its exact res
   ]);
   assert.equal(approvedCost008Paths.size, 13);
   const isCost008Responsibility = (source: string): boolean =>
-    !/CostEvidenceRead/.test(source) && !/CostSnapshot|cost_recipe_snapshot|\/snapshots/.test(source) && /VAL-2|ActualPurchase|QuoteFallback|findEligibleAcceptedPurchaseLines|AMBIGUOUS_ACCEPTED_PURCHASE_COST/.test(source);
+    !/CostEvidenceRead|RecipeCostAnalytics/.test(source) && !/CostSnapshot|cost_recipe_snapshot|\/snapshots/.test(source) && /VAL-2|ActualPurchase|QuoteFallback|findEligibleAcceptedPurchaseLines|AMBIGUOUS_ACCEPTED_PURCHASE_COST/.test(source);
   assert.equal(
     isCost008Responsibility("reader.findEligibleAcceptedPurchaseLines(ingredientId, valuedAt)"),
     true
@@ -3061,7 +3061,8 @@ test("PR-COST-011 keeps immutable Recipe Cost History inside its exact Cost-owne
   ]);
   assert.equal(approvedCost011Paths.size, 12);
   const isCost011Responsibility = (source: string): boolean =>
-    /RecipeCostHistory|recipe_cost_history_|\/cost-history/.test(source);
+    !/RecipeCostAnalytics/.test(source)
+    && /RecipeCostHistory|recipe_cost_history_|\/cost-history/.test(source);
   assert.equal(isCost011Responsibility("new RecipeCostHistoryReadService(reads)"), true);
   const responsibilityFiles = [
     ...filesUnder(sourceRoot, [".ts", ".tsx"]),
@@ -3089,4 +3090,50 @@ test("PR-COST-011 keeps immutable Recipe Cost History inside its exact Cost-owne
   assert.match(facade, /recipeCostHistory\.list/);
   assert.match(routes, /cost-history[\s\S]{0,80}latest/);
   assert.match(composition, /new RecipeCostHistoryReadService\(costEvidenceReadPort\)/);
+});
+
+test("PR-COST-012 keeps Cost Analytics inside its exact immutable-History responsibility boundary", () => {
+  const approvedCost012Paths = new Set([
+    "src/domains/cost/domain/recipe-cost-analytics-contract.ts",
+    "src/domains/cost/application/recipe-cost-analytics-service.ts",
+    "src/domains/cost/application/recipe-cost-analytics-errors.ts",
+    "src/domains/cost/index.ts",
+    "src/server/app/cost-back-office-service.ts",
+    "src/server/app/routes.ts",
+    "src/server/index.ts",
+    "src/tests/recipe-cost-analytics-application.test.ts",
+    "src/tests/cost-back-office-api.integration.test.ts",
+    "tests/e2e/cost-back-office.spec.ts",
+    "src/tests/architecture-guards.test.ts"
+  ]);
+  assert.equal(approvedCost012Paths.size, 11);
+  const isCost012Responsibility = (source: string): boolean =>
+    /RecipeCostAnalytics|recipe_cost_analytics_|\/analytics/.test(source);
+  assert.equal(isCost012Responsibility("new RecipeCostAnalyticsService(history)"), true);
+  const responsibilityFiles = [
+    ...filesUnder(sourceRoot, [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"])
+  ].filter((filename) => isCost012Responsibility(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .sort();
+  const approvedResponsibilityFiles = [...approvedCost012Paths]
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => isCost012Responsibility(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8")))
+    .sort();
+  assert.deepEqual(responsibilityFiles, approvedResponsibilityFiles);
+  assert.equal(approvedCost012Paths.has("src/tests/simulated-cost-analytics.ts"), false);
+  assert.equal(
+    isCost012Responsibility("export const analytics = () => new RecipeCostAnalyticsService(history);"),
+    true,
+    "The same classifier must reject a simulated unauthorized twelfth Cost Analytics responsibility path."
+  );
+  const service = readFileSync(path.join(sourceRoot, "domains", "cost", "application", "recipe-cost-analytics-service.ts"), "utf8");
+  const facade = readFileSync(path.join(sourceRoot, "server", "app", "cost-back-office-service.ts"), "utf8");
+  const routes = readFileSync(path.join(sourceRoot, "server", "app", "routes.ts"), "utf8");
+  const composition = readFileSync(path.join(sourceRoot, "server", "index.ts"), "utf8");
+  assert.doesNotMatch(service, /sqlite|DatabaseAdapter|better-sqlite|CostBackOffice|INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|evaluate|normalize|CostEvidenceReadPort/i);
+  assert.match(facade, /recipeCostAnalytics\.get/);
+  assert.match(routes, /\/analytics/);
+  assert.match(composition, /new RecipeCostAnalyticsService\(recipeCostHistory\)/);
 });

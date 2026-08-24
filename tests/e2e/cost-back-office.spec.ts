@@ -130,6 +130,19 @@ test("Recipe Cost History remains an API-only immutable Snapshot timeline", asyn
   await expect(page.getByRole("heading", { name: "成本中心" })).toBeVisible();
 });
 
+test("Cost Analytics remains an API-only projection of immutable Recipe History", async ({ page }) => {
+  const response = await page.request.get(
+    "/api/admin/cost/recipes/recipe_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/analytics"
+  );
+  expect(response.status()).toBe(200);
+  const body = await response.json();
+  expect(body.data.contractName).toBe("RecipeCostAnalytics");
+  expect(body.data.snapshots).toEqual([]);
+  expect(body.data.latest).toBeNull();
+  await page.goto("/admin/cost");
+  await expect(page.getByRole("heading", { name: "成本中心" })).toBeVisible();
+});
+
 test("Cost Back Office keeps CanonicalIngredientCreation on its existing facade", async ({ page }) => {
   await page.goto("/admin/cost");
   const creationResponse = page.waitForResponse((response) =>

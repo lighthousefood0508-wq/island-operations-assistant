@@ -1,5 +1,5 @@
 import type { DatabaseAdapter } from "../../../shared/database/database-adapter.js";
-import type { DailyReport, OrderStatus, PaymentMethod, PaymentStatus, ProductionStatus } from "../domain/types.js";
+import type { DailyReport, OrderStatus, PaymentCloseoutReconciliation, PaymentMethod, PaymentStatus, ProductionStatus } from "../domain/types.js";
 
 type OrderRow = { order_id: string; order_number: string; event_id: string; source: string; created_at: string; scheduled_pickup_at: string | null; customer_name: string | null; customer_phone_tail: string | null; payment_method: PaymentMethod | null; notes: string | null; order_status: OrderStatus; payment_status: PaymentStatus; production_status: ProductionStatus; cancellation_reason: string | null; grand_total: number; paid_total: number; served_at: string | null };
 type EventRow = { event_id: string; event_code: string; display_name: string; date: string; start_time: string; end_time: string; status: string };
@@ -7,6 +7,12 @@ type ClosureRow = { daily_report_json: string };
 type CloseoutRow = { cash_received: number; line_pay_received: number; other_received: number; waste_amount: number; notes: string; updated_at: string };
 type CloseoutItemRow = { product_id: string; product_version_id: string; remaining_quantity: number; waste_quantity: number; retained_quantity: number; updated_at: string };
 type AuditRow = { after_json: string | null };
+
+export type PaymentCloseoutReconciliationCandidate = Readonly<{
+  expected: Readonly<{ cash: number; linePay: number }>;
+  declared: Readonly<{ cash: number; linePay: number; other: number }>;
+  variance: Readonly<{ cash: number; linePay: number }>;
+}>;
 
 export type LifecycleOrder = Readonly<{ orderId: string; orderNumber: string; eventId: string; source: string; createdAt: string; scheduledPickupAt: string | null; customerName: string | null; customerPhoneTail: string | null; paymentMethod: PaymentMethod | null; notes: string | null; orderStatus: OrderStatus; paymentStatus: PaymentStatus; productionStatus: ProductionStatus; cancellationReason: string | null; grandTotal: number; paidTotal: number; servedAt: string | null; items: readonly Readonly<{ posName: string; quantity: number; notes: string | null }>[] }>;
 
@@ -51,7 +57,30 @@ export class LifecycleRepository {
     return true;
   }
   findEvent(eventId: string): EventRow | undefined { return this.database.queryOne<EventRow>("SELECT event_id, event_code, display_name, date, start_time, end_time, status FROM operations_events WHERE event_id = ?", [eventId]); }
-  findClosure(eventId: string): DailyReport | undefined { const row = this.database.queryOne<ClosureRow>("SELECT daily_report_json FROM operations_event_closures WHERE event_id = ?", [eventId]); return row ? JSON.parse(row.daily_report_json) as DailyReport : undefined; }
+  findClosure(eventId: string): DailyReport | undefined {
+    const row = this.database.queryOne<ClosureRow>("SELECT daily_report_json FROM operations_event_closures WHERE event_id = ?", [eventId]);
+    if (!row) return undefined;
+    const report = JSON.parse(row.daily_report_json) as Omit<DailyReport, "paymentReconciliation"> & Partial<Pick<DailyReport, "paymentReconciliation">>;
+    return { ...report, paymentReconciliation: report.paymentReconciliation ?? null };
+  }
+  private paymentTotals(eventId: string): Readonly<{ cash: number; linePay: number; total: number }> {
+    const row = this.database.queryOne<{ cash: number; line_pay: number; total: number }>(`SELECT
+      COALESCE(SUM(CASE WHEN p.payment_method = 'CASH' AND p.payment_status = 'paid' THEN p.amount ELSE 0 END), 0) AS cash,
+      COALESCE(SUM(CASE WHEN p.payment_method = 'LINE_PAY' AND p.payment_status = 'paid' THEN p.amount ELSE 0 END), 0) AS line_pay,
+      COALESCE(SUM(CASE WHEN p.payment_status = 'paid' THEN p.amount ELSE 0 END), 0) AS total
+      FROM operations_payments p JOIN operations_orders o ON o.order_id = p.order_id WHERE o.event_id = ?`, [eventId]) ?? { cash: 0, line_pay: 0, total: 0 };
+    return { cash: row.cash, linePay: row.line_pay, total: row.total };
+  }
+  getPaymentCloseoutReconciliation(eventId: string): PaymentCloseoutReconciliationCandidate | undefined {
+    const closeout = this.database.queryOne<CloseoutRow>("SELECT cash_received, line_pay_received, other_received, waste_amount, notes, updated_at FROM operations_event_closeouts WHERE event_id = ?", [eventId]);
+    if (!closeout) return undefined;
+    const payments = this.paymentTotals(eventId);
+    return {
+      expected: { cash: payments.cash, linePay: payments.linePay },
+      declared: { cash: closeout.cash_received, linePay: closeout.line_pay_received, other: closeout.other_received },
+      variance: { cash: closeout.cash_received - payments.cash, linePay: closeout.line_pay_received - payments.linePay }
+    };
+  }
   getStatistics(eventId: string): Record<string, unknown> {
     const event = this.findEvent(eventId); if (!event) return {};
     const totals = this.database.queryOne<{ orders: number; amount: number; unresolved: number; cancelled: number; no_show: number; scheduled: number }>(`SELECT COUNT(*) AS orders, COALESCE(SUM(CASE WHEN order_status != 'cancelled' THEN grand_total ELSE 0 END), 0) AS amount, SUM(CASE WHEN order_status NOT IN ('completed','cancelled') THEN 1 ELSE 0 END) AS unresolved, SUM(CASE WHEN order_status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled, SUM(CASE WHEN cancellation_reason = 'no_show' THEN 1 ELSE 0 END) AS no_show, SUM(CASE WHEN scheduled_pickup_at IS NOT NULL AND order_status != 'cancelled' THEN 1 ELSE 0 END) AS scheduled FROM operations_orders WHERE event_id = ?`, [eventId]) ?? { orders: 0, amount: 0, unresolved: 0, cancelled: 0, no_show: 0, scheduled: 0 };
@@ -59,12 +88,8 @@ export class LifecycleRepository {
     const inventory = this.database.queryMany<{ product_id: string; product_version_id: string; pos_name: string; remaining: number }>("SELECT i.product_id, i.product_version_id, COALESCE(p.pos_name, i.product_id) AS pos_name, i.planned_quantity - i.reserved_quantity - i.sold_quantity AS remaining FROM operations_sellable_inventory i LEFT JOIN operations_product_copies p ON p.product_version_id = i.product_version_id WHERE i.event_id = ?", [eventId]);
     const closeout = this.database.queryOne<CloseoutRow>("SELECT cash_received, line_pay_received, other_received, waste_amount, notes, updated_at FROM operations_event_closeouts WHERE event_id = ?", [eventId]);
     const closeoutItems = this.database.queryMany<CloseoutItemRow>("SELECT product_id, product_version_id, remaining_quantity, waste_quantity, retained_quantity, updated_at FROM operations_event_closeout_items WHERE event_id = ? ORDER BY product_version_id", [eventId]);
-    const payments = this.database.queryOne<{ cash: number; line_pay: number; total: number }>(`SELECT
-      COALESCE(SUM(CASE WHEN p.payment_method = 'CASH' AND p.payment_status = 'paid' THEN p.amount ELSE 0 END), 0) AS cash,
-      COALESCE(SUM(CASE WHEN p.payment_method = 'LINE_PAY' AND p.payment_status = 'paid' THEN p.amount ELSE 0 END), 0) AS line_pay,
-      COALESCE(SUM(CASE WHEN p.payment_status = 'paid' THEN p.amount ELSE 0 END), 0) AS total
-      FROM operations_payments p JOIN operations_orders o ON o.order_id = p.order_id WHERE o.event_id = ?`, [eventId]) ?? { cash: 0, line_pay: 0, total: 0 };
-    return { event, orderCount: totals.orders, scheduledOrderCount: totals.scheduled ?? 0, ledgerAmount: totals.amount, receivedAmount: payments.total, cashReceivedAmount: payments.cash, linePayReceivedAmount: payments.line_pay, unresolvedCount: totals.unresolved ?? 0, cancelledCount: totals.cancelled ?? 0, noShowCount: totals.no_show ?? 0, products, inventory: inventory.map((item) => ({ productId: item.product_id, productVersionId: item.product_version_id, posName: item.pos_name, remainingQuantity: item.remaining })), closeout: closeout ? { cashReceived: closeout.cash_received, linePayReceived: closeout.line_pay_received, otherReceived: closeout.other_received, wasteAmount: closeout.waste_amount, notes: closeout.notes, updatedAt: closeout.updated_at } : null, closeoutItems: closeoutItems.map((item) => ({ productId: item.product_id, productVersionId: item.product_version_id, remainingQuantity: item.remaining_quantity, wasteQuantity: item.waste_quantity, retainedQuantity: item.retained_quantity, updatedAt: item.updated_at })) };
+    const payments = this.paymentTotals(eventId);
+    return { event, orderCount: totals.orders, scheduledOrderCount: totals.scheduled ?? 0, ledgerAmount: totals.amount, receivedAmount: payments.total, cashReceivedAmount: payments.cash, linePayReceivedAmount: payments.linePay, paymentReceiptExpected: { cash: payments.cash, linePay: payments.linePay }, unresolvedCount: totals.unresolved ?? 0, cancelledCount: totals.cancelled ?? 0, noShowCount: totals.no_show ?? 0, products, inventory: inventory.map((item) => ({ productId: item.product_id, productVersionId: item.product_version_id, posName: item.pos_name, remainingQuantity: item.remaining })), closeout: closeout ? { cashReceived: closeout.cash_received, linePayReceived: closeout.line_pay_received, otherReceived: closeout.other_received, wasteAmount: closeout.waste_amount, notes: closeout.notes, updatedAt: closeout.updated_at } : null, closeoutItems: closeoutItems.map((item) => ({ productId: item.product_id, productVersionId: item.product_version_id, remainingQuantity: item.remaining_quantity, wasteQuantity: item.waste_quantity, retainedQuantity: item.retained_quantity, updatedAt: item.updated_at })) };
   }
   saveCloseout(eventId: string, input: { cashReceived: number; linePayReceived: number; otherReceived: number; wasteAmount: number; notes: string; updatedAt: string; operator: string; auditLogId: string }): void {
     this.database.execute(`INSERT INTO operations_event_closeouts (event_id, cash_received, line_pay_received, other_received, waste_amount, notes, updated_at, updated_by, audit_log_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(event_id) DO UPDATE SET cash_received=excluded.cash_received, line_pay_received=excluded.line_pay_received, other_received=excluded.other_received, waste_amount=excluded.waste_amount, notes=excluded.notes, updated_at=excluded.updated_at, updated_by=excluded.updated_by, audit_log_id=excluded.audit_log_id`, [eventId, input.cashReceived, input.linePayReceived, input.otherReceived, input.wasteAmount, input.notes, input.updatedAt, input.operator, input.auditLogId]);
@@ -82,7 +107,7 @@ export class LifecycleRepository {
     return inventory.length === items;
   }
   unresolvedCount(eventId: string): number { return this.database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_orders WHERE event_id = ? AND order_status NOT IN ('completed', 'cancelled')", [eventId])?.count ?? 0; }
-  buildReport(event: EventRow, closedAt: string): DailyReport {
+  buildReport(event: EventRow, closedAt: string, paymentReconciliation: PaymentCloseoutReconciliation): DailyReport {
     const counts = this.database.queryOne<{ total: number; completed: number; cancelled: number; no_show: number }>(`SELECT COUNT(*) AS total,
       SUM(CASE WHEN order_status = 'completed' THEN 1 ELSE 0 END) AS completed,
       SUM(CASE WHEN order_status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled,
@@ -91,11 +116,8 @@ export class LifecycleRepository {
     const products = this.database.queryMany<{ product_id: string; pos_name_snapshot: string; quantity: number; revenue: number }>(`SELECT i.product_id, i.pos_name_snapshot, SUM(i.quantity) AS quantity, SUM(i.line_total) AS revenue
       FROM operations_order_items i JOIN operations_orders o ON o.order_id = i.order_id
       WHERE o.event_id = ? AND o.order_status = 'completed' GROUP BY i.product_id, i.pos_name_snapshot ORDER BY i.pos_name_snapshot`, [event.event_id]);
-    const payments = this.database.queryOne<{ cash: number; line_pay: number }>(`SELECT
-      COALESCE(SUM(CASE WHEN p.payment_method = 'CASH' AND p.payment_status = 'paid' THEN p.amount ELSE 0 END), 0) AS cash,
-      COALESCE(SUM(CASE WHEN p.payment_method = 'LINE_PAY' AND p.payment_status = 'paid' THEN p.amount ELSE 0 END), 0) AS line_pay
-      FROM operations_payments p JOIN operations_orders o ON o.order_id = p.order_id WHERE o.event_id = ?`, [event.event_id]) ?? { cash: 0, line_pay: 0 };
-    return { event: { eventId: event.event_id, eventCode: event.event_code, displayName: event.display_name, date: event.date, startTime: event.start_time, endTime: event.end_time }, orders: { total: counts.total, completed: counts.completed ?? 0, cancelled: counts.cancelled ?? 0, noShow: counts.no_show ?? 0 }, products: products.map((item) => ({ productId: item.product_id, posName: item.pos_name_snapshot, quantity: item.quantity, revenue: item.revenue })), payments: { cash: payments.cash, linePay: payments.line_pay, other: 0 }, closedAt };
+    const payments = this.paymentTotals(event.event_id);
+    return { event: { eventId: event.event_id, eventCode: event.event_code, displayName: event.display_name, date: event.date, startTime: event.start_time, endTime: event.end_time }, orders: { total: counts.total, completed: counts.completed ?? 0, cancelled: counts.cancelled ?? 0, noShow: counts.no_show ?? 0 }, products: products.map((item) => ({ productId: item.product_id, posName: item.pos_name_snapshot, quantity: item.quantity, revenue: item.revenue })), payments: { cash: payments.cash, linePay: payments.linePay, other: 0 }, paymentReconciliation, closedAt };
   }
   insertClosure(eventId: string, report: DailyReport, timestamp: string, operator: string, auditLogId: string): void { this.database.execute("INSERT INTO operations_event_closures (event_id, closed_at, operator, daily_report_json, audit_log_id) VALUES (?, ?, ?, ?, ?)", [eventId, timestamp, operator, JSON.stringify(report), auditLogId]); }
   closeEvent(eventId: string, timestamp: string): boolean { return this.database.execute("UPDATE operations_events SET status = 'closed', updated_at = ? WHERE event_id = ? AND status IN ('open', 'paused')", [timestamp, eventId]).changes === 1; }

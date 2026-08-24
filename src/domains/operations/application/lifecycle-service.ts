@@ -1,7 +1,7 @@
 import { HttpError } from "../../../shared/errors/http-error.js";
 import { createId } from "../../../shared/utils/ids.js";
-import type { DailyReport, ProductionStatus } from "../domain/types.js";
-import { LifecycleRepository, type LifecycleOrder } from "../infrastructure/lifecycle-repository.js";
+import type { DailyReport, PaymentCloseoutReconciliation, ProductionStatus } from "../domain/types.js";
+import { LifecycleRepository, type LifecycleOrder, type PaymentCloseoutReconciliationCandidate } from "../infrastructure/lifecycle-repository.js";
 
 const productionTransitions: Readonly<Record<ProductionStatus, readonly ProductionStatus[]>> = {
   not_started: ["queued", "preparing"],
@@ -16,6 +16,18 @@ function operator(value: unknown): string { return typeof value === "string" && 
 function deviceId(value: unknown): string { return typeof value === "string" && value.trim() ? value.trim() : "unknown"; }
 function terminal(status: "draft" | "submitted" | "confirmed" | "completed" | "cancelled"): boolean { return status === "completed" || status === "cancelled"; }
 function isProductionStatus(value: unknown): value is ProductionStatus { return typeof value === "string" && Object.hasOwn(productionTransitions, value); }
+// PaymentCloseoutReconciliationBoundary: only Operations can accept a close exception.
+function reconciliation(input: unknown, candidate: PaymentCloseoutReconciliationCandidate, actor: string): PaymentCloseoutReconciliation {
+  const mismatch = candidate.variance.cash !== 0 || candidate.variance.linePay !== 0;
+  if (!mismatch) return { ...candidate, outcome: "matched", exception: null };
+  const value = (input as Record<string, unknown>)?.reconciliationException;
+  if (!value || typeof value !== "object" || Array.isArray(value) || (value as Record<string, unknown>).confirmed !== true) {
+    throw new HttpError(409, "PAYMENT_RECONCILIATION_EXCEPTION_REQUIRED", "Cash and LINE Pay receipt differences require an explicit close exception.", { cashVariance: String(candidate.variance.cash), linePayVariance: String(candidate.variance.linePay) });
+  }
+  const reason = (value as Record<string, unknown>).reason;
+  if (typeof reason !== "string" || !reason.trim() || reason.trim().length > 500) throw new HttpError(400, "PAYMENT_RECONCILIATION_EXCEPTION_INVALID", "A reconciliation exception requires a nonblank reason of at most 500 characters.", { field: "reconciliationException.reason" });
+  return { ...candidate, outcome: "exception_accepted", exception: { reason: reason.trim(), actor } };
+}
 
 export class LifecycleService {
   constructor(private readonly repository: LifecycleRepository) {}
@@ -129,7 +141,10 @@ export class LifecycleService {
       if (event.status !== "open" && event.status !== "paused") throw new HttpError(409, "EVENT_NOT_OPERATIONAL", "Only an OPEN or PAUSED Event can be closed.");
       const unresolved = this.repository.unresolvedCount(eventId); if (unresolved) throw new HttpError(409, "EVENT_CLOSE_BLOCKED", "Resolve all non-terminal Orders first.", { unresolved: String(unresolved) });
       if (!this.repository.hasCompleteCloseout(eventId)) throw new HttpError(409, "EVENT_CLOSEOUT_REQUIRED", "Complete the per-product waste and retained closeout before closing the Event.");
-      const timestamp = now(); const report = this.repository.buildReport(event, timestamp); const auditLogId = createId("audit_");
+      const candidate = this.repository.getPaymentCloseoutReconciliation(eventId);
+      if (!candidate) throw new HttpError(409, "EVENT_CLOSEOUT_REQUIRED", "Complete the Event closeout before closing the Event.");
+      const paymentReconciliation = reconciliation(input, candidate, actor);
+      const timestamp = now(); const report = this.repository.buildReport(event, timestamp, paymentReconciliation); const auditLogId = createId("audit_");
       this.repository.insertAudit({ auditLogId, entityType: "event", entityId: eventId, action: "event_closed", metadata: { operator: actor, eventId, report }, occurredAt: timestamp });
       this.repository.insertClosure(eventId, report, timestamp, actor, auditLogId);
       if (!this.repository.closeEvent(eventId, timestamp)) throw new HttpError(409, "EVENT_CONCURRENTLY_CLOSED", "Event changed concurrently; refresh and retry.");

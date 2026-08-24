@@ -124,6 +124,14 @@ export type ConfirmPaymentResult = Readonly<{
   replayed: boolean;
 }>;
 
+export type PaymentCloseoutReconciliation = Readonly<{
+  expected: Readonly<{ cash: number; linePay: number }>;
+  declared: Readonly<{ cash: number; linePay: number; other: number }>;
+  variance: Readonly<{ cash: number; linePay: number }>;
+  outcome: "matched" | "exception_accepted";
+  exception: Readonly<{ reason: string; actor: string }> | null;
+}>;
+
 export const PRODUCTION_STATUSES = ["not_started", "queued", "preparing", "ready", "served", "cancelled"] as const;
 export type ProductionStatus = (typeof PRODUCTION_STATUSES)[number];
 
@@ -132,5 +140,7 @@ export type DailyReport = Readonly<{
   orders: Readonly<{ total: number; completed: number; cancelled: number; noShow: number }>;
   products: readonly Readonly<{ productId: string; posName: string; quantity: number; revenue: number }>[];
   payments: Readonly<{ cash: number; linePay: number; other: number }>;
+  // PaymentCloseoutReconciliationBoundary: immutable once Event Close succeeds.
+  paymentReconciliation: PaymentCloseoutReconciliation | null;
   closedAt: string;
 }>;

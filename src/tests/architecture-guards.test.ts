@@ -3218,3 +3218,49 @@ test("PR-OPERATIONS-001 keeps Scheduled Pickup inside its exact Operations comma
   assert.match(kitchen, /scheduledPickupAt/);
   assert.doesNotMatch(service, /sqlite|DatabaseAdapter|better-sqlite|INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM/i);
 });
+
+test("PR-OPERATIONS-002 keeps Payment Closeout Reconciliation inside its exact Operations boundary", () => {
+  const approvedOperations002Paths = new Set([
+    "src/domains/operations/domain/types.ts",
+    "src/domains/operations/application/lifecycle-service.ts",
+    "src/domains/operations/infrastructure/lifecycle-repository.ts",
+    "src/web/statistics/page.ts",
+    "src/tests/lifecycle-api.integration.test.ts",
+    "tests/e2e/lifecycle.spec.ts",
+    "tests/e2e/pos-ordering.spec.ts",
+    "tests/e2e/realtime-hardening.spec.ts",
+    "tests/e2e/shadow-run.spec.ts",
+    "src/tests/architecture-guards.test.ts"
+  ]);
+  assert.equal(approvedOperations002Paths.size, 10);
+  const isOperations002Responsibility = (source: string): boolean => /PaymentCloseoutReconciliationBoundary/.test(source);
+  assert.equal(isOperations002Responsibility("PaymentCloseoutReconciliationBoundary"), true);
+  const responsibilityFiles = [
+    ...filesUnder(sourceRoot, [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"])
+  ].filter((filename) => isOperations002Responsibility(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .sort();
+  const approvedResponsibilityFiles = [...approvedOperations002Paths]
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => isOperations002Responsibility(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8")))
+    .sort();
+  assert.deepEqual(responsibilityFiles, approvedResponsibilityFiles);
+  assert.equal(approvedOperations002Paths.has("src/domains/operations/application/payment-closeout-reconciliation-service.ts"), false);
+  assert.equal(
+    isOperations002Responsibility("export class PaymentCloseoutReconciliationBoundaryService {}"),
+    true,
+    "The same classifier must reject a simulated unauthorized eighth Payment Closeout Reconciliation responsibility path."
+  );
+  const lifecycle = readFileSync(path.join(sourceRoot, "domains", "operations", "application", "lifecycle-service.ts"), "utf8");
+  const repository = readFileSync(path.join(sourceRoot, "domains", "operations", "infrastructure", "lifecycle-repository.ts"), "utf8");
+  const page = readFileSync(path.join(sourceRoot, "web", "statistics", "page.ts"), "utf8");
+  assert.match(lifecycle, /PAYMENT_RECONCILIATION_EXCEPTION_REQUIRED/);
+  assert.match(lifecycle, /PAYMENT_RECONCILIATION_EXCEPTION_INVALID/);
+  assert.match(repository, /getPaymentCloseoutReconciliation/);
+  assert.match(repository, /paymentReconciliation/);
+  assert.match(page, /paymentReceiptExpected/);
+  assert.match(page, /reconciliationException/);
+  assert.doesNotMatch(lifecycle, /sqlite|DatabaseAdapter|better-sqlite|INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|payment-provider|webhook/i);
+});

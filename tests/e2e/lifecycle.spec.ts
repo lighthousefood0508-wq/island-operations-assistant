@@ -96,3 +96,50 @@ test("POS lifecycle UI marks no-show, double-confirms release, and closes the Ev
     }
   }
 });
+
+test("PaymentCloseoutReconciliationBoundary exposes receipt differences and requires an explicit exception", async ({ page }) => {
+  let eventId: string | null = null;
+  let eventOpened = false;
+  let testError: unknown;
+  try {
+    const category = await api(page, "/api/admin/categories", "POST", { displayName: "Reconcile", sortOrder: 1 });
+    const product = await api(page, "/api/admin/products", "POST", { internalName: "Reconcile meal", categoryId: category.body.data.categoryId, displayName: "Reconcile meal", posName: "Reconcile", sellingPrice: 100, channels: ["pos"] });
+    const published = await api(page, `/api/admin/products/${product.body.data.productId}/publish`, "POST", {});
+    const event = await api(page, "/api/admin/events", "POST", { eventCode: "REC", displayName: "Reconciliation", date: "2026-07-21", startTime: "17:00", endTime: "22:00" });
+    eventId = event.body.data.eventId;
+    await api(page, `/api/admin/events/${eventId}/sellable-inventory`, "PUT", { productVersionId: published.body.data.contract.productVersionId, plannedQuantity: 1 });
+    assertApiSuccess(await api(page, `/api/admin/events/${eventId}/open`, "POST", {}), "Payment reconciliation Event open");
+    eventOpened = true;
+    const order = await api(page, "/api/orders", "POST", { source: "pos", eventId, idempotencyKey: "reconciliation-ui", items: [{ productId: published.body.data.contract.productId, productVersionId: published.body.data.contract.productVersionId, quantity: 1, notes: null }], customerName: null, notes: null });
+    for (const status of ["preparing", "ready", "served"]) assertApiSuccess(await api(page, `/api/orders/${order.body.data.orderId}/status`, "PATCH", { status }), `Payment reconciliation ${status}`);
+    assertApiSuccess(await api(page, `/api/orders/${order.body.data.orderId}/payment/confirm`, "POST", { confirmed: true, paymentMethod: "CASH", expectedAmount: 100, idempotencyKey: "reconciliation-ui-payment", operator: "e2e", deviceId: "POS-A" }), "Payment reconciliation payment");
+
+    await page.goto(`/pos/statistics?eventId=${eventId}`);
+    await expect(page.locator("#cash-reconciliation")).toContainText("NT$100／NT$0／NT$-100");
+    await expect(page.locator("#payment-reconciliation-status")).toContainText("需要明確差額例外");
+    await page.locator("#close").click();
+    await expect(page.locator("#notice")).toContainText("Cash 或 LINE Pay 差額必須");
+    await page.locator("#reconciliation-exception-confirmed").check();
+    await page.locator("#reconciliation-exception-reason").fill("Cash count pending");
+    await expect(page.locator("#reconciliation-exception-confirmed")).toBeChecked();
+    await expect(page.locator("#reconciliation-exception-reason")).toHaveValue("Cash count pending");
+    await page.locator("#close").click();
+    await expect.poll(async () => (await api(page, `/api/events/${eventId}/daily-report`)).status).toBe(200);
+    const report = await api(page, `/api/events/${eventId}/daily-report`);
+    assertApiSuccess(report, "Payment reconciliation Daily Report");
+    expect(report.body.data.paymentReconciliation).toMatchObject({ outcome: "exception_accepted", exception: { reason: "Cash count pending", actor: "Owner" } });
+    eventOpened = false;
+  } catch (error) {
+    testError = error;
+    throw error;
+  } finally {
+    if (eventOpened && eventId) {
+      try {
+        await cleanupIfCurrent(page, eventId);
+      } catch (cleanupError) {
+        if (testError) throw new AggregateError([testError, cleanupError], "Payment reconciliation test and cleanup both failed.");
+        throw cleanupError;
+      }
+    }
+  }
+});

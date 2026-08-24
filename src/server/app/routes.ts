@@ -333,6 +333,12 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     const costSnapshotMatch = pathname.match(/^\/api\/admin\/cost\/recipes\/([^/]+)\/snapshots$/);
     if (request.method === "POST" && costSnapshotMatch?.[1]) return success(response, 201, services.costBackOffice.captureSnapshot(decodeURIComponent(costSnapshotMatch[1]), await readJson(request)));
     if (request.method === "GET" && costSnapshotMatch?.[1]) return success(response, 200, services.costBackOffice.listSnapshotsForRecipe(decodeURIComponent(costSnapshotMatch[1])));
+    const recipeCostHistoryLatestMatch = pathname.match(/^\/api\/admin\/cost\/recipes\/([^/]+)\/cost-history\/latest$/);
+    if (request.method === "GET" && recipeCostHistoryLatestMatch?.[1]) return success(response, 200, services.costBackOffice.getLatestRecipeCostHistory(decodeURIComponent(recipeCostHistoryLatestMatch[1])));
+    const recipeCostHistoryEntryMatch = pathname.match(/^\/api\/admin\/cost\/recipes\/([^/]+)\/cost-history\/([^/]+)$/);
+    if (request.method === "GET" && recipeCostHistoryEntryMatch?.[1] && recipeCostHistoryEntryMatch[2]) return success(response, 200, services.costBackOffice.getRecipeCostHistoryEntry(decodeURIComponent(recipeCostHistoryEntryMatch[1]), decodeURIComponent(recipeCostHistoryEntryMatch[2])));
+    const recipeCostHistoryMatch = pathname.match(/^\/api\/admin\/cost\/recipes\/([^/]+)\/cost-history$/);
+    if (request.method === "GET" && recipeCostHistoryMatch?.[1]) return success(response, 200, services.costBackOffice.listRecipeCostHistory(decodeURIComponent(recipeCostHistoryMatch[1])));
     const snapshotMatch = pathname.match(/^\/api\/admin\/cost\/snapshots\/([^/]+)$/);
     if (request.method === "GET" && snapshotMatch?.[1]) return success(response, 200, services.costBackOffice.getSnapshot(decodeURIComponent(snapshotMatch[1])));
     if (request.method === "POST" && pathname === "/api/admin/cost/quotes") {

@@ -105,6 +105,19 @@ test("Cost Back Office is responsive and exposes the exact-value policy", async 
   expect(second!.y).toBeGreaterThan(first!.y + first!.height - 2);
 });
 
+test("Cost Evidence Read remains an API-only operational bridge without a new Cost UI", async ({ page }) => {
+  const created = await page.request.post("/api/admin/cost/suppliers", {
+    data: { displayName: "Read bridge supplier", occurredAt: "2026-08-24T00:00:00.000Z", actor: "owner" }
+  });
+  expect(created.status()).toBe(201);
+  const supplierId = (await created.json()).data.supplierId as string;
+  const read = await page.request.get(`/api/admin/cost/suppliers/${encodeURIComponent(supplierId)}`);
+  expect(read.status()).toBe(200);
+  expect((await read.json()).data.displayName).toBe("Read bridge supplier");
+  await page.goto("/admin/cost");
+  await expect(page.getByRole("heading", { name: "成本中心" })).toBeVisible();
+});
+
 test("Cost Back Office keeps CanonicalIngredientCreation on its existing facade", async ({ page }) => {
   await page.goto("/admin/cost");
   const creationResponse = page.waitForResponse((response) =>

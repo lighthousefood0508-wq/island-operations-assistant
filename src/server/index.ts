@@ -26,7 +26,9 @@ import {
   AcceptedPurchaseService,
   SqliteAcceptedPurchaseRepository,
   RecipeCostSnapshotService,
-  SqliteCostSnapshotRepository
+  SqliteCostSnapshotRepository,
+  CostEvidenceReadService,
+  SqliteCostEvidenceReadPort
 } from "../domains/cost/index.js";
 import { CanonicalIngredientReferenceImpactService } from "../application/canonical-ingredient-reference-impact-service.js";
 import {
@@ -90,6 +92,9 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
   const snapshotService = new RecipeCostSnapshotService(
     new SqliteCostSnapshotRepository(database)
   );
+  const costEvidenceReads = new CostEvidenceReadService(
+    new SqliteCostEvidenceReadPort(database)
+  );
   const profileCreation = new IngredientMeasurementProfileCreationService(
     canonicalIngredientRepository,
     new SqliteIngredientMeasurementProfileRepository(database, measurementUnits),
@@ -119,6 +124,7 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
     purchaseService,
     acceptedPurchaseService,
     snapshotService,
+    costEvidenceReads,
     profileCreation,
     profileSupersession,
     profileDeprecation,

@@ -85,6 +85,42 @@ test("Cost Supplier API creates formal Supplier identities and lists them determ
   }
 });
 
+test("Cost Evidence Read exposes governed Supplier and Purchase contracts with safe failures", async () => {
+  const databasePath = path.resolve("data", `cost-evidence-read-api-${randomUUID()}.sqlite`);
+  const running = await start(databasePath);
+  try {
+    const supplier = await request(running.baseUrl, "/api/admin/cost/suppliers", "POST", {
+      displayName: "Evidence supplier", occurredAt: AT, actor: "owner"
+    });
+    const supplierId = supplier.body.data.supplierId as string;
+    const supplierRead = await request(running.baseUrl, `/api/admin/cost/suppliers/${encodeURIComponent(supplierId)}`);
+    assert.equal(supplierRead.status, 200);
+    assert.equal(supplierRead.body.data.supplierId, supplierId);
+    const purchase = await request(running.baseUrl, "/api/admin/cost/purchases", "POST", {
+      supplierId,
+      lines: [{ ingredientId: "ing_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", quantityCoefficient: "1", quantityScale: 0, unitCode: "kg" }],
+      occurredAt: AT,
+      actor: "owner"
+    });
+    const purchaseRead = await request(running.baseUrl, `/api/admin/cost/purchases/${encodeURIComponent(purchase.body.data.purchaseId)}`);
+    assert.equal(purchaseRead.status, 200);
+    assert.equal(purchaseRead.body.data.state, "Draft");
+    const emptyAccepted = await request(running.baseUrl, `/api/admin/cost/purchases/${encodeURIComponent(purchase.body.data.purchaseId)}/accepted-purchases`);
+    assert.equal(emptyAccepted.status, 200);
+    assert.deepEqual(emptyAccepted.body.data, []);
+    const invalid = await request(running.baseUrl, "/api/admin/cost/suppliers/not-a-supplier");
+    assert.equal(invalid.status, 422);
+    assert.equal(invalid.body.error.code, "cost_evidence_read_invalid");
+    const missing = await request(running.baseUrl, "/api/admin/cost/snapshots/cost_snapshot_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+    assert.equal(missing.status, 404);
+    assert.equal(missing.body.error.code, "cost_evidence_not_found");
+    assert.doesNotMatch(JSON.stringify({ invalid: invalid.body, missing: missing.body }), /sqlite|database|table|stack|cause/i);
+  } finally {
+    await stop(running.server);
+    cleanup(databasePath);
+  }
+});
+
 test("Cost Purchase API records an unaccepted Supplier-backed document without actual-price authority", async () => {
   const databasePath = path.resolve("data", `cost-purchase-api-${randomUUID()}.sqlite`);
   const running = await start(databasePath);

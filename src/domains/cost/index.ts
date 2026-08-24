@@ -171,3 +171,11 @@ export type { CostSnapshotRepository } from "./domain/cost-snapshot-repository.j
 export { SqliteCostSnapshotRepository } from "./infrastructure/sqlite-cost-snapshot-repository.js";
 export { RecipeCostSnapshotService } from "./application/recipe-cost-snapshot-service.js";
 export { RecipeCostSnapshotValidationFailure, RecipeCostSnapshotPersistenceFailure } from "./application/recipe-cost-snapshot-errors.js";
+export type { CostEvidenceReadPort } from "./domain/cost-evidence-read-port.js";
+export { CostEvidenceReadService } from "./application/cost-evidence-read-service.js";
+export {
+  CostEvidenceReadNotFound,
+  CostEvidenceReadPersistenceFailure,
+  CostEvidenceReadValidationFailure
+} from "./application/cost-evidence-read-errors.js";
+export { SqliteCostEvidenceReadPort } from "./infrastructure/sqlite-cost-evidence-read-port.js";

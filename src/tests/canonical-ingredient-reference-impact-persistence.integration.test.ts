@@ -469,8 +469,16 @@ test("Reference Impact survives database close and reopen without schema changes
     database.queryOne<{ count: number }>(
       "SELECT COUNT(*) AS count FROM schema_migrations"
     )?.count,
-    21
+    22
   );
+});
+
+test("Cost Snapshot reference read authority is deterministic and Cost-owned", (t) => {
+  const { database } = fixture(t);
+  database.execute("INSERT INTO cost_recipe_snapshots VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", ["cost_snapshot_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "recipe_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "recipe_version_bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "VAL-2", "NONE_EXACT", CREATED_AT, CREATED_AT, "owner", "TWD", "1", "1", "1", "1", "{}"]);
+  database.execute("INSERT INTO cost_recipe_snapshot_lines VALUES (?,?,?,?,?,?,?,?,?)", ["cost_snapshot_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", 0, INGREDIENT_ID, "QuoteFallback", "cost_quote_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "1", "1", "{}", "{}"]);
+  const snapshots = new SqliteCostRepository(database).findIngredientCostSnapshotReferences(IngredientId.parse(INGREDIENT_ID));
+  assert.deepEqual(snapshots, { contractName: "CostSnapshotReferenceImpact", contractVersion: 1, costSnapshotIds: ["cost_snapshot_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"] });
 });
 
 test("Domain readers preserve typed technical failures", () => {

@@ -141,7 +141,7 @@ function referenceImpactRecord(ingredientId: string) {
       quoteIds: ["quote-superseded", "quote-recorded", "quote-history"]
     },
     acceptedPurchases: { availability: "Available", acceptedPurchaseCount: 0, acceptedPurchaseIds: [] },
-    costSnapshots: { availability: "Unavailable" },
+    costSnapshots: { availability: "Available", costSnapshotCount: 0, costSnapshotIds: [] },
     deletionEligibility: { status: "Indeterminate", blocked: true }
   };
 }
@@ -1151,7 +1151,7 @@ test("Canonical Ingredient management UI loads Reference Impact only on explicit
   await expect(page.locator("#reference-impact-result")).toContainText("Published Version count: 3");
   await expect(page.locator("#reference-impact-result")).toContainText("Quote IDs: quote-superseded, quote-recorded, quote-history");
   await expect(page.locator("#reference-impact-result")).toContainText("Accepted Purchase count: 0");
-  await expect(page.locator("#reference-impact-result")).toContainText("Cost Snapshot: Unavailable");
+  await expect(page.locator("#reference-impact-result")).toContainText("Cost Snapshot count: 0");
   await expect(page.locator("#reference-impact-result")).toContainText("Deletion eligibility: Indeterminate — blocked.");
   await page.waitForTimeout(80);
   expect(impactRequests).toBe(1);

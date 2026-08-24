@@ -1981,6 +1981,14 @@ export type { CostSnapshotRepository } from "./domain/cost-snapshot-repository.j
 export { SqliteCostSnapshotRepository } from "./infrastructure/sqlite-cost-snapshot-repository.js";
 export { RecipeCostSnapshotService } from "./application/recipe-cost-snapshot-service.js";
 export { RecipeCostSnapshotValidationFailure, RecipeCostSnapshotPersistenceFailure } from "./application/recipe-cost-snapshot-errors.js";
+export type { CostEvidenceReadPort } from "./domain/cost-evidence-read-port.js";
+export { CostEvidenceReadService } from "./application/cost-evidence-read-service.js";
+export {
+  CostEvidenceReadNotFound,
+  CostEvidenceReadPersistenceFailure,
+  CostEvidenceReadValidationFailure
+} from "./application/cost-evidence-read-errors.js";
+export { SqliteCostEvidenceReadPort } from "./infrastructure/sqlite-cost-evidence-read-port.js";
 `
   );
 
@@ -2735,7 +2743,8 @@ test("PR-COST-005 keeps Supplier Foundation inside its exact Cost-owned responsi
   ]);
   assert.equal(approvedCost005Paths.size, 21);
   const isCost005Responsibility = (source: string): boolean =>
-    !/\bCostPurchase(?:[A-Z][A-Za-z]*|\b)|\bPurchaseId\b|\bPurchaseLineId\b/.test(source)
+    !/CostEvidenceRead/.test(source)
+    && !/\bCostPurchase(?:[A-Z][A-Za-z]*|\b)|\bPurchaseId\b|\bPurchaseLineId\b/.test(source)
     && /\bCostSupplier(?:[A-Z][A-Za-z]*|\b)|\bexport class SupplierId\b|COST_SUPPLIER_|CREATE TABLE IF NOT EXISTS cost_suppliers/.test(source);
   assert.equal(isCost005Responsibility("new CostSupplierService(repository)"), true);
   const responsibilityFiles = [
@@ -2791,7 +2800,8 @@ test("PR-COST-006 keeps Purchase Foundation inside its exact Cost-owned responsi
   ]);
   assert.equal(approvedCost006Paths.size, 21);
   const isCost006Responsibility = (source: string): boolean =>
-    !/\bAcceptedPurchase|acceptPurchase|\/acceptances|cost_accepted_purchase/i.test(source)
+    !/CostEvidenceRead/.test(source)
+    && !/\bAcceptedPurchase|acceptPurchase|\/acceptances|cost_accepted_purchase/i.test(source)
     && /\bCostPurchase(?:[A-Z][A-Za-z]*|\b)|\bPurchaseId\b|\bPurchaseLineId\b|COST_PURCHASE_|cost_purchase_(?:aggregates|lines)|\/api\/admin\/cost\/purchases/.test(source);
   assert.equal(isCost006Responsibility("new CostPurchaseService(repository)"), true);
   const responsibilityFiles = [
@@ -2854,7 +2864,8 @@ test("PR-COST-007 keeps Accepted Purchase actual-price evidence inside its exact
   ]);
   assert.equal(approvedCost007Paths.size, 28);
   const isCost007Responsibility = (source: string): boolean =>
-    !/VAL-2|ActualPurchase|QuoteFallback|findEligibleAcceptedPurchaseLines|AMBIGUOUS_ACCEPTED_PURCHASE_COST|CostSnapshot|cost_recipe_snapshot|\/snapshots/.test(source)
+    !/CostEvidenceRead/.test(source)
+    && !/VAL-2|ActualPurchase|QuoteFallback|findEligibleAcceptedPurchaseLines|AMBIGUOUS_ACCEPTED_PURCHASE_COST|CostSnapshot|cost_recipe_snapshot|\/snapshots/.test(source)
     && /\bAcceptedPurchase|cost_accepted_purchase|\/acceptances|acceptedPurchases/.test(source);
   assert.equal(isCost007Responsibility("new AcceptedPurchaseService(repository)"), true);
   const responsibilityFiles = [...filesUnder(sourceRoot, [".ts", ".tsx"]), ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"]), ...filesUnder(path.join(projectRoot, "migrations"), [".sql"])]
@@ -2892,7 +2903,7 @@ test("PR-COST-008 keeps actual-price-first valuation policy inside its exact res
   ]);
   assert.equal(approvedCost008Paths.size, 13);
   const isCost008Responsibility = (source: string): boolean =>
-    !/CostSnapshot|cost_recipe_snapshot|\/snapshots/.test(source) && /VAL-2|ActualPurchase|QuoteFallback|findEligibleAcceptedPurchaseLines|AMBIGUOUS_ACCEPTED_PURCHASE_COST/.test(source);
+    !/CostEvidenceRead/.test(source) && !/CostSnapshot|cost_recipe_snapshot|\/snapshots/.test(source) && /VAL-2|ActualPurchase|QuoteFallback|findEligibleAcceptedPurchaseLines|AMBIGUOUS_ACCEPTED_PURCHASE_COST/.test(source);
   assert.equal(
     isCost008Responsibility("reader.findEligibleAcceptedPurchaseLines(ingredientId, valuedAt)"),
     true
@@ -2964,7 +2975,7 @@ test("PR-COST-009 keeps immutable Recipe Cost Snapshot evidence inside its exact
   ]);
   assert.equal(approvedCost009Paths.size, 28);
   const isCost009Responsibility = (source: string): boolean =>
-    /CostSnapshot(?:Id|Repository|Service|Contract)|RecipeCostSnapshot|cost_recipe_snapshot|costSnapshot(?:Count|Ids)|\/snapshots/.test(source);
+    !/CostEvidenceRead/.test(source) && /CostSnapshot(?:Id|Repository|Service|Contract)|RecipeCostSnapshot|cost_recipe_snapshot|costSnapshot(?:Count|Ids)|\/snapshots/.test(source);
   assert.equal(isCost009Responsibility("new RecipeCostSnapshotService(repository)"), true);
   const responsibilityFiles = [
     ...filesUnder(sourceRoot, [".ts", ".tsx"]),
@@ -2984,4 +2995,50 @@ test("PR-COST-009 keeps immutable Recipe Cost Snapshot evidence inside its exact
   assert.doesNotMatch(snapshotService, /sqlite|DatabaseAdapter|better-sqlite|CostBackOffice/i);
   assert.match(facade, /snapshotService\.capture/);
   assert.doesNotMatch(snapshotService, /normalizeAt|findEligibleAcceptedPurchaseLines|INSERT\s+INTO/i);
+});
+
+test("PR-COST-010 keeps Cost Evidence Read inside its exact Cost-owned responsibility boundary", () => {
+  const approvedCost010Paths = new Set([
+    "src/domains/cost/domain/cost-evidence-read-port.ts",
+    "src/domains/cost/application/cost-evidence-read-service.ts",
+    "src/domains/cost/application/cost-evidence-read-errors.ts",
+    "src/domains/cost/infrastructure/sqlite-cost-evidence-read-port.ts",
+    "src/domains/cost/index.ts",
+    "src/server/app/cost-back-office-service.ts",
+    "src/server/app/routes.ts",
+    "src/server/index.ts",
+    "src/tests/cost-evidence-read-application.test.ts",
+    "src/tests/cost-evidence-read-persistence.integration.test.ts",
+    "src/tests/cost-back-office-api.integration.test.ts",
+    "tests/e2e/cost-back-office.spec.ts",
+    "src/tests/architecture-guards.test.ts"
+  ]);
+  assert.equal(approvedCost010Paths.size, 13);
+  const isCost010Responsibility = (source: string): boolean =>
+    /\bCostEvidenceRead(?:Port|Service|ValidationFailure|NotFound|PersistenceFailure)?\b|cost_evidence_read_|\/accepted-purchases/.test(source);
+  assert.equal(isCost010Responsibility("new CostEvidenceReadService(reads)"), true);
+  const responsibilityFiles = [
+    ...filesUnder(sourceRoot, [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"])
+  ].filter((filename) => isCost010Responsibility(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .sort();
+  const approvedResponsibilityFiles = [...approvedCost010Paths]
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => isCost010Responsibility(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8")))
+    .sort();
+  assert.deepEqual(responsibilityFiles, approvedResponsibilityFiles);
+  assert.equal(approvedCost010Paths.has("src/tests/simulated-cost-evidence-read.ts"), false);
+  assert.equal(
+    isCost010Responsibility("export const read = () => new CostEvidenceReadService(port);"),
+    true,
+    "The same classifier must reject a simulated unauthorized fourteenth Cost Evidence Read path."
+  );
+  const service = readFileSync(path.join(sourceRoot, "domains", "cost", "application", "cost-evidence-read-service.ts"), "utf8");
+  const adapter = readFileSync(path.join(sourceRoot, "domains", "cost", "infrastructure", "sqlite-cost-evidence-read-port.ts"), "utf8");
+  const facade = readFileSync(path.join(sourceRoot, "server", "app", "cost-back-office-service.ts"), "utf8");
+  assert.doesNotMatch(service, /sqlite|DatabaseAdapter|better-sqlite|CostBackOffice|INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM/i);
+  assert.doesNotMatch(adapter, /domains\/recipe|cost_purchases|cost_purchase_items|INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM/i);
+  assert.match(facade, /costEvidenceReads\.getPurchase/);
 });

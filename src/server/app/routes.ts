@@ -262,13 +262,20 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "GET" && pathname === "/api/admin/cost/suppliers") {
       return success(response, 200, services.costBackOffice.listSuppliers());
     }
+    const supplierMatch = pathname.match(/^\/api\/admin\/cost\/suppliers\/([^/]+)$/);
+    if (request.method === "GET" && supplierMatch?.[1]) return success(response, 200, services.costBackOffice.getSupplier(decodeURIComponent(supplierMatch[1])));
     if (request.method === "POST" && pathname === "/api/admin/cost/purchases") return success(response, 201, services.costBackOffice.createPurchase(await readJson(request)));
     const purchaseMatch = pathname.match(/^\/api\/admin\/cost\/purchases\/([^/]+)$/);
+    if (request.method === "GET" && purchaseMatch?.[1]) return success(response, 200, services.costBackOffice.getPurchase(decodeURIComponent(purchaseMatch[1])));
     if (request.method === "PATCH" && purchaseMatch?.[1]) return success(response, 200, services.costBackOffice.revisePurchase(decodeURIComponent(purchaseMatch[1]), await readJson(request)));
     const purchaseRecordMatch = pathname.match(/^\/api\/admin\/cost\/purchases\/([^/]+)\/records$/);
     if (request.method === "POST" && purchaseRecordMatch?.[1]) return success(response, 200, services.costBackOffice.recordPurchase(decodeURIComponent(purchaseRecordMatch[1]), await readJson(request)));
     const purchaseAcceptanceMatch = pathname.match(/^\/api\/admin\/cost\/purchases\/([^/]+)\/acceptances$/);
     if (request.method === "POST" && purchaseAcceptanceMatch?.[1]) return success(response, 201, services.costBackOffice.acceptPurchase(decodeURIComponent(purchaseAcceptanceMatch[1]), await readJson(request)));
+    const acceptedPurchasesMatch = pathname.match(/^\/api\/admin\/cost\/purchases\/([^/]+)\/accepted-purchases$/);
+    if (request.method === "GET" && acceptedPurchasesMatch?.[1]) return success(response, 200, services.costBackOffice.listAcceptedPurchasesForPurchase(decodeURIComponent(acceptedPurchasesMatch[1])));
+    const acceptedPurchaseMatch = pathname.match(/^\/api\/admin\/cost\/accepted-purchases\/([^/]+)$/);
+    if (request.method === "GET" && acceptedPurchaseMatch?.[1]) return success(response, 200, services.costBackOffice.getAcceptedPurchase(decodeURIComponent(acceptedPurchaseMatch[1])));
     if (request.method === "POST" && pathname === "/api/admin/cost/profiles") {
       return success(
         response,
@@ -325,6 +332,9 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     }
     const costSnapshotMatch = pathname.match(/^\/api\/admin\/cost\/recipes\/([^/]+)\/snapshots$/);
     if (request.method === "POST" && costSnapshotMatch?.[1]) return success(response, 201, services.costBackOffice.captureSnapshot(decodeURIComponent(costSnapshotMatch[1]), await readJson(request)));
+    if (request.method === "GET" && costSnapshotMatch?.[1]) return success(response, 200, services.costBackOffice.listSnapshotsForRecipe(decodeURIComponent(costSnapshotMatch[1])));
+    const snapshotMatch = pathname.match(/^\/api\/admin\/cost\/snapshots\/([^/]+)$/);
+    if (request.method === "GET" && snapshotMatch?.[1]) return success(response, 200, services.costBackOffice.getSnapshot(decodeURIComponent(snapshotMatch[1])));
     if (request.method === "POST" && pathname === "/api/admin/cost/quotes") {
       return success(
         response,

@@ -22,6 +22,23 @@
 
 ## Approval Register
 
+- **DECISIONS #086 - Cost Analytics Foundation Read Boundary**
+  - **Date**: 2026-08-24.
+  - **Status**: APPROVED by Architecture Owner for PR-COST-012 governance, implementation, verification, review, publication, merge, and integration closeout while the exact approved scope remains unchanged.
+  - **Single responsibility**: Publish a small, deterministic, read-only Recipe Cost Analytics contract computed exclusively from DECISIONS #085 immutable Recipe Cost History entries. It provides operational trend and source-visibility facts; it is not valuation, a Snapshot authority, or a broad Analytics platform.
+  - **V1 analytics contract**:
+    - One Recipe request returns chronologically ordered Snapshot summaries, `latest`, `previous`, and the exact `latestMinusPrevious` change when two or more entries exist. A summary retains its immutable Snapshot identity, Recipe/Recipe Version, valued/captured instants, VAL-2/NONE_EXACT identities, exact batch/per-yield results, and line-source visibility.
+    - Exact differences are normalized rational subtraction of stored exact Snapshot results only, with no rounding, percentage, trend extrapolation, revaluation, or source ranking. `increase`, `decrease`, and `unchanged` compare those exact rationals only; no previous Snapshot means `latestMinusPrevious: null`.
+    - Source visibility distinguishes immutable `ActualPurchase` lines from explicit `QuoteFallback` lines. Actual-price Supplier visibility is the deterministic Supplier-ID/Accepted-Purchase-ID grouping already pinned on ActualPurchase Snapshot line evidence. It does not look up current Supplier data, infer a Supplier for Quote fallback, or recalculate any price.
+  - **Read, safety, and HTTP boundary**:
+    - Cost Analytics Application Service consumes only the public `RecipeCostHistoryReadService` contract. It imports neither SQLite, `DatabaseAdapter`, Cost evidence persistence, Recipe/Purchase/Quote/Profile services, nor evaluation/normalization authority; it performs no write.
+    - Cost Back Office remains facade/delegator and `src/server/index.ts` remains the sole production composition site. `GET /api/admin/cost/recipes/:recipeId/analytics` returns `200`; an empty immutable History is an empty analytics result. Invalid Recipe identity maps to `422 cost_analytics_invalid`; technical History read or analytics projection failure maps to `500 cost_analytics_read_failed`. No persistence detail serializes.
+  - **Protected boundary and exact scope**:
+    - PR-COST-012 fixes an exact eleven-path allowlist: Cost Analytics contract/Application/error/export; existing Cost Back Office/routes/composition; focused Application/API/E2E and Architecture Guard tests.
+    - No migration/schema, Snapshot/History/Evidence adapter change, new query table, raw Purchase/Quote read, valuation/normalization, Snapshot mutation, Analytics dashboard/UI/navigation, Inventory, payment, tax, freight, allocation, multi-currency, package, or legacy authority promotion is authorized.
+    - The Architecture Guard must substantively classify Cost Analytics responsibility, permit only the exact eleven paths, and reject a simulated unauthorized twelfth substantive responsibility path with the same classifier.
+  - **Verification**: focused Analytics Application/API coverage must prove exact deterministic change, empty/one/two Snapshot behavior, immutable actual-vs-fallback and Supplier visibility, safe failures, and no writes; plus History/Snapshot/VAL-2/Accepted Purchase/Recipe/Profile/Reference Impact regressions, Architecture Guards, typecheck/lint/build, E2E, `npm test`, `npm run verify`, `npm run verify:full`, complete compiled collection, diff, encoding, newline, whitespace, and exact-scope audits.
+
 - **DECISIONS #085 - Immutable Recipe Cost History Read Model Boundary**
   - **Date**: 2026-08-24.
   - **Status**: APPROVED by Architecture Owner for PR-COST-011 governance, implementation, verification, review, publication, merge, and integration closeout while the exact approved scope remains unchanged.

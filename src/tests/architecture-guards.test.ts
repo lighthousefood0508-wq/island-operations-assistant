@@ -3264,3 +3264,47 @@ test("PR-OPERATIONS-002 keeps Payment Closeout Reconciliation inside its exact O
   assert.match(page, /reconciliationException/);
   assert.doesNotMatch(lifecycle, /sqlite|DatabaseAdapter|better-sqlite|INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|payment-provider|webhook/i);
 });
+
+test("PR-OPERATIONS-003 keeps Daily Report Sales Contract reads inside their exact Operations boundary", () => {
+  const approvedOperations003Paths = new Set([
+    "src/domains/operations/domain/daily-report-read-port.ts",
+    "src/domains/operations/application/daily-report-read-service.ts",
+    "src/domains/operations/application/daily-report-read-errors.ts",
+    "src/domains/operations/infrastructure/lifecycle-repository.ts",
+    "src/domains/operations/index.ts",
+    "src/server/app/routes.ts",
+    "src/server/index.ts",
+    "src/tests/daily-report-read-application.test.ts",
+    "src/tests/daily-report-read-persistence.integration.test.ts",
+    "src/tests/daily-report-read-api.integration.test.ts",
+    "src/tests/architecture-guards.test.ts"
+  ]);
+  assert.equal(approvedOperations003Paths.size, 11);
+  const isOperations003Responsibility = (source: string): boolean => /DailyReportSalesContractReadBoundary/.test(source);
+  assert.equal(isOperations003Responsibility("DailyReportSalesContractReadBoundary"), true);
+  const responsibilityFiles = [
+    ...filesUnder(sourceRoot, [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"])
+  ].filter((filename) => isOperations003Responsibility(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .sort();
+  const approvedResponsibilityFiles = [...approvedOperations003Paths]
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => isOperations003Responsibility(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8")))
+    .sort();
+  assert.deepEqual(responsibilityFiles, approvedResponsibilityFiles);
+  assert.equal(approvedOperations003Paths.has("src/domains/operations/application/daily-report-export-service.ts"), false);
+  assert.equal(
+    isOperations003Responsibility("export class DailyReportSalesContractReadBoundaryExportService {}"),
+    true,
+    "The same classifier must reject a simulated unauthorized twelfth Daily Report responsibility path."
+  );
+  const service = readFileSync(path.join(sourceRoot, "domains", "operations", "application", "daily-report-read-service.ts"), "utf8");
+  const repository = readFileSync(path.join(sourceRoot, "domains", "operations", "infrastructure", "lifecycle-repository.ts"), "utf8");
+  const routes = readFileSync(path.join(sourceRoot, "server", "app", "routes.ts"), "utf8");
+  assert.match(service, /DailyReportReadPort/);
+  assert.match(repository, /operations_event_closures/);
+  assert.match(routes, /\/api\/admin\/operations\/daily-reports/);
+  assert.doesNotMatch(service, /sqlite|DatabaseAdapter|better-sqlite|INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|payment-provider|webhook/i);
+});

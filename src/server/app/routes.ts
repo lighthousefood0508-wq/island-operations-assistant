@@ -2,7 +2,16 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { CatalogService } from "../../domains/catalog/index.js";
-import { LifecycleService, OperationsService, OrderService, PaymentService } from "../../domains/operations/index.js";
+import {
+  DailyReportReadNotFound,
+  DailyReportReadPersistenceFailure,
+  DailyReportReadService,
+  DailyReportReadValidationFailure,
+  LifecycleService,
+  OperationsService,
+  OrderService,
+  PaymentService
+} from "../../domains/operations/index.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import {
   CanonicalIngredientReferenceImpactNotFound,
@@ -35,6 +44,7 @@ type Services = Readonly<{
   orders: OrderService;
   payments: PaymentService;
   lifecycle: LifecycleService;
+  dailyReports: DailyReportReadService;
   canonicalIngredients: CanonicalIngredientManagementService;
   canonicalIngredientReferenceImpact: CanonicalIngredientReferenceImpactService;
   costBackOffice: CostBackOfficeService;
@@ -126,6 +136,27 @@ function readReferenceImpact(
       "internal_error",
       "An unexpected server error occurred."
     );
+  }
+}
+
+// DailyReportSalesContractReadBoundary: translates typed Operations read outcomes only.
+function readDailyReport(service: DailyReportReadService, encodedEventId: string) {
+  let eventId: string;
+  try { eventId = decodeURIComponent(encodedEventId); } catch { throw new HttpError(422, "daily_report_identity_invalid", "Daily Report identity is invalid."); }
+  try { return service.getDailyReport(eventId); }
+  catch (error) {
+    if (error instanceof DailyReportReadValidationFailure) throw new HttpError(422, "daily_report_identity_invalid", "Daily Report identity is invalid.");
+    if (error instanceof DailyReportReadNotFound) throw new HttpError(404, "daily_report_not_found", "Daily Report was not found.");
+    if (error instanceof DailyReportReadPersistenceFailure) throw new HttpError(500, "daily_report_read_failed", "Daily Report evidence could not be read.");
+    throw error;
+  }
+}
+
+function listDailyReports(service: DailyReportReadService) {
+  try { return service.listDailyReports(); }
+  catch (error) {
+    if (error instanceof DailyReportReadPersistenceFailure) throw new HttpError(500, "daily_report_read_failed", "Daily Report evidence could not be read.");
+    throw error;
   }
 }
 
@@ -436,12 +467,15 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     const closeMatch = pathname.match(/^\/api\/events\/([^/]+)\/close$/);
     if (request.method === "POST" && closeMatch?.[1]) { const result = services.lifecycle.closeEvent(decodeURIComponent(closeMatch[1]), await readJson(request)); events.publish("event.closed", decodeURIComponent(closeMatch[1])); return success(response, 200, result); }
     const reportMatch = pathname.match(/^\/api\/events\/([^/]+)\/daily-report$/);
-    if (request.method === "GET" && reportMatch?.[1]) return success(response, 200, services.lifecycle.getDailyReport(decodeURIComponent(reportMatch[1])));
+    if (request.method === "GET" && reportMatch?.[1]) return success(response, 200, readDailyReport(services.dailyReports, reportMatch[1]));
     const statisticsMatch = pathname.match(/^\/api\/events\/([^/]+)\/statistics$/);
     if (request.method === "GET" && statisticsMatch?.[1]) return success(response, 200, services.lifecycle.getStatistics(decodeURIComponent(statisticsMatch[1])));
     const closeoutMatch = pathname.match(/^\/api\/events\/([^/]+)\/closeout$/);
     if (request.method === "PUT" && closeoutMatch?.[1]) { const eventId = decodeURIComponent(closeoutMatch[1]); const result = services.lifecycle.saveCloseout(eventId, await readJson(request)); events.publish("closeout.updated", eventId); return success(response, 200, result); }
 
+    if (request.method === "GET" && pathname === "/api/admin/operations/daily-reports") return success(response, 200, listDailyReports(services.dailyReports));
+    const adminDailyReportMatch = pathname.match(/^\/api\/admin\/operations\/daily-reports\/([^/]+)$/);
+    if (request.method === "GET" && adminDailyReportMatch?.[1]) return success(response, 200, readDailyReport(services.dailyReports, adminDailyReportMatch[1]));
     if (request.method === "GET" && pathname === "/api/admin/events") return success(response, 200, services.operations.listEvents());
     if (request.method === "POST" && pathname === "/api/admin/events") return success(response, 201, services.operations.createEvent(await readJson(request) as never));
     const eventMatch = pathname.match(/^\/api\/admin\/events\/([^/]+)$/);

@@ -5,7 +5,7 @@ import { loadConfig, type RosConfig } from "../config/runtime.js";
 import { createDatabase } from "../shared/database/database-provider.js";
 import { runMigrations } from "../shared/database/migrate.js";
 import { CatalogRepository, CatalogService } from "../domains/catalog/index.js";
-import { LifecycleRepository, LifecycleService, OperationsRepository, OperationsService, OrderRepository, OrderService, PaymentRepository, PaymentService } from "../domains/operations/index.js";
+import { DailyReportReadService, LifecycleRepository, LifecycleService, OperationsRepository, OperationsService, OrderRepository, OrderService, PaymentRepository, PaymentService } from "../domains/operations/index.js";
 import {
   CanonicalIngredientCreationService,
   CanonicalIngredientLifecycleService,
@@ -55,7 +55,9 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
   const paymentRepository = new PaymentRepository(database);
   const orders = new OrderService(new OrderRepository(database), paymentRepository);
   const payments = new PaymentService(paymentRepository);
-  const lifecycle = new LifecycleService(new LifecycleRepository(database));
+  const lifecycleRepository = new LifecycleRepository(database);
+  const lifecycle = new LifecycleService(lifecycleRepository);
+  const dailyReports = new DailyReportReadService(lifecycleRepository);
   const canonicalIngredientRepository =
     new SqliteCanonicalIngredientRepository(database);
   const canonicalIngredientReads = new CanonicalIngredientManagementReadService(
@@ -142,6 +144,7 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
     orders,
     payments,
     lifecycle,
+    dailyReports,
     canonicalIngredients,
     canonicalIngredientReferenceImpact,
     costBackOffice

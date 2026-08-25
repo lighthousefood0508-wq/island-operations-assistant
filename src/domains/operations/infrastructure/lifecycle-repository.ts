@@ -1,4 +1,5 @@
 import type { DatabaseAdapter } from "../../../shared/database/database-adapter.js";
+import type { DailyReportReadPort } from "../domain/daily-report-read-port.js";
 import type { DailyReport, OrderStatus, PaymentCloseoutReconciliation, PaymentMethod, PaymentStatus, ProductionStatus } from "../domain/types.js";
 
 type OrderRow = { order_id: string; order_number: string; event_id: string; source: string; created_at: string; scheduled_pickup_at: string | null; customer_name: string | null; customer_phone_tail: string | null; payment_method: PaymentMethod | null; notes: string | null; order_status: OrderStatus; payment_status: PaymentStatus; production_status: ProductionStatus; cancellation_reason: string | null; grand_total: number; paid_total: number; served_at: string | null };
@@ -8,6 +9,55 @@ type CloseoutRow = { cash_received: number; line_pay_received: number; other_rec
 type CloseoutItemRow = { product_id: string; product_version_id: string; remaining_quantity: number; waste_quantity: number; retained_quantity: number; updated_at: string };
 type AuditRow = { after_json: string | null };
 
+function record(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+}
+
+function text(value: unknown): boolean { return typeof value === "string" && value.length > 0; }
+function amount(value: unknown): boolean { return typeof value === "number" && Number.isSafeInteger(value) && value >= 0; }
+function integer(value: unknown): boolean { return typeof value === "number" && Number.isSafeInteger(value); }
+function amounts(value: unknown, keys: readonly string[]): boolean {
+  const candidate = record(value);
+  return !!candidate && keys.every((key) => amount(candidate[key]));
+}
+function integers(value: unknown, keys: readonly string[]): boolean {
+  const candidate = record(value);
+  return !!candidate && keys.every((key) => integer(candidate[key]));
+}
+
+function validReconciliation(value: unknown): boolean {
+  if (value === null || value === undefined) return true;
+  const candidate = record(value);
+  if (!candidate || !amounts(candidate.expected, ["cash", "linePay"]) || !amounts(candidate.declared, ["cash", "linePay", "other"]) || !integers(candidate.variance, ["cash", "linePay"]) || !["matched", "exception_accepted"].includes(candidate.outcome as string)) return false;
+  if (candidate.exception === null) return candidate.outcome === "matched";
+  const exception = record(candidate.exception);
+  return candidate.outcome === "exception_accepted" && !!exception && text(exception.reason) && text(exception.actor);
+}
+
+function storedDailyReport(value: string): DailyReport {
+  let parsed: unknown;
+  try { parsed = JSON.parse(value); } catch { throw new Error("Stored Daily Report JSON is invalid."); }
+  const report = record(parsed);
+  const event = record(report?.event);
+  const orders = record(report?.orders);
+  const payments = record(report?.payments);
+  const validEvent = !!event && ["eventId", "eventCode", "displayName", "date", "startTime", "endTime"].every((key) => text(event[key]));
+  const validOrders = amounts(orders, ["total", "completed", "cancelled", "noShow"]);
+  const validPayments = amounts(payments, ["cash", "linePay", "other"]);
+  const validProducts = Array.isArray(report?.products) && report.products.every((item) => {
+    const product = record(item);
+    return !!product && text(product.productId) && text(product.posName) && amount(product.quantity) && amount(product.revenue);
+  });
+  if (!report || !validEvent || !validOrders || !validPayments || !validProducts || !text(report.closedAt)) {
+    throw new Error("Stored Daily Report evidence is invalid.");
+  }
+  const paymentReconciliation = report.paymentReconciliation;
+  if (!validReconciliation(paymentReconciliation)) {
+    throw new Error("Stored Daily Report reconciliation evidence is invalid.");
+  }
+  return Object.freeze({ ...report, paymentReconciliation: paymentReconciliation ?? null }) as DailyReport;
+}
+
 export type PaymentCloseoutReconciliationCandidate = Readonly<{
   expected: Readonly<{ cash: number; linePay: number }>;
   declared: Readonly<{ cash: number; linePay: number; other: number }>;
@@ -16,7 +66,7 @@ export type PaymentCloseoutReconciliationCandidate = Readonly<{
 
 export type LifecycleOrder = Readonly<{ orderId: string; orderNumber: string; eventId: string; source: string; createdAt: string; scheduledPickupAt: string | null; customerName: string | null; customerPhoneTail: string | null; paymentMethod: PaymentMethod | null; notes: string | null; orderStatus: OrderStatus; paymentStatus: PaymentStatus; productionStatus: ProductionStatus; cancellationReason: string | null; grandTotal: number; paidTotal: number; servedAt: string | null; items: readonly Readonly<{ posName: string; quantity: number; notes: string | null }>[] }>;
 
-export class LifecycleRepository {
+export class LifecycleRepository implements DailyReportReadPort {
   constructor(private readonly database: DatabaseAdapter) {}
   transactionImmediate<T>(work: () => T): T { return this.database.transactionImmediate(work); }
   findOrder(orderId: string): LifecycleOrder | undefined {
@@ -58,10 +108,17 @@ export class LifecycleRepository {
   }
   findEvent(eventId: string): EventRow | undefined { return this.database.queryOne<EventRow>("SELECT event_id, event_code, display_name, date, start_time, end_time, status FROM operations_events WHERE event_id = ?", [eventId]); }
   findClosure(eventId: string): DailyReport | undefined {
+    return this.findDailyReport(eventId);
+  }
+  findDailyReport(eventId: string): DailyReport | undefined {
     const row = this.database.queryOne<ClosureRow>("SELECT daily_report_json FROM operations_event_closures WHERE event_id = ?", [eventId]);
     if (!row) return undefined;
-    const report = JSON.parse(row.daily_report_json) as Omit<DailyReport, "paymentReconciliation"> & Partial<Pick<DailyReport, "paymentReconciliation">>;
-    return { ...report, paymentReconciliation: report.paymentReconciliation ?? null };
+    return storedDailyReport(row.daily_report_json);
+  }
+  listDailyReports(): readonly DailyReport[] {
+    return Object.freeze(this.database.queryMany<ClosureRow>("SELECT daily_report_json FROM operations_event_closures ORDER BY closed_at DESC, event_id ASC")
+      .map((row) => storedDailyReport(row.daily_report_json))
+      .sort((left, right) => right.closedAt.localeCompare(left.closedAt) || left.event.eventId.localeCompare(right.event.eventId)));
   }
   private paymentTotals(eventId: string): Readonly<{ cash: number; linePay: number; total: number }> {
     const row = this.database.queryOne<{ cash: number; line_pay: number; total: number }>(`SELECT

@@ -22,6 +22,24 @@
 
 ## Approval Register
 
+- **DECISIONS #089 - Daily Report and Sales Contract Read Boundary**
+  - **Date**: 2026-08-25.
+  - **Status**: APPROVED by Architecture Owner for PR-OPERATIONS-003 governance, implementation, verification, review, publication, merge, and integration closeout while the exact approved scope remains unchanged.
+  - **Single responsibility**: Publish a stable, deterministic, read-only Operations contract for immutable Daily Report evidence created by Closed Events.  The boundary is a sales-and-closeout evidence read model for later reporting or export; it is not an Event, Order, Payment, reconciliation, closeout, or reporting-system authority.
+  - **Evidence and ordering semantics**:
+    - A report is readable only from the immutable `daily_report_json` stored by the successful Event Close transaction.  List and identity reads must never reconstruct historical sales, receipts, reconciliation, Products, or Orders from mutable live tables.
+    - The collection is a deterministic descending sequence by stored `closedAt`, then `event.eventId` ascending as its stable tie-breaker.  Each summary preserves the closed Event identity and display facts, Order counts, immutable payment-method totals, reconciliation snapshot (including null for pre-#088 evidence), and close instant.  An identity read returns the existing complete Daily Report contract byte-for-byte in meaning.
+    - The read model preserves client-reported payment evidence and the #088 expected/declaration/variance/exception snapshot exactly as captured.  It does not settle Cash or LINE Pay, correct discrepancies, calculate tax, invent payment methods, change Order totals, or silently replace missing historical reconciliation with a current computation.
+  - **Application, persistence, and HTTP boundary**:
+    - Operations owns a narrow public Daily Report evidence read port and a read-only Application coordinator.  The coordinator accepts governed Event identities, maps malformed identity to a safe validation failure, absence to typed not-found, and technical/parse/read failures to a typed safe failure without SQLite, table, query, stack, cause, or raw persistence disclosure.
+    - The existing Operations SQLite lifecycle adapter may read only `operations_event_closures` and deserialize its immutable stored Daily Report evidence.  It performs no write, migration, schema change, live Order/Payment/Event reconstruction, or cross-Domain read.
+    - The existing single Event identity endpoint remains compatible.  PR-OPERATIONS-003 additionally exposes `GET /api/admin/operations/daily-reports` and `GET /api/admin/operations/daily-reports/:eventId` as the stable administrative collection and identity read contracts.  `src/server/index.ts` is the sole production composition site; HTTP routes delegate only.
+  - **Protected boundary and exact scope**:
+    - PR-OPERATIONS-003 fixes exactly eleven implementation paths: the Operations Daily Report read port, Application service/errors, lifecycle SQLite adapter and public export, existing route/composition, focused Application/persistence/API tests, and Architecture Guards.
+    - No Event, Order, Payment, closeout, reconciliation, audit, inventory, Product, Sales Contract writer, migration/schema, UI/navigation, Cost, export delivery, Analytics, provider integration, tax/accounting, printer, webhook, package, deployment, or Legacy authority change is authorized.
+    - The Architecture Guard must substantively classify Daily Report / Sales Contract read responsibility, permit only the exact eleven paths, and reject a simulated unauthorized twelfth substantive responsibility path with the same classifier.
+  - **Verification**: focused Application/persistence/API coverage must prove deterministic ordering, complete immutable summary and identity preservation, pre-#088 null reconciliation preservation, 422/404/500 safe failures, parse containment, and zero writes; plus Operations lifecycle/payment/closeout/reconciliation regressions, E2E, Architecture Guards, typecheck/lint/build, `npm test`, `npm run verify`, `npm run verify:full`, compiled collection, diff, encoding, newline, whitespace, and exact-scope audit.
+
 - **DECISIONS #088 - Payment and Closeout Reconciliation Boundary**
   - **Date**: 2026-08-24.
   - **Status**: APPROVED by Architecture Owner for PR-OPERATIONS-002 governance, implementation, verification, review, publication, merge, and integration closeout while the exact approved scope remains unchanged.

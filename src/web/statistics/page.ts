@@ -10,7 +10,7 @@ export function renderStatistics(): string {
   <title>今日統計 | 荒島餐車 ROS</title>
   <style>
     ${renderNavigationStyles()}
-    :root{font-family:Arial,"Noto Sans TC",sans-serif;color:#18363b;background:#f6f3ed;--green:#08796b;--deep:#294a5d;--line:#d9d0c2;--paper:#fff;--muted:#617478;--warn:#bd4830;--soft:#edf5f1}*{box-sizing:border-box}body{margin:0}main{max-width:1180px;margin:auto;padding:18px}h1,h2{margin:0}.meta{color:var(--muted);font-size:13px}.notice{min-height:24px;padding:7px 0;font-weight:800;color:#12633d}.notice.error{color:#a02e1b}.sync-debug-toggle,.sync-debug{display:none!important}.sync-status{display:inline-flex!important;align-items:center;gap:6px;font-weight:900;margin:8px 0}.sync-status[data-state="connected"]{color:var(--green)}.sync-status[data-state="reconnecting"]{color:#9a6700}.sync-status[data-state="offline"]{color:var(--warn)}.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:14px 0}.metric,.panel{background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:13px}.metric span{display:block;color:var(--muted);font-size:12px;font-weight:800}.metric strong{display:block;font-size:23px;margin-top:4px}.panel{margin-top:14px}.panel-head{display:flex;justify-content:space-between;gap:10px;align-items:end;margin-bottom:10px}.reconcile-total{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:12px 0}.reconcile-total div{background:var(--soft);padding:11px;border-radius:6px}.reconcile-total span{display:block;color:var(--muted);font-size:12px;font-weight:800}.reconcile-total strong{font-size:21px}table{width:100%;border-collapse:collapse}th{background:var(--deep);color:#fff;text-align:left;padding:9px;font-size:13px}td{border-top:1px solid #e9e1d6;padding:9px}input,textarea,button{font:inherit}input,textarea{width:100%;padding:9px;border:1px solid #aec0bd;border-radius:5px}textarea{min-height:65px;resize:vertical}button{padding:10px 12px;border:0;border-radius:5px;background:var(--green);color:#fff;font-weight:900;cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}.warn{background:var(--warn)}.row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.label{display:grid;gap:5px;font-size:13px;font-weight:800;color:#36545a}.empty{color:var(--muted);padding:14px 0}.actions{display:flex;gap:8px;flex-wrap:wrap}@media(max-width:900px){main{padding:12px}.summary{grid-template-columns:repeat(2,minmax(0,1fr))}.row,.reconcile-total{grid-template-columns:1fr}.panel-head{align-items:flex-start;flex-direction:column}table{min-width:560px}.table-wrap{overflow:auto}}@media(max-width:520px){.summary{grid-template-columns:1fr 1fr}.metric strong{font-size:20px}}
+    :root{font-family:Arial,"Noto Sans TC",sans-serif;color:#18363b;background:#f6f3ed;--green:#08796b;--deep:#294a5d;--line:#d9d0c2;--paper:#fff;--muted:#617478;--warn:#bd4830;--soft:#edf5f1}*{box-sizing:border-box}body{margin:0}main{max-width:1180px;margin:auto;padding:18px}h1,h2{margin:0}.meta{color:var(--muted);font-size:13px}.notice{min-height:24px;padding:7px 0;font-weight:800;color:#12633d}.notice.error{color:#a02e1b}.sync-debug-toggle,.sync-debug{display:none!important}.sync-status{display:inline-flex!important;align-items:center;gap:6px;font-weight:900;margin:8px 0}.sync-status[data-state="connected"]{color:var(--green)}.sync-status[data-state="reconnecting"]{color:#9a6700}.sync-status[data-state="offline"]{color:var(--warn)}.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:14px 0}.metric,.panel{background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:13px}.metric span{display:block;color:var(--muted);font-size:12px;font-weight:800}.metric strong{display:block;font-size:23px;margin-top:4px}.panel{margin-top:14px}.panel-head{display:flex;justify-content:space-between;gap:10px;align-items:end;margin-bottom:10px}.reconcile-total{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:12px 0}.reconcile-total div{background:var(--soft);padding:11px;border-radius:6px}.reconcile-total span{display:block;color:var(--muted);font-size:12px;font-weight:800}.reconcile-total strong{font-size:21px}table{width:100%;border-collapse:collapse}th{background:var(--deep);color:#fff;text-align:left;padding:9px;font-size:13px}td{border-top:1px solid #e9e1d6;padding:9px}input,textarea,button{font:inherit}input,textarea{width:100%;padding:9px;border:1px solid #aec0bd;border-radius:5px}input[type=checkbox]{width:auto;padding:0}textarea{min-height:65px;resize:vertical}button{padding:10px 12px;border:0;border-radius:5px;background:var(--green);color:#fff;font-weight:900;cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}.warn{background:var(--warn)}.row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.label{display:grid;gap:5px;font-size:13px;font-weight:800;color:#36545a}.empty{color:var(--muted);padding:14px 0}.actions{display:flex;gap:8px;flex-wrap:wrap}@media(max-width:900px){main{padding:12px}.summary{grid-template-columns:repeat(2,minmax(0,1fr))}.row,.reconcile-total{grid-template-columns:1fr}.panel-head{align-items:flex-start;flex-direction:column}table{min-width:560px}.table-wrap{overflow:auto}}@media(max-width:520px){.summary{grid-template-columns:1fr 1fr}.metric strong{font-size:20px}}
   </style>
 </head>
 <body>
@@ -68,6 +68,12 @@ export function renderStatistics(): string {
         <div><span>實收合計</span><strong id="received-total">NT$0</strong></div>
         <div><span>實收差額</span><strong id="received-difference">NT$0</strong></div>
       </div>
+      <div class="reconcile-total" aria-label="PaymentCloseoutReconciliationBoundary">
+        <div><span>現金預期／申報／差額</span><strong id="cash-reconciliation">NT$0／NT$0／NT$0</strong></div>
+        <div><span>LINE Pay 預期／申報／差額</span><strong id="line-reconciliation">NT$0／NT$0／NT$0</strong></div>
+        <div><span>支付核對</span><strong id="payment-reconciliation-status">待確認</strong></div>
+      </div>
+      <label class="label"><span><input id="reconciliation-exception-confirmed" type="checkbox"> 差額例外確認（不會更正支付或實收紀錄）</span><textarea id="reconciliation-exception-reason" maxlength="500" placeholder="僅有 Cash 或 LINE Pay 差額時，必填原因"></textarea></label>
       <label class="label">核對備註<textarea id="notes" maxlength="1000" placeholder="可空白"></textarea></label>
       <p class="meta">成本與毛利尚未啟用；報廢數量保存在 Operations 收攤紀錄。</p>
       <button id="close" class="warn" type="button">確認結束今日販售</button>
@@ -110,9 +116,15 @@ export function renderStatistics(): string {
     function updateReconciliation(){
       const ledger=n(latest?.ledgerAmount);
       const received=n($('cash').value)+n($('line').value)+n($('other').value);
+      const expected=latest?.paymentReceiptExpected||{cash:0,linePay:0};
+      const cashVariance=n($('cash').value)-n(expected.cash);
+      const linePayVariance=n($('line').value)-n(expected.linePay);
       $('ledger-total').textContent=money(ledger);
       $('received-total').textContent=money(received);
       $('received-difference').textContent=money(received-ledger);
+      $('cash-reconciliation').textContent=money(expected.cash)+'／'+money($('cash').value)+'／'+money(cashVariance);
+      $('line-reconciliation').textContent=money(expected.linePay)+'／'+money($('line').value)+'／'+money(linePayVariance);
+      $('payment-reconciliation-status').textContent=cashVariance===0&&linePayVariance===0?'Cash／LINE Pay 一致':'需要明確差額例外';
     }
     function render(data){
       latest=data;
@@ -174,6 +186,15 @@ export function renderStatistics(): string {
         items:items()
       };
     }
+    function closeException(){
+      if(n(latest?.unresolvedCount)>0)return null;
+      const expected=latest?.paymentReceiptExpected||{cash:0,linePay:0};
+      const mismatch=n($('cash').value)!==n(expected.cash)||n($('line').value)!==n(expected.linePay);
+      if(!mismatch)return null;
+      const reason=$('reconciliation-exception-reason').value.trim();
+      if(!$('reconciliation-exception-confirmed').checked||!reason)throw Error('Cash 或 LINE Pay 差額必須勾選例外確認並填寫原因，或先修正實收申報。');
+      return {confirmed:true,reason};
+    }
     async function save(){
       if(!eventId)throw Error('請先選擇營業中或暫停中的場次。');
       render(await api('/api/events/'+eventId+'/closeout',{method:'PUT',body:JSON.stringify(closeoutPayload())}));
@@ -191,8 +212,11 @@ export function renderStatistics(): string {
     $('close').onclick=async()=>{
       closeError=null;
       try{
+        const reconciliationException=closeException();
         await save();
-        const result=await api('/api/events/'+eventId+'/close',{method:'POST',body:JSON.stringify({confirmed:true,operator:'Owner'})});
+        const body={confirmed:true,operator:'Owner'};
+        if(reconciliationException)body.reconciliationException=reconciliationException;
+        const result=await api('/api/events/'+eventId+'/close',{method:'POST',body:JSON.stringify(body)});
         closeError=null;
         notice(result.replayed?'此場次已完成結束。':'場次已正式結束，日結快照已建立。');
         await load();

@@ -28,8 +28,8 @@ async function closeEvent(page: any, eventId: string) {
   assertApiSuccess(statistics, `Realtime Event statistics eventId=${eventId}`);
   const currentCloseout = statistics.body.data.closeout;
   const closeout = await api(page, `/api/events/${eventId}/closeout`, "PUT", {
-    cashReceived: currentCloseout?.cashReceived ?? 0,
-    linePayReceived: currentCloseout?.linePayReceived ?? 0,
+    cashReceived: statistics.body.data.paymentReceiptExpected?.cash ?? 0,
+    linePayReceived: statistics.body.data.paymentReceiptExpected?.linePay ?? 0,
     otherReceived: currentCloseout?.otherReceived ?? 0,
     wasteAmount: currentCloseout?.wasteAmount ?? 0,
     notes: currentCloseout?.notes ?? "",

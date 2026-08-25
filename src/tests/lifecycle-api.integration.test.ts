@@ -48,9 +48,9 @@ async function confirmPayment(baseUrl: string, orderId: string, key: string, ove
     ...overrides
   });
 }
-async function saveZeroCloseout(baseUrl: string, eventId: string) {
+async function saveZeroCloseout(baseUrl: string, eventId: string, receipts: Partial<{ cashReceived: number; linePayReceived: number; otherReceived: number }> = {}) {
   const statistics = await request(baseUrl, `/api/events/${eventId}/statistics`);
-  return request(baseUrl, `/api/events/${eventId}/closeout`, "PUT", { cashReceived: 0, linePayReceived: 0, otherReceived: 0, wasteAmount: 0, notes: "", items: statistics.body.data.inventory.map((item: any) => ({ productVersionId: item.productVersionId, wasteQuantity: 0 })) });
+  return request(baseUrl, `/api/events/${eventId}/closeout`, "PUT", { cashReceived: receipts.cashReceived ?? 0, linePayReceived: receipts.linePayReceived ?? 0, otherReceived: receipts.otherReceived ?? 0, wasteAmount: 0, notes: "", items: statistics.body.data.inventory.map((item: any) => ({ productVersionId: item.productVersionId, wasteQuantity: 0 })) });
 }
 
 test("lifecycle keeps Order, Payment, and Production states separate", async () => {
@@ -115,11 +115,14 @@ test("served reservation payment is authoritative, idempotent, audited, projecte
     assert.equal(statistics.body.data.cashReceivedAmount, 100);
     assert.equal(statistics.body.data.linePayReceivedAmount, 0);
     assert.equal(statistics.body.data.unresolvedCount, 0);
-    const closeout = await saveZeroCloseout(baseUrl, eventId);
+    const closeout = await saveZeroCloseout(baseUrl, eventId, { cashReceived: 100 });
     assert.equal(closeout.status, 200);
     const closed = await request(baseUrl, `/api/events/${eventId}/close`, "POST", { confirmed: true, operator: "Owner" });
     assert.equal(closed.status, 200);
     assert.equal(closed.body.data.report.payments.cash, 100);
+    assert.deepEqual(closed.body.data.report.paymentReconciliation, {
+      expected: { cash: 100, linePay: 0 }, declared: { cash: 100, linePay: 0, other: 0 }, variance: { cash: 0, linePay: 0 }, outcome: "matched", exception: null
+    });
 
     const database = createDatabase({ host: "127.0.0.1", port: 0, databasePath });
     try {
@@ -144,6 +147,39 @@ test("served reservation payment is authoritative, idempotent, audited, projecte
     } finally {
       database.close();
     }
+  } finally {
+    const closed = once(server, "close");
+    server.closeAllConnections();
+    server.close();
+    await closed;
+  }
+});
+
+test("PaymentCloseoutReconciliationBoundary blocks receipt differences until an explicit immutable exception is accepted", async () => {
+  const { server, baseUrl, eventId, product } = await setup();
+  try {
+    const order = await createOrder(baseUrl, eventId, product, "reconcile-paid");
+    await serveOrder(baseUrl, order.body.data.orderId);
+    assert.equal((await confirmPayment(baseUrl, order.body.data.orderId, "reconcile-payment")).status, 200);
+    assert.equal((await saveZeroCloseout(baseUrl, eventId)).status, 200);
+
+    const blocked = await request(baseUrl, `/api/events/${eventId}/close`, "POST", { confirmed: true, operator: "Owner" });
+    assert.equal(blocked.status, 409);
+    assert.equal(blocked.body.error.code, "PAYMENT_RECONCILIATION_EXCEPTION_REQUIRED");
+    assert.deepEqual(blocked.body.error.details, { cashVariance: "-100", linePayVariance: "0" });
+    assert.equal((await request(baseUrl, `/api/events/${eventId}/daily-report`)).status, 404);
+
+    const closed = await request(baseUrl, `/api/events/${eventId}/close`, "POST", {
+      confirmed: true, operator: "Owner", reconciliationException: { confirmed: true, reason: "Cash count pending supervised verification" }
+    });
+    assert.equal(closed.status, 200);
+    assert.deepEqual(closed.body.data.report.paymentReconciliation, {
+      expected: { cash: 100, linePay: 0 }, declared: { cash: 0, linePay: 0, other: 0 }, variance: { cash: -100, linePay: 0 }, outcome: "exception_accepted",
+      exception: { reason: "Cash count pending supervised verification", actor: "Owner" }
+    });
+    const replay = await request(baseUrl, `/api/events/${eventId}/close`, "POST", { confirmed: true, operator: "Different" });
+    assert.equal(replay.status, 200);
+    assert.deepEqual(replay.body.data.report.paymentReconciliation, closed.body.data.report.paymentReconciliation);
   } finally {
     const closed = once(server, "close");
     server.closeAllConnections();

@@ -2630,7 +2630,7 @@ test("OPEN Event reads only Operations-owned product snapshots", () => {
 
 test("migration business tables have approved prefixes only", () => {
   const migrationFiles = filesUnder(path.join(projectRoot, "migrations"), [".sql"]);
-  const allowedSystemTables = new Set(["schema_migrations", "users", "roles", "user_roles", "audit_logs", "system_settings"]);
+  const allowedSystemTables = new Set(["schema_migrations", "users", "roles", "user_roles", "audit_logs", "system_settings", "system_auth_sessions"]);
   for (const filename of migrationFiles) {
     const statements = readFileSync(filename, "utf8").matchAll(/CREATE TABLE IF NOT EXISTS ([a-z_]+)/g);
     for (const statement of statements) {
@@ -3307,4 +3307,62 @@ test("PR-OPERATIONS-003 keeps Daily Report Sales Contract reads inside their exa
   assert.match(repository, /operations_event_closures/);
   assert.match(routes, /\/api\/admin\/operations\/daily-reports/);
   assert.doesNotMatch(service, /sqlite|DatabaseAdapter|better-sqlite|INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|payment-provider|webhook/i);
+});
+
+test("PR-PLATFORM-001 keeps Authentication and Role control inside its exact System-owned responsibility boundary", () => {
+  const approvedPlatform001Paths = new Set([
+    "migrations/023_platform_authentication.sql",
+    "src/config/runtime.ts",
+    "src/system/authentication/domain/authentication-repository.ts",
+    "src/system/authentication/application/authentication-service.ts",
+    "src/system/authentication/application/authentication-errors.ts",
+    "src/system/authentication/infrastructure/sqlite-authentication-repository.ts",
+    "src/system/authentication/index.ts",
+    "src/server/app/access-control.ts",
+    "src/server/app/login-page.ts",
+    "src/server/app/routes.ts",
+    "src/server/index.ts",
+    "src/tests/authentication-application.test.ts",
+    "src/tests/authentication-persistence.integration.test.ts",
+    "src/tests/authentication-api.integration.test.ts",
+    "src/tests/architecture-guards.test.ts",
+    "scripts/migration-upgrade-014.mjs",
+    "src/tests/recipe-migration-017.integration.test.ts",
+    "src/tests/recipe-migration-018.integration.test.ts",
+    "src/tests/canonical-ingredient-reference-impact-persistence.integration.test.ts"
+  ]);
+  assert.equal(approvedPlatform001Paths.size, 19);
+  const isPlatform001Responsibility = (source: string): boolean =>
+    /AuthenticationRoleBoundary|system_auth_sessions|ROS_AUTH|ros_session|Authentication(?:Service|Repository|Credential|Principal|ValidationFailure|InvalidCredentials|PersistenceFailure|Required)|023_platform_authentication/.test(source);
+  assert.equal(isPlatform001Responsibility("new AuthenticationService(repository)"), true);
+  const responsibilityFiles = [
+    ...filesUnder(sourceRoot, [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "migrations"), [".sql"]),
+    path.join(projectRoot, "scripts", "migration-upgrade-014.mjs")
+  ].filter((filename) => isPlatform001Responsibility(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .sort();
+  const approvedResponsibilityFiles = [...approvedPlatform001Paths]
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => isPlatform001Responsibility(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8")))
+    .sort();
+  assert.deepEqual(responsibilityFiles, approvedResponsibilityFiles);
+  assert.equal(approvedPlatform001Paths.has("src/server/app/role-admin-service.ts"), false);
+  assert.equal(
+    isPlatform001Responsibility("export class AuthenticationRoleBoundaryElevatedRoute {}"),
+    true,
+    "The same classifier must reject a simulated unauthorized twentieth authentication responsibility path."
+  );
+  const service = readFileSync(path.join(sourceRoot, "system", "authentication", "application", "authentication-service.ts"), "utf8");
+  const repository = readFileSync(path.join(sourceRoot, "system", "authentication", "infrastructure", "sqlite-authentication-repository.ts"), "utf8");
+  const access = readFileSync(path.join(sourceRoot, "server", "app", "access-control.ts"), "utf8");
+  const routes = readFileSync(path.join(sourceRoot, "server", "app", "routes.ts"), "utf8");
+  assert.doesNotMatch(service, /sqlite|DatabaseAdapter|better-sqlite|CostBackOffice|domains\/cost/i);
+  assert.match(repository, /token_hash/);
+  assert.match(access, /SameSite|csrf_origin_forbidden|commandWithPrincipal/);
+  assert.match(access, /capturedBy: actor/);
+  assert.match(routes, /\/api\/auth\/login/);
+  assert.doesNotMatch(routes, /POST\s+\/api\/admin\/canonical-ingredients/);
 });

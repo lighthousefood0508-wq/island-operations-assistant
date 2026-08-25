@@ -46,10 +46,19 @@ import {
 import { createRoute } from "./app/routes.js";
 import { CostBackOfficeService } from "./app/cost-back-office-service.js";
 import { SseHub } from "./events/sse.js";
+import {
+  AuthenticationService,
+  SqliteAuthenticationRepository
+} from "../system/authentication/index.js";
 
 export function createRosServer(config: RosConfig = loadConfig()): Server {
   const database = createDatabase(config);
   runMigrations(database);
+  const authentication = new AuthenticationService(
+    new SqliteAuthenticationRepository(database),
+    config.authentication
+  );
+  authentication.ensureBootstrap();
   const catalog = new CatalogService(new CatalogRepository(database));
   const operations = new OperationsService(new OperationsRepository(database));
   const paymentRepository = new PaymentRepository(database);
@@ -147,7 +156,8 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
     dailyReports,
     canonicalIngredients,
     canonicalIngredientReferenceImpact,
-    costBackOffice
+    costBackOffice,
+    authentication
   }, events));
   server.on("close", () => database.close());
   return server;

@@ -225,13 +225,20 @@ try {
   upgradedDatabase = openDatabase(databasePath);
   const afterSnapshot = tableSnapshot(upgradedDatabase);
   const migratedLifecycleTable = "recipe_canonical_ingredient_renames";
-  for (const table of Object.keys(beforeSnapshot).filter((name) => name !== migratedLifecycleTable)) {
+  const authenticationProjectionTables = new Set(["users", "roles"]);
+  for (const table of Object.keys(beforeSnapshot).filter((name) => name !== migratedLifecycleTable && !authenticationProjectionTables.has(name))) {
     assert(JSON.stringify(afterSnapshot[table]) === JSON.stringify(beforeSnapshot[table]), `pre-existing table changed during upgrade: ${table}`);
   }
-  const preservedBeforeSnapshot = Object.fromEntries(Object.entries(beforeSnapshot).filter(([name]) => name !== migratedLifecycleTable));
+  const preservedBeforeSnapshot = Object.fromEntries(Object.entries(beforeSnapshot).filter(([name]) => name !== migratedLifecycleTable && !authenticationProjectionTables.has(name)));
   const preservedAfterSnapshot = Object.fromEntries(Object.keys(preservedBeforeSnapshot).map((table) => [table, afterSnapshot[table]]));
   const afterDigest = digest(JSON.stringify(preservedAfterSnapshot));
   assert(afterDigest === digest(JSON.stringify(preservedBeforeSnapshot)), "pre-existing SQL-value snapshot digest changed during upgrade");
+  assert(JSON.stringify(upgradedDatabase.prepare("SELECT user_id, login, display_name, status, created_at, password_algorithm, password_salt, password_hash, password_changed_at FROM users WHERE user_id = 'user_owner'").get()) === JSON.stringify({
+    user_id: "user_owner", login: "owner", display_name: "Owner", status: "active", created_at: "2026-07-31T08:00:00.000Z",
+    password_algorithm: null, password_salt: null, password_hash: null, password_changed_at: null
+  }), "legacy user projection was not preserved with empty credential fields");
+  assert(JSON.stringify(upgradedDatabase.prepare("SELECT code FROM roles ORDER BY code").pluck().all()) === JSON.stringify(["admin", "closeout", "kitchen", "pos"]), "governed local roles were not added deterministically");
+  assert(upgradedDatabase.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'system_auth_sessions'").get()?.name === "system_auth_sessions", "AuthenticationRoleBoundary session ledger was not created");
 
   const canonicalIngredient = upgradedDatabase.prepare("SELECT ingredient_id, name, category_code, status, aggregate_version, created_at, created_by, archived_at, archived_by, archive_reason FROM recipe_canonical_ingredients WHERE ingredient_id = ?")
     .get("ing_00000000-0000-4000-8000-000000000001");

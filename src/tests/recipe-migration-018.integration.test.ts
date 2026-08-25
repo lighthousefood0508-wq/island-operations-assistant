@@ -15,6 +15,7 @@ test("Migration 018 turns legacy Rename and Archive evidence into the sole lifec
   const database = new BetterSqlite3Adapter(path.join(directory, "test.sqlite"));
   try {
     database.execute("CREATE TABLE schema_migrations (migration_id TEXT PRIMARY KEY, applied_at TEXT NOT NULL)");
+    database.execute(readFileSync(path.join(migrations, "001_initial_foundation.sql"), "utf8"));
     database.execute(readFileSync(path.join(migrations, "014_recipe_canonical_ingredients.sql"), "utf8"));
     for (const filename of readdirSync(migrations).filter((name) => name <= "017_recipe_persistence_line_identity_and_publication_uow.sql" && name.endsWith(".sql"))) {
       database.execute("INSERT OR IGNORE INTO schema_migrations VALUES (?, ?)", [filename, "2026-08-19T00:00:00.000Z"]);
@@ -27,7 +28,8 @@ test("Migration 018 turns legacy Rename and Archive evidence into the sole lifec
       "019_cost_suppliers.sql",
       "020_cost_purchases.sql",
       "021_accepted_purchase_evidence.sql",
-      "022_cost_recipe_snapshots.sql"
+      "022_cost_recipe_snapshots.sql",
+      "023_platform_authentication.sql"
     ]);
     assert.deepEqual(database.queryMany<{ event_type: string; aggregate_version: number }>("SELECT event_type, aggregate_version FROM recipe_canonical_ingredient_lifecycle_events WHERE ingredient_id = ? ORDER BY aggregate_version", [id]), [
       { event_type: "RENAMED", aggregate_version: 1 }, { event_type: "ARCHIVED", aggregate_version: 2 }

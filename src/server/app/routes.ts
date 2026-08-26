@@ -204,7 +204,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "GET" && pathname === "/health") return success(response, 200, { status: "ok", service: "desert-island-ros", database: "ready", now: new Date().toISOString() });
     if (request.method === "GET" && pathname === "/login") return sendHtml(response, renderLoginPage(url.searchParams.get("next") ?? "/"));
     if (request.method === "POST" && pathname === "/api/auth/login") {
-      requireSameOrigin(request);
+      requireSameOrigin(request, services.authentication.publicOrigin);
       try {
         const result = services.authentication.login(await readJson(request));
         response.setHeader("set-cookie", services.authentication.sessionCookie(result.sessionToken));

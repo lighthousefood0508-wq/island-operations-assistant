@@ -1,0 +1,25 @@
+[Unit]
+Description=Desert Island ROS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ros
+Group=ros
+WorkingDirectory=/opt/desert-island-ros/current
+EnvironmentFile=/etc/desert-island-ros/ros.env
+ExecStartPre=/usr/bin/node /opt/desert-island-ros/current/scripts/production-runtime-preflight.mjs
+ExecStart=/usr/bin/node /opt/desert-island-ros/current/dist/server/index.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/desert-island-ros
+
+[Install]
+WantedBy=multi-user.target

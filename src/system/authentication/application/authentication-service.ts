@@ -39,6 +39,8 @@ export class AuthenticationService {
 
   get required(): boolean { return this.configuration.mode === "required"; }
 
+  get publicOrigin(): string | undefined { return this.configuration.publicOrigin; }
+
   ensureBootstrap(): void {
     if (!this.required) return;
     try {

@@ -18,7 +18,7 @@ Make the existing single-process ROS runtime safe and deterministic to deploy be
 - The systemd template runs the compiled application as an unprivileged service, uses a restrictive umask/sandbox, writes only to its SQLite state directory, and never embeds a secret.
 - The Nginx template terminates TLS, redirects HTTP, limits login attempts and request size, supports long-lived unbuffered SSE, and forwards ordinary same-origin traffic only to loopback ROS.
 
-## Exact implementation allowlist (16 paths)
+## Exact implementation allowlist (17 paths)
 
 1. `.env.example`
 2. `package.json`
@@ -36,8 +36,9 @@ Make the existing single-process ROS runtime safe and deterministic to deploy be
 14. `src/tests/production-runtime.integration.test.ts`
 15. `src/tests/authentication-api.integration.test.ts`
 16. `src/tests/architecture-guards.test.ts`
+17. `src/server/app/routes.ts` — only to pass the configured canonical public origin to the existing anonymous login same-origin check; no route selection or login behavior change.
 
-No seventeenth implementation path is authorized.
+The Decision #091 scope amendment authorizes no eighteenth implementation path.
 
 ## Acceptance criteria
 
@@ -47,7 +48,7 @@ No seventeenth implementation path is authorized.
 - Secure production sessions set `HttpOnly`, `SameSite=Strict`, and `Secure`; no configuration value or secret serializes through an HTTP response.
 - Shutdown closes server/database once and can be invoked repeatedly without a second close or a partial process state.
 - Templates and preflight express one loopback app listener, HTTPS proxy, SSE behavior, constrained service account, and no committed secret.
-- Architecture Guards reject a simulated unauthorized seventeenth substantive deployment-responsibility path using the same classifier as the repository scan.
+- Architecture Guards reject a simulated unauthorized eighteenth substantive deployment-responsibility path using the same classifier as the repository scan.
 
 ## Explicit exclusions
 
@@ -57,8 +58,8 @@ No seventeenth implementation path is authorized.
 
 - Focused runtime configuration, production server/migration, authentication API/origin/cookie, preflight/template, and Architecture Guard tests.
 - Existing migration, authentication, Operations, Cost, Ingredient, Recipe, API, realtime, and E2E regressions.
-- typecheck, lint, build, `npm test`, `npm run verify`, `npm run verify:full`, full compiled collection, `git diff --check`, exact 16-path audit, UTF-8/final-newline/trailing-whitespace checks.
+- typecheck, lint, build, `npm test`, `npm run verify`, `npm run verify:full`, full compiled collection, `git diff --check`, exact 17-path audit, UTF-8/final-newline/trailing-whitespace checks.
 
 ## Stop conditions
 
-Stop for a seventeenth path; migration/schema/package change; Domain/contract/UI authority expansion; backup/restore/monitoring work; a need to trust request-controlled proxy data; a public non-loopback Node listener; an unresolved production configuration or graceful-shutdown conflict; unsafe Git state; or a test failure that cannot be corrected inside this exact scope.
+Stop for an eighteenth path; migration/schema/package change; Domain/contract/UI authority expansion; backup/restore/monitoring work; a need to trust request-controlled proxy data; a public non-loopback Node listener; an unresolved production configuration or graceful-shutdown conflict; unsafe Git state; or a test failure that cannot be corrected inside this exact scope.

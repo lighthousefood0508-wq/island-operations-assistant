@@ -14,6 +14,7 @@ function production(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     ROS_PUBLIC_ORIGIN: "https://ros.example.test",
     ROS_HOST: "127.0.0.1",
     ROS_DATABASE_PATH: path.resolve("data", "runtime-configuration.sqlite"),
+    ROS_BACKUP_DIRECTORY: path.resolve("data", "runtime-configuration-backups"),
     ...overrides
   };
 }
@@ -29,6 +30,13 @@ test("ProductionRuntimeSecureDeploymentBoundary validates the complete productio
   assert.equal(path.isAbsolute(configuration.databasePath), true);
 });
 
+test("PlatformOperationalRecoveryEvidence validates a separate production backup envelope", () => {
+  const configuration = loadConfig(production({ ROS_BACKUP_RETENTION_COUNT: "7", ROS_BACKUP_MAX_AGE_HOURS: "25" }));
+  assert.equal(configuration.recovery?.retentionCount, 7);
+  assert.equal(configuration.recovery?.maximumBackupAgeHours, 25);
+  assert.equal(path.isAbsolute(configuration.recovery?.backupDirectory ?? ""), true);
+});
+
 test("ProductionRuntimeSecureDeploymentBoundary fails closed for unsafe production configuration", () => {
   assert.throws(() => loadConfig(production({ [authenticationModeKey]: "disabled" })), /requires authentication/);
   assert.throws(() => loadConfig(production({ [secureCookieKey]: "false" })), /secure session cookies/);
@@ -36,6 +44,10 @@ test("ProductionRuntimeSecureDeploymentBoundary fails closed for unsafe producti
   assert.throws(() => loadConfig(production({ ROS_PUBLIC_ORIGIN: undefined })), /canonical public origin/);
   assert.throws(() => loadConfig(production({ ROS_HOST: "0.0.0.0" })), /loopback host/);
   assert.throws(() => loadConfig(production({ ROS_DATABASE_PATH: "data/relative.sqlite" })), /absolute database path/);
+  assert.throws(() => loadConfig(production({ ROS_BACKUP_DIRECTORY: "data/relative-backups" })), /absolute backup directory/);
+  assert.throws(() => loadConfig(production({ ROS_BACKUP_DIRECTORY: path.resolve("data") })), /distinct from the database directory/);
+  assert.throws(() => loadConfig(production({ ROS_BACKUP_RETENTION_COUNT: "0" })), /backup retention count/);
+  assert.throws(() => loadConfig(production({ ROS_BACKUP_MAX_AGE_HOURS: "721" })), /maximum backup age/);
   assert.throws(() => loadConfig({ NODE_ENV: "release" }), /NODE_ENV is invalid/);
 });
 

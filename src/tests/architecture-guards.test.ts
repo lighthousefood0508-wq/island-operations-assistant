@@ -3331,7 +3331,7 @@ test("PR-PLATFORM-002 keeps Production Runtime and Secure Deployment inside its 
   ]);
   assert.equal(approvedPlatform002Paths.size, 17);
   const isPlatform002Responsibility = (source: string): boolean =>
-    /ProductionRuntime(?:SecureDeployment)?Boundary|ROS_PUBLIC_ORIGIN|verifyMigrationsCurrent|runtime:preflight|production-runtime-preflight|ROS Production Runtime|canonical public origin|ROS_PUBLIC_HOSTNAME|publicOrigin/.test(source);
+    !/PlatformOperationalRecoveryEvidence/.test(source) && /ProductionRuntime(?:SecureDeployment)?Boundary|ROS_PUBLIC_ORIGIN|verifyMigrationsCurrent|runtime:preflight|production-runtime-preflight|ROS Production Runtime|canonical public origin|ROS_PUBLIC_HOSTNAME|publicOrigin/.test(source);
   assert.equal(isPlatform002Responsibility("const origin = services.authentication.publicOrigin;"), true);
   const files = [
     ...filesUnder(sourceRoot, [".ts", ".tsx"]),
@@ -3424,4 +3424,72 @@ test("PR-PLATFORM-001 keeps Authentication and Role control inside its exact Sys
   assert.match(access, /capturedBy: actor/);
   assert.match(routes, /\/api\/auth\/login/);
   assert.doesNotMatch(routes, /POST\s+\/api\/admin\/canonical-ingredients/);
+});
+
+test("PR-PLATFORM-003 keeps Backup, Restore, Monitoring, and Recovery Evidence inside its exact System-owned responsibility boundary", () => {
+  const approvedPlatform003Paths = new Set([
+    ".env.example",
+    "package.json",
+    "src/config/runtime.ts",
+    "src/shared/database/database-adapter.ts",
+    "src/shared/database/better-sqlite3-adapter.ts",
+    "scripts/production-backup.mjs",
+    "scripts/production-restore-verify.mjs",
+    "scripts/production-monitoring-evidence.mjs",
+    "deploy/systemd/desert-island-ros-backup.service",
+    "deploy/systemd/desert-island-ros-backup.timer",
+    "deploy/systemd/desert-island-ros-monitoring.service",
+    "deploy/systemd/desert-island-ros-monitoring.timer",
+    "docs/deployment/ROS_PRODUCTION_BACKUP_RECOVERY_LINUX.md",
+    "docs/deployment/ROS_PRODUCTION_RUNTIME_LINUX.md",
+    "docs/10_SECURITY.md",
+    "src/tests/production-backup-recovery.integration.test.ts",
+    "src/tests/production-monitoring-evidence.integration.test.ts",
+    "src/tests/runtime-configuration.test.ts",
+    "src/tests/architecture-guards.test.ts"
+  ]);
+  assert.equal(approvedPlatform003Paths.size, 19);
+  const isPlatform003Responsibility = (source: string): boolean =>
+    /PlatformOperationalRecoveryEvidence|ROS_BACKUP_(DIRECTORY|RETENTION_COUNT|MAX_AGE_HOURS)|production-(backup|restore-verify|monitoring-evidence)|ROS Production Backup|desert-island-ros-(backup|monitoring)/.test(source);
+  assert.equal(isPlatform003Responsibility("PlatformOperationalRecoveryEvidence"), true);
+  const files = [
+    ...filesUnder(sourceRoot, [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"]),
+    path.join(projectRoot, ".env.example"),
+    path.join(projectRoot, "package.json"),
+    path.join(projectRoot, "scripts", "production-backup.mjs"),
+    path.join(projectRoot, "scripts", "production-restore-verify.mjs"),
+    path.join(projectRoot, "scripts", "production-monitoring-evidence.mjs"),
+    path.join(projectRoot, "deploy", "systemd", "desert-island-ros-backup.service"),
+    path.join(projectRoot, "deploy", "systemd", "desert-island-ros-backup.timer"),
+    path.join(projectRoot, "deploy", "systemd", "desert-island-ros-monitoring.service"),
+    path.join(projectRoot, "deploy", "systemd", "desert-island-ros-monitoring.timer"),
+    path.join(projectRoot, "docs", "deployment", "ROS_PRODUCTION_BACKUP_RECOVERY_LINUX.md"),
+    path.join(projectRoot, "docs", "deployment", "ROS_PRODUCTION_RUNTIME_LINUX.md"),
+    path.join(projectRoot, "docs", "10_SECURITY.md")
+  ];
+  const responsibilityFiles = files
+    .filter((filename) => isPlatform003Responsibility(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .sort();
+  const approvedResponsibilityFiles = [...approvedPlatform003Paths]
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => isPlatform003Responsibility(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8")))
+    .sort();
+  assert.deepEqual(responsibilityFiles, approvedResponsibilityFiles);
+  assert.equal(approvedPlatform003Paths.has("scripts/production-recovery-alert-delivery.mjs"), false);
+  assert.equal(
+    isPlatform003Responsibility("export class PlatformOperationalRecoveryEvidenceAlertDelivery {}"),
+    true,
+    "The same classifier must reject a simulated unauthorized twentieth recovery-responsibility path."
+  );
+  const backup = readFileSync(path.join(projectRoot, "scripts", "production-backup.mjs"), "utf8");
+  const restore = readFileSync(path.join(projectRoot, "scripts", "production-restore-verify.mjs"), "utf8");
+  const monitoring = readFileSync(path.join(projectRoot, "scripts", "production-monitoring-evidence.mjs"), "utf8");
+  assert.match(backup, /database\.backup\(temporaryBackupPath\)/);
+  assert.match(backup, /verifyMigrationsCurrent/);
+  assert.match(restore, /live database replacement requires explicit confirmation/);
+  assert.match(monitoring, /\/health/);
+  assert.doesNotMatch(backup + restore + monitoring, /https?:\/\/[^`"']*(slack|pagerduty|discord)|webhook|sqlite3-cli/i);
 });

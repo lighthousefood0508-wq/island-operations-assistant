@@ -68,6 +68,11 @@ export class BetterSqlite3Adapter implements DatabaseAdapter {
     return this.runTransaction("BEGIN IMMEDIATE", work);
   }
 
+  async backup(destinationPath: string): Promise<void> {
+    this.assertSafe();
+    await this.database.backup(destinationPath);
+  }
+
   close(): void {
     this.database.close();
   }

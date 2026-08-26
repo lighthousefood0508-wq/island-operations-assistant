@@ -22,6 +22,27 @@
 
 ## Approval Register
 
+- **DECISIONS #092 - Backup, Restore, Monitoring, and Operational Recovery Evidence Boundary**
+  - **Date**: 2026-08-26.
+  - **Status**: APPROVED by Architecture Owner for PR-PLATFORM-003 governance, implementation, verification, review, publication, merge, integration closeout, and Production Readiness Gate while the exact approved scope remains unchanged.
+  - **Single responsibility**: Establish System-owned, single-host operational evidence for a consistent SQLite backup, a checksum-verified restore drill, and recurring local health/backup-freshness evidence. This Decision does not create an external backup, alerting, deployment, release, business, or data-authority system.
+  - **Backup and retention semantics**:
+    - A backup is made through SQLite's consistent backup facility into a temporary file in the configured absolute backup directory. It is integrity-checked, verified against the current migration set, hashed, and atomically published with a JSON manifest only after validation succeeds. A failed backup never replaces a prior published backup.
+    - The manifest pins its immutable file name, SHA-256, byte size, creation time, and applied migration identifiers. Retention removes only a complete, older backup/manifest pair after a newer backup has been published and verified. Incomplete temporary files and a manifest without its pinned file are not recovery evidence.
+    - Repository code does not claim encryption, off-host replication, or automatic alert delivery. The production backup directory must be on an Operator-approved encrypted and access-controlled store; off-host copy and alert routing remain deployment-time evidence.
+  - **Restore and recovery semantics**:
+    - Restore first verifies the manifest and backup SHA-256, copies into an explicit target through a temporary file, then opens the restored SQLite file to run integrity and current-migration verification. It never treats a raw file copy as a successful restore.
+    - By default the restore command refuses the configured live database target. Replacing that target requires an explicit destructive operator flag and is permitted only after the service is stopped in the approved maintenance procedure. The command does not start, stop, or kill any process, run migrations, modify a backup, or perform a database rollback.
+    - A recovery drill is a verified restore to an explicit non-live target. It proves the backup artifact is structurally recoverable; it does not prove a real host, TLS endpoint, credential, or operator workflow has been exercised.
+  - **Monitoring evidence**:
+    - The local monitoring command checks the existing loopback `/health` endpoint and the latest complete backup manifest against the configured maximum age, emits bounded structured JSON to stdout/journald, and exits non-zero on an unavailable/stale condition. It is evidence only: it changes neither server state nor a Domain fact and sends no external notification.
+    - The supplied systemd services/timers invoke the existing Node scripts under the least-privileged `ros` account. They do not contain a secret, hostname, private key, database content, or alert destination.
+  - **Configuration and protected boundary**:
+    - Production requires absolute, distinct `ROS_BACKUP_DIRECTORY`, positive bounded retention, and positive bounded maximum backup age in addition to the DECISIONS #091 envelope. Local/test retain safe defaults under their local database directory.
+    - PR-PLATFORM-003 fixes exactly nineteen implementation paths: environment and command metadata; runtime configuration; the existing shared SQLite adapter's narrow backup operation; backup/restore/monitoring scripts; four systemd backup/monitor templates; deployment/security documentation; focused configuration and recovery tests; and Architecture Guards. The Architecture Guard must substantively classify this responsibility, allow only these paths, and reject a simulated unauthorized twentieth path through the same classifier.
+  - **Explicit exclusions**: migration/schema/data transformation, backup encryption implementation, off-host replication, cloud storage, external alerting, log aggregation, dashboard/UI, database rollback, release/deployment execution, container/multi-node/HA topology, credentials, Cost/Operations/Recipe/Ingredient/Measurement semantics, Inventory, LINE Ordering, and all legacy changes.
+  - **Verification**: disposable-database consistent backup, manifest/hash/integrity/current-migration verification, retention pairing, verified restore drill, live-target refusal, monitoring healthy/stale/unavailable outcomes, template/configuration checks, Architecture Guards, typecheck/lint/build, `npm test`, `npm run verify`, `npm run verify:full`, compiled collection, diff, encoding, newline, whitespace, and exact-scope audit. Real encrypted-host storage, service/timer installation, alert routing, and a staffed restore exercise are deployment-time conditions, not repository-test claims.
+
 - **DECISIONS #091 - Production Runtime Configuration and Secure Deployment Boundary**
   - **Date**: 2026-08-26.
   - **Status**: APPROVED by Architecture Owner for PR-PLATFORM-002 governance, implementation, verification, review, publication, merge, and integration closeout while the exact approved scope remains unchanged.

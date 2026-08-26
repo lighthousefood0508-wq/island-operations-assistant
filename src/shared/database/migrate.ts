@@ -15,12 +15,31 @@ function migrationDirectory(): string {
     : sourceDirectory;
 }
 
+function migrationFiles(): string[] {
+  return readdirSync(migrationDirectory()).filter((name) => name.endsWith(".sql")).sort();
+}
+
+function appliedMigrations(database: DatabaseAdapter): ReadonlySet<string> {
+  try {
+    return new Set(database.queryMany<{ migration_id: string }>("SELECT migration_id FROM schema_migrations").map((row) => row.migration_id));
+  } catch {
+    throw new Error("ROS migration ledger is unavailable.");
+  }
+}
+
+export function verifyMigrationsCurrent(database: DatabaseAdapter): void {
+  const applied = appliedMigrations(database);
+  if (migrationFiles().some((filename) => !applied.has(filename))) {
+    throw new Error("ROS database has pending migrations.");
+  }
+}
+
 export function runMigrations(database: DatabaseAdapter): string[] {
   database.execute("CREATE TABLE IF NOT EXISTS schema_migrations (migration_id TEXT PRIMARY KEY, applied_at TEXT NOT NULL);");
-  const applied = new Set(database.queryMany<{ migration_id: string }>("SELECT migration_id FROM schema_migrations").map((row) => row.migration_id));
+  const applied = appliedMigrations(database);
   const appliedNow: string[] = [];
 
-  for (const filename of readdirSync(migrationDirectory()).filter((name) => name.endsWith(".sql")).sort()) {
+  for (const filename of migrationFiles()) {
     if (applied.has(filename)) continue;
     const sql = readFileSync(path.join(migrationDirectory(), filename), "utf8");
     database.transaction(() => {

@@ -134,3 +134,48 @@ test("role policy permits POS operational reads while denying Cost/Admin authori
     for (const suffix of ["", "-wal", "-shm"]) rmSync(`${databasePath}${suffix}`, { force: true });
   }
 });
+
+test("ProductionRuntimeSecureDeploymentBoundary uses the configured canonical origin for anonymous login", async () => {
+  const databasePath = path.resolve("data", `authentication-production-origin-${randomUUID()}.sqlite`);
+  const canonicalOrigin = "https://ros.example.test";
+  const server = createRosServer({
+    host: "127.0.0.1",
+    port: 0,
+    databasePath,
+    authentication: {
+      mode: "required",
+      secureCookie: true,
+      sessionTtlMinutes: 60,
+      publicOrigin: canonicalOrigin,
+      bootstrapAdministrator: { login: "admin", password: "correct-horse-battery" }
+    }
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  try {
+    const requestBody = JSON.stringify({ login: "admin", password: "correct-horse-battery" });
+    const requestHeaders = { "content-type": "application/json" };
+    const rejected = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { ...requestHeaders, origin: baseUrl },
+      body: requestBody
+    });
+    assert.equal(rejected.response.status, 403);
+    assert.equal(rejected.body.error.code, "csrf_origin_forbidden");
+
+    const accepted = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { ...requestHeaders, origin: canonicalOrigin },
+      body: requestBody
+    });
+    assert.equal(accepted.response.status, 200);
+    assert.match(accepted.response.headers.get("set-cookie") ?? "", /HttpOnly; SameSite=Strict; Max-Age=3600; Secure/);
+  } finally {
+    server.close();
+    await once(server, "close");
+    for (const suffix of ["", "-wal", "-shm"]) rmSync(`${databasePath}${suffix}`, { force: true });
+  }
+});

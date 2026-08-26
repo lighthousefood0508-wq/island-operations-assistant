@@ -31,15 +31,18 @@ function requiredRoles(pathname: string, method: string | undefined): readonly R
   if (/^\/api\/events\/(current|current\/products|[^/]+\/orders)$/.test(pathname)) return ["admin", "pos", "kitchen", "closeout"];
   return ["admin"];
 }
-function sameOrigin(request: IncomingMessage): boolean {
+function sameOrigin(request: IncomingMessage, configuredOrigin: string | undefined): boolean {
   const origin = request.headers.origin;
   const host = request.headers.host;
-  if (!origin || !host) return false;
-  try { return new URL(origin).host === host; } catch { return false; }
+  if (!origin) return false;
+  try {
+    if (configuredOrigin) return new URL(origin).origin === configuredOrigin;
+    return !!host && new URL(origin).host === host;
+  } catch { return false; }
 }
 
-export function requireSameOrigin(request: IncomingMessage): void {
-  if (!sameOrigin(request)) {
+export function requireSameOrigin(request: IncomingMessage, configuredOrigin?: string): void {
+  if (!sameOrigin(request, configuredOrigin)) {
     throw new HttpError(403, "csrf_origin_forbidden", "Request origin is not permitted.");
   }
 }
@@ -54,7 +57,7 @@ export function requireAccess(authentication: AuthenticationService, request: In
     if (error instanceof AuthenticationPersistenceFailure) throw new HttpError(500, "authentication_failed", "Authentication could not be completed.");
     throw error;
   }
-  if (unsafe(request.method)) requireSameOrigin(request);
+  if (unsafe(request.method)) requireSameOrigin(request, authentication.publicOrigin);
   const permitted = requiredRoles(pathname, request.method);
   if (!permitted.some((role) => principal.roles.includes(role))) throw new HttpError(403, "authorization_forbidden", "Your role is not permitted for this operation.");
   return Object.freeze({ principal });

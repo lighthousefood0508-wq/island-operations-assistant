@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadConfig, type RosConfig } from "../config/runtime.js";
 import { createDatabase } from "../shared/database/database-provider.js";
-import { runMigrations } from "../shared/database/migrate.js";
+import { runMigrations, verifyMigrationsCurrent } from "../shared/database/migrate.js";
 import { CatalogRepository, CatalogService } from "../domains/catalog/index.js";
 import { DailyReportReadService, LifecycleRepository, LifecycleService, OperationsRepository, OperationsService, OrderRepository, OrderService, PaymentRepository, PaymentService } from "../domains/operations/index.js";
 import {
@@ -53,7 +53,9 @@ import {
 
 export function createRosServer(config: RosConfig = loadConfig()): Server {
   const database = createDatabase(config);
-  runMigrations(database);
+  try {
+  if (config.runtime?.migrationMode === "verify") verifyMigrationsCurrent(database);
+  else runMigrations(database);
   const authentication = new AuthenticationService(
     new SqliteAuthenticationRepository(database),
     config.authentication
@@ -159,13 +161,44 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
     costBackOffice,
     authentication
   }, events));
-  server.on("close", () => database.close());
+  let databaseClosed = false;
+  server.once("close", () => {
+    if (!databaseClosed) {
+      databaseClosed = true;
+      database.close();
+    }
+  });
   return server;
+  } catch (error) {
+    database.close();
+    throw error;
+  }
+}
+
+/** ProductionRuntimeBoundary: stop accepting HTTP work and release SQLite exactly once. */
+export function closeRosServer(server: Server): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!server.listening) return resolve();
+    server.close((error) => error ? reject(error) : resolve());
+    server.closeIdleConnections();
+  });
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const config = loadConfig();
   const server = createRosServer(config);
+  let shuttingDown = false;
+  const shutdown = (signal: "SIGTERM" | "SIGINT") => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`ROS received ${signal}; closing HTTP and SQLite.`);
+    void closeRosServer(server).catch((error: unknown) => {
+      console.error("ROS graceful shutdown failed.", error);
+      process.exitCode = 1;
+    });
+  };
+  process.once("SIGTERM", () => shutdown("SIGTERM"));
+  process.once("SIGINT", () => shutdown("SIGINT"));
   server.listen(config.port, config.host, () => {
     console.log(`Desert Island ROS listening on http://${config.host}:${config.port}`);
   });

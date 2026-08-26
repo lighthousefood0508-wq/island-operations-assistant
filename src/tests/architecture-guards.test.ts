@@ -3309,6 +3309,65 @@ test("PR-OPERATIONS-003 keeps Daily Report Sales Contract reads inside their exa
   assert.doesNotMatch(service, /sqlite|DatabaseAdapter|better-sqlite|INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|payment-provider|webhook/i);
 });
 
+test("PR-PLATFORM-002 keeps Production Runtime and Secure Deployment inside its exact System-owned responsibility boundary", () => {
+  const approvedPlatform002Paths = new Set([
+    ".env.example",
+    "package.json",
+    "src/config/runtime.ts",
+    "src/shared/database/migrate.ts",
+    "src/server/index.ts",
+    "src/server/app/access-control.ts",
+    "src/system/authentication/application/authentication-service.ts",
+    "scripts/production-runtime-preflight.mjs",
+    "deploy/systemd/desert-island-ros.service",
+    "deploy/nginx/desert-island-ros.conf",
+    "docs/deployment/ROS_PRODUCTION_RUNTIME_LINUX.md",
+    "docs/10_SECURITY.md",
+    "src/tests/runtime-configuration.test.ts",
+    "src/tests/production-runtime.integration.test.ts",
+    "src/tests/authentication-api.integration.test.ts",
+    "src/tests/architecture-guards.test.ts",
+    "src/server/app/routes.ts"
+  ]);
+  assert.equal(approvedPlatform002Paths.size, 17);
+  const isPlatform002Responsibility = (source: string): boolean =>
+    /ProductionRuntime(?:SecureDeployment)?Boundary|ROS_PUBLIC_ORIGIN|verifyMigrationsCurrent|runtime:preflight|production-runtime-preflight|ROS Production Runtime|canonical public origin|ROS_PUBLIC_HOSTNAME|publicOrigin/.test(source);
+  assert.equal(isPlatform002Responsibility("const origin = services.authentication.publicOrigin;"), true);
+  const files = [
+    ...filesUnder(sourceRoot, [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"]),
+    path.join(projectRoot, ".env.example"),
+    path.join(projectRoot, "package.json"),
+    path.join(projectRoot, "scripts", "production-runtime-preflight.mjs"),
+    path.join(projectRoot, "deploy", "systemd", "desert-island-ros.service"),
+    path.join(projectRoot, "deploy", "nginx", "desert-island-ros.conf"),
+    path.join(projectRoot, "docs", "deployment", "ROS_PRODUCTION_RUNTIME_LINUX.md"),
+    path.join(projectRoot, "docs", "10_SECURITY.md")
+  ];
+  const responsibilityFiles = files
+    .filter((filename) => isPlatform002Responsibility(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .sort();
+  const approvedResponsibilityFiles = [...approvedPlatform002Paths]
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => isPlatform002Responsibility(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8")))
+    .sort();
+  assert.deepEqual(responsibilityFiles, approvedResponsibilityFiles);
+  assert.equal(approvedPlatform002Paths.has("src/server/app/production-runtime-service.ts"), false);
+  assert.equal(
+    isPlatform002Responsibility("export class ProductionRuntimeSecureDeploymentBoundaryShadowService {}"),
+    true,
+    "The same classifier must reject a simulated unauthorized eighteenth Production Runtime responsibility path."
+  );
+  const serviceTemplate = readFileSync(path.join(projectRoot, "deploy", "systemd", "desert-island-ros.service"), "utf8");
+  const proxyTemplate = readFileSync(path.join(projectRoot, "deploy", "nginx", "desert-island-ros.conf"), "utf8");
+  const routes = readFileSync(path.join(sourceRoot, "server", "app", "routes.ts"), "utf8");
+  assert.match(serviceTemplate, /ExecStartPre=.*scripts\/production-runtime-preflight\.mjs/);
+  assert.match(proxyTemplate, /proxy_pass http:\/\/127\.0\.0\.1:3090/);
+  assert.match(routes, /requireSameOrigin\(request, services\.authentication\.publicOrigin\)/);
+});
+
 test("PR-PLATFORM-001 keeps Authentication and Role control inside its exact System-owned responsibility boundary", () => {
   const approvedPlatform001Paths = new Set([
     "migrations/023_platform_authentication.sql",

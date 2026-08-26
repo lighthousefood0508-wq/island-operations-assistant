@@ -38,5 +38,6 @@ export interface DatabaseAdapter {
   queryMany<T>(sql: string, parameters?: SqlParameters): T[];
   transaction<T>(work: () => T): T;
   transactionImmediate<T>(work: () => T): T;
+  backup?(destinationPath: string): Promise<void>;
   close(): void;
 }

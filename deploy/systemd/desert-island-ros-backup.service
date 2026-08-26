@@ -1,0 +1,18 @@
+[Unit]
+Description=Desert Island ROS verified SQLite backup evidence
+After=network-online.target desert-island-ros.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ros
+Group=ros
+WorkingDirectory=/opt/desert-island-ros/current
+EnvironmentFile=/etc/desert-island-ros/ros.env
+ExecStart=/usr/bin/node /opt/desert-island-ros/current/scripts/production-backup.mjs
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/desert-island-ros /var/backups/desert-island-ros

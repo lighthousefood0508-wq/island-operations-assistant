@@ -6,8 +6,9 @@ Approval record: DECISIONS #091 / PR-PLATFORM-002.
 
 This is a single-host ROS runtime: one Node process, one local SQLite database,
 one unprivileged `ros` account, and Nginx as the public HTTPS reverse proxy.
-It is not Docker/Kubernetes, a multi-node SQLite topology, a backup/restore
-system, a release promotion, or a production deployment authorization.
+It is not Docker/Kubernetes, a multi-node SQLite topology, a release promotion,
+or a production deployment authorization. Verified local backup/recovery
+evidence is defined separately by DECISIONS #092.
 
 Node must bind only to `127.0.0.1:3090`. Nginx owns port 443 and TLS. Do not
 expose the Node port publicly, forward arbitrary hosts to ROS, or use a
@@ -43,6 +44,9 @@ ROS_AUTH_MODE=required
 ROS_AUTH_SECURE_COOKIE=true
 ROS_AUTH_SESSION_TTL_MINUTES=720
 ROS_PUBLIC_ORIGIN=https://ROS_PUBLIC_HOSTNAME
+ROS_BACKUP_DIRECTORY=/var/backups/desert-island-ros
+ROS_BACKUP_RETENTION_COUNT=14
+ROS_BACKUP_MAX_AGE_HOURS=26
 ROS_BOOTSTRAP_ADMIN_LOGIN=<first-admin-login-only>
 ROS_BOOTSTRAP_ADMIN_PASSWORD=<first-admin-password-only>
 ```
@@ -65,9 +69,10 @@ environment. Existing credentialed users are never reset by startup.
    checks have run.
 
 Executable rollback is allowed only when the release did not apply a migration.
-After a migration, use the later approved backup/restore procedure; do not
-delete SQLite/WAL files, replay old binaries against an unknown schema, or
-claim database rollback from this boundary.
+After a migration, use the approved backup/recovery procedure; do not delete
+SQLite/WAL files, replay old binaries against an unknown schema, or claim
+database rollback from this boundary. See
+`ROS_PRODUCTION_BACKUP_RECOVERY_LINUX.md`.
 
 ## Proxy and shutdown behavior
 
@@ -82,6 +87,7 @@ script may kill an unrelated process.
 
 ## Deferred operational evidence
 
-PLATFORM-003 owns encrypted backup, restore verification, monitoring, alerts,
-retention, and operational recovery evidence. Until it is completed, this
-runtime boundary is not a production-release or disaster-recovery claim.
+DECISIONS #092 owns verified local backup, restore-drill, retention, and
+monitoring evidence. Encrypted/off-host storage, alert routing, host timer
+observation, and a staffed restore exercise remain deployment-time evidence;
+this document does not claim that they have occurred.

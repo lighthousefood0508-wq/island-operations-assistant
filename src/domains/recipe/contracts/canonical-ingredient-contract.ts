@@ -9,6 +9,7 @@ export const APPROVED_INGREDIENT_CATEGORY_CODES_V1 = Object.freeze([
   "dry_goods",
   "frozen",
   "beverage",
+  "alcohol",
   "packaging",
   "other"
 ] as const);

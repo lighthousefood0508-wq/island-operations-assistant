@@ -1,5 +1,18 @@
 import { expect, test } from "@playwright/test";
 
+test("Cost Back Office offers 酒類 as a governed formal Ingredient category", async ({ page }) => {
+  await page.goto("/admin/ingredients/new");
+  await expect(page.locator("#ingredient-category option[value=alcohol]")).toHaveText("酒類");
+  await page.locator("#ingredient-name").fill("料理米酒");
+  await page.locator("#ingredient-category").selectOption("alcohol");
+  const created = page.waitForResponse((response) =>
+    response.request().method() === "POST"
+      && new URL(response.url()).pathname === "/api/admin/cost/ingredients"
+  );
+  await page.locator("#ingredient-form button[type=submit]").click();
+  expect((await (await created).json()).data.categoryCode).toBe("alcohol");
+});
+
 test("Cost Back Office renders QuoteFallback in the guided exact-cost workflow", async ({ page }) => {
   const category = await page.request.post("/api/admin/categories", {
     data: { displayName: "Costed meals", sortOrder: 1 }

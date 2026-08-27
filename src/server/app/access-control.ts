@@ -65,10 +65,20 @@ export function requireAccess(authentication: AuthenticationService, request: In
 
 export function sessionToken(request: IncomingMessage): string | undefined { return cookie(request, "ros_session"); }
 
-export function commandWithPrincipal(input: Record<string, unknown>, principal: AuthenticatedPrincipal | undefined): Record<string, unknown> {
-  if (!principal) return input;
-  const actor = principal.userId;
-  return { ...input, actor, operator: actor, recordedBy: actor, createdBy: actor, publishedBy: actor, acceptedBy: actor, capturedBy: actor, archivedBy: actor, renamedBy: actor, supersededBy: actor };
+export type TrustedPrincipalField = "actor" | "operator" | "recordedBy" | "acceptedBy" | "capturedBy";
+
+/**
+ * Binds a principal only where the receiving command contract explicitly has
+ * a trusted audit-identity field. Routes without such a field retain their
+ * strict domain payload unchanged.
+ */
+export function commandWithPrincipal(
+  input: Record<string, unknown>,
+  principal: AuthenticatedPrincipal | undefined,
+  trustedField?: TrustedPrincipalField
+): Record<string, unknown> {
+  if (!principal || !trustedField) return input;
+  return { ...input, [trustedField]: principal.userId };
 }
 
 export function loginRedirect(pathname: string): string {

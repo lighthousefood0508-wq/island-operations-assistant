@@ -3428,7 +3428,12 @@ test("PR-PLATFORM-001 keeps Authentication and Role control inside its exact Sys
   assert.doesNotMatch(service, /sqlite|DatabaseAdapter|better-sqlite|CostBackOffice|domains\/cost/i);
   assert.match(repository, /token_hash/);
   assert.match(access, /SameSite|csrf_origin_forbidden|commandWithPrincipal/);
-  assert.match(access, /capturedBy: actor/);
+  assert.match(access, /TrustedPrincipalField/);
+  assert.match(access, /if \(!principal \|\| !trustedField\) return input/);
+  assert.doesNotMatch(access, /capturedBy: actor/);
+  assert.match(routes, /createCategory\(await readCommand\(\) as never\)/);
+  assert.match(routes, /createSupplier\(await readCommand\("actor"\)\)/);
+  assert.match(routes, /captureSnapshot\([\s\S]*readCommand\("capturedBy"\)/);
   assert.match(routes, /\/api\/auth\/login/);
   assert.doesNotMatch(routes, /POST\s+\/api\/admin\/canonical-ingredients/);
 });

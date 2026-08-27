@@ -25,7 +25,7 @@ test("Cost Back Office renders QuoteFallback in the guided exact-cost workflow",
   expect(published.ok()).toBeTruthy();
 
   await page.goto("/admin/cost");
-  await expect(page.getByRole("heading", { name: "成本中心" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "成本總覽" })).toBeVisible();
   await page.locator("#ingredient-name").fill("豬五花");
   await page.locator("#ingredient-form button[type=submit]").click();
   await expect(page.locator("#ingredient-list")).toContainText("豬五花");
@@ -115,7 +115,7 @@ test("Cost Evidence Read remains an API-only operational bridge without a new Co
   expect(read.status()).toBe(200);
   expect((await read.json()).data.displayName).toBe("Read bridge supplier");
   await page.goto("/admin/cost");
-  await expect(page.getByRole("heading", { name: "成本中心" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "成本總覽" })).toBeVisible();
 });
 
 test("Recipe Cost History remains an API-only immutable Snapshot timeline", async ({ page }) => {
@@ -127,7 +127,7 @@ test("Recipe Cost History remains an API-only immutable Snapshot timeline", asyn
   expect(body.data.contractName).toBe("RecipeCostHistory");
   expect(body.data.entries).toEqual([]);
   await page.goto("/admin/cost");
-  await expect(page.getByRole("heading", { name: "成本中心" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "成本總覽" })).toBeVisible();
 });
 
 test("Cost Analytics remains an API-only projection of immutable Recipe History", async ({ page }) => {
@@ -140,7 +140,7 @@ test("Cost Analytics remains an API-only projection of immutable Recipe History"
   expect(body.data.snapshots).toEqual([]);
   expect(body.data.latest).toBeNull();
   await page.goto("/admin/cost");
-  await expect(page.getByRole("heading", { name: "成本中心" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "成本總覽" })).toBeVisible();
 });
 
 test("CostEvidenceBackOfficeBridge lets an operator create accepted evidence and read immutable snapshot history", async ({ page }) => {

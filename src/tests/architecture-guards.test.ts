@@ -1668,8 +1668,13 @@ export {
   }
   assert.match(
     navigationSource,
-    /\{ key: "catalog", href: "\/admin\/catalog", label: "商品目錄" \},\s*\{ key: "ingredients", href: "\/admin\/ingredients", label: "食材主檔" \},\s*\{ key: "cost", href: "\/admin\/cost", label: "成本中心" \}/,
-    "The Ingredient entry must remain between Catalog and Cost."
+    /\{ key: "catalog", href: "\/admin\/catalog", label: "商品目錄" \},\s*\{ key: "operations", href: "\/admin", label: "場次" \},\s*\{ key: "cost", href: "\/admin\/cost", label: "成本" \}/,
+    "The Back Office primary navigation must expose only the approved Catalog, Operations, and Cost axes."
+  );
+  assert.match(
+    navigationSource,
+    /\{ key: "ingredients", href: "\/admin\/ingredients", label: "食材主檔", active: \["ingredients"\], isDefault: true \}/,
+    "The Ingredient entry must remain within the Cost navigation axis."
   );
   const approved003CPaths = new Set([
     "src/web/ingredients/page.ts",

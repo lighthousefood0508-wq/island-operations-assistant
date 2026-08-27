@@ -10,7 +10,7 @@ export function renderCatalogAdmin(): string {
   <style>
     ${renderNavigationStyles()}
     :root{font-family:Arial,"Noto Sans TC",sans-serif;color:#183238;background:#f4f1eb;--green:#0f7668;--deep:#2f4858;--line:#d8cec0;--muted:#607176;--paper:#fff;--warn:#b84933;--soft:#eef4f1;--gold:#fff2d1}
-    *{box-sizing:border-box}body{margin:0}main{max-width:1280px;margin:0 auto;padding:18px}header{border-bottom:2px solid var(--green);padding-bottom:12px}h1{margin:0;font-size:30px}h2{font-size:22px;margin:0 0 12px}.subtitle,.meta{margin:4px 0 0;color:var(--muted);font-size:13px}.notice{min-height:22px;color:#13643b;font-weight:900}.notice.error{color:#a52e1b}.grid{display:grid;grid-template-columns:minmax(320px,.85fr) minmax(560px,1.35fr);gap:14px}.card{background:#fff;border:1px solid var(--line);border-radius:7px;padding:14px}.product-editor{scroll-margin-top:16px}.stack{display:grid;gap:12px}.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}label{display:grid;gap:6px;color:#40545a;font-size:13px;font-weight:800}input,select,textarea,button{font:inherit}input,select,textarea{width:100%;border:1px solid #aebfbc;border-radius:5px;background:#fff;padding:9px}textarea{min-height:70px;resize:vertical}button{border:0;background:var(--green);color:#fff;border-radius:5px;padding:10px 12px;font-weight:900;cursor:pointer}button.secondary{background:#617477}button.warn,button.publish{background:var(--warn)}button.ghost{background:#eef4f1;color:#244b50;border:1px solid #c4d3cf}button:disabled,input:disabled,select:disabled,textarea:disabled{opacity:.58;cursor:not-allowed}.status{display:inline-flex;padding:3px 8px;border-radius:999px;font-size:12px;font-weight:900;background:#eef1ef}.status.published,.status.ok{background:#dff2e7;color:#13643b}.status.draft,.status.unknown{background:var(--gold);color:#7a5613}.status.inactive,.status.warn{background:#f4e1dc;color:#8a321c}.category-list,.product-list{display:grid;gap:8px;margin-top:12px}.item{border:1px solid #d8e1df;border-radius:6px;padding:10px;display:flex;justify-content:space-between;gap:12px;align-items:center;background:#fff}.item.selected{border-color:var(--green);box-shadow:0 0 0 2px rgba(15,118,104,.12)}.channels{display:flex;gap:12px;flex-wrap:wrap;align-items:center}.channels label{display:flex;align-items:center;gap:5px}.channels input{width:auto}.form-title{display:flex;justify-content:space-between;gap:10px;align-items:center}.actions{display:flex;gap:8px;flex-wrap:wrap}.product-row strong{font-size:18px}.product-row .name-line{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.versions{margin:8px 0 0;padding-left:18px;font-size:12px;color:#516467}.readonly-note{font-weight:900;color:#8a4a16;margin:8px 0 0}.empty{color:var(--muted);padding:12px}.placeholder{background:#f6f8f6;border:1px dashed #c4d3cf;border-radius:6px;padding:10px;color:#607176}@media(max-width:900px){main{padding:12px}.grid,.row{grid-template-columns:1fr}.item{align-items:flex-start;flex-direction:column}}
+    *{box-sizing:border-box}body{margin:0}main{max-width:1280px;margin:0 auto;padding:18px}header{border-bottom:2px solid var(--green);padding-bottom:12px}h1{margin:0;font-size:30px}h2{font-size:22px;margin:0 0 12px}.subtitle,.meta{margin:4px 0 0;color:var(--muted);font-size:13px}.notice{min-height:22px;color:#13643b;font-weight:900}.notice.error{color:#a52e1b}.grid{display:grid;grid-template-columns:minmax(320px,.85fr) minmax(560px,1.35fr);gap:14px}.card{background:#fff;border:1px solid var(--line);border-radius:7px;padding:14px}.product-editor,.section-anchor{scroll-margin-top:16px}.stack{display:grid;gap:12px}.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}label{display:grid;gap:6px;color:#40545a;font-size:13px;font-weight:800}input,select,textarea,button{font:inherit}input,select,textarea{width:100%;border:1px solid #aebfbc;border-radius:5px;background:#fff;padding:9px}textarea{min-height:70px;resize:vertical}button{border:0;background:var(--green);color:#fff;border-radius:5px;padding:10px 12px;font-weight:900;cursor:pointer}button.secondary{background:#617477}button.warn,button.publish{background:var(--warn)}button.ghost{background:#eef4f1;color:#244b50;border:1px solid #c4d3cf}button:disabled,input:disabled,select:disabled,textarea:disabled{opacity:.58;cursor:not-allowed}.status{display:inline-flex;padding:3px 8px;border-radius:999px;font-size:12px;font-weight:900;background:#eef1ef}.status.published,.status.ok{background:#dff2e7;color:#13643b}.status.draft,.status.unknown{background:var(--gold);color:#7a5613}.status.inactive,.status.warn{background:#f4e1dc;color:#8a321c}.category-list,.product-list{display:grid;gap:8px;margin-top:12px}.item{border:1px solid #d8e1df;border-radius:6px;padding:10px;display:flex;justify-content:space-between;gap:12px;align-items:center;background:#fff}.item.selected{border-color:var(--green);box-shadow:0 0 0 2px rgba(15,118,104,.12)}.channels{display:flex;gap:12px;flex-wrap:wrap;align-items:center}.channels label{display:flex;align-items:center;gap:5px}.channels input{width:auto}.form-title{display:flex;justify-content:space-between;gap:10px;align-items:center}.actions{display:flex;gap:8px;flex-wrap:wrap}.product-row strong{font-size:18px}.product-row .name-line{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.versions{margin:8px 0 0;padding-left:18px;font-size:12px;color:#516467}.readonly-note{font-weight:900;color:#8a4a16;margin:8px 0 0}.empty{color:var(--muted);padding:12px}.placeholder{background:#f6f8f6;border:1px dashed #c4d3cf;border-radius:6px;padding:10px;color:#607176}@media(max-width:900px){main{padding:12px}.grid,.row{grid-template-columns:1fr}.item{align-items:flex-start;flex-direction:column}}
   </style>
 </head>
 <body>
@@ -18,18 +18,18 @@ export function renderCatalogAdmin(): string {
   <main>
     <header>
       <h1>商品目錄</h1>
-      <p class="subtitle">商品目錄是長期主檔：分類、名稱、POS 短名、售價、通路與正式發布。今日備貨與剩餘請到「場次與備貨」。</p>
+      <p class="subtitle">商品目錄是長期主檔：分類、名稱、POS 短名、售價、通路與正式發布。今日可售數量與剩餘數量請到「場次」管理。</p>
       <p id="notice" class="notice"></p>
     </header>
     ${renderBackOfficeNav("catalog")}
     <div class="grid">
-      <section class="card">
+      <section id="catalog-categories" class="card">
         <h2>品相分類</h2>
         <form id="category-form" class="stack">
           <input id="category-id" type="hidden">
           <label>系統代碼<input id="category-code-display" disabled placeholder="儲存後由系統產生 CAT-0001"></label>
           <label>分類名稱<input id="category-name" required placeholder="例如 荒島飯盒"></label>
-          <div class="row">
+          <div id="catalog-pricing-channels" class="section-anchor"></div><div class="row">
             <label>排序<input id="category-sort" type="number" min="0" value="0" required></label>
             <label>狀態<select id="category-active"><option value="true">啟用</option><option value="false">停用</option></select></label>
           </div>
@@ -47,7 +47,7 @@ export function renderCatalogAdmin(): string {
         </div>
         <form id="product-form" class="stack">
           <input id="product-id" type="hidden">
-          <div class="row">
+          <div id="catalog-publishing" class="section-anchor"></div><div class="row">
             <label>內部名稱<input id="internal-name" required placeholder="例如 一曲東坡肉"></label>
             <label>分類<select id="product-category" required><option value="">選擇分類</option></select></label>
           </div>

@@ -161,21 +161,14 @@ test("Canonical Ingredient management UI completes Rename, warning and Archive",
   expect(archivedResponse.ok()).toBeTruthy();
 
   await page.goto("/admin/catalog");
+  await page.getByRole("link", { name: "成本", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/cost$/);
   await page.getByRole("link", { name: "食材主檔", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/ingredients$/);
   await expect(page.getByRole("heading", { name: "食材主檔" })).toBeVisible();
-  await expect(page.locator('.office-nav a[aria-current="page"]')).toHaveText("食材主檔");
-  const navigation = page.locator(".office-nav a");
-  await expect(navigation).toHaveText([
-    "場次與備貨",
-    "商品目錄",
-    "食材主檔",
-    "成本中心",
-    "今日統計",
-    "場次分析",
-    "系統狀態",
-    "裝置連線"
-  ]);
+  await expect(page.locator('.office-primary a[aria-current="page"]')).toHaveText("成本");
+  await expect(page.locator('.office-secondary a[aria-current="page"]')).toHaveText("食材主檔");
+  await expect(page.locator(".office-primary > a")).toHaveText(["商品目錄", "場次", "成本"]);
 
   await expect(page.locator("#ingredient-list")).toContainText(sourceName);
   await expect(page.locator("#ingredient-list")).toContainText(`UI archived ${suffix}`);
@@ -1309,7 +1302,7 @@ test("Canonical Ingredient management UI remains operable on a representative mo
   await page.goto("/admin/ingredients");
   await expect(page.getByRole("heading", { name: "食材主檔" })).toBeVisible();
   await expect(page.locator("#lifecycle-filter")).toBeVisible();
-  expect(await page.locator(".office-nav").evaluate((node) => {
+  expect(await page.locator(".office-secondary").evaluate((node) => {
     const value = node as HTMLElement;
     return getComputedStyle(value).overflowX === "auto" && value.scrollWidth >= value.clientWidth;
   })).toBe(true);

@@ -31,9 +31,9 @@ test("Back Office uses reloadable Catalog and Cost workspaces instead of anchor 
   await expect(groups.getByRole("link", { name: "食材主檔", exact: true })).toHaveAttribute("href", "/admin/ingredients");
   await groups.getByRole("link", { name: "食材主檔", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/ingredients$/);
-  await expect(page.getByRole("link", { name: "新增正式食材", exact: false })).toHaveAttribute("href", "/admin/ingredients/new");
+  await expect(page.getByRole("link", { name: "＋ 新增正式食材", exact: true })).toHaveAttribute("href", "/admin/ingredients/new");
   await expect(page.locator(".office-workspace-group a[aria-current=page]")).toHaveText("食材主檔");
-  await page.getByRole("link", { name: "新增正式食材", exact: false }).click();
+  await page.getByRole("link", { name: "＋ 新增正式食材", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/ingredients\/new$/);
   await expect(page.locator("#ingredient-form")).toBeVisible();
   await page.reload();
@@ -44,7 +44,7 @@ test("Back Office uses reloadable Catalog and Cost workspaces instead of anchor 
   await expect(page).toHaveURL(/\/admin\/ingredients\/new$/);
   await page.goto("/admin/ingredients");
   await expect(page).toHaveURL(/\/admin\/ingredients$/);
-  await page.getByRole("link", { name: "新增正式食材", exact: false }).click();
+  await page.getByRole("link", { name: "＋ 新增正式食材", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/ingredients\/new$/);
   await page.goBack();
   await expect(page).toHaveURL(/\/admin\/ingredients$/);

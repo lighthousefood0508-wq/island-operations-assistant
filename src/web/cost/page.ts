@@ -25,7 +25,7 @@ export function renderCostBackOffice(workspace: CostWorkspace = "overview"): str
   ${renderSystemNav("admin")}
   <main>
     <section class="hero">
-      <div><div class="eyebrow">Cost Back Office · VAL-1</div><h1>${workspaceTitle[workspace]}</h1><p>${workspace === "overview" ? "從正式食材、量測設定、已發布配方與採購報價，產生可追溯的精確成本。所有數值以字串與分數保存，不在瀏覽器偷偷四捨五入。" : "這是一個可直接開啟、重新整理與返回的獨立成本工作區；它只使用既有受治理的 Cost API。"}</p></div>
+      <div><div class="eyebrow">Cost Back Office · VAL-1</div><h1>${workspaceTitle[workspace]}</h1><p>${workspace === "overview" ? "從正式食材、量測設定、已發布配方與採購報價，產生可追溯的精確成本。所有數值以字串與分數保存，不在瀏覽器偷偷四捨五入。" : "這是一個可直接開啟、重新整理與返回的獨立成本工作區；它只使用既有受治理的 Cost API。"}</p>${workspace === "ingredients" ? '<p class="hint">成本 ＞ 基礎資料 ＞ 食材主檔 ＞ 新增正式食材</p>' : ''}</div>
       <div class="hero-stat"><span>目前資料</span><strong id="record-count">0 項</strong><small id="record-breakdown">正在載入…</small></div>
     </section>
     ${renderBackOfficeNav(workspace === "overview" ? "cost" : workspace === "ingredients" ? "ingredients" : workspace)}

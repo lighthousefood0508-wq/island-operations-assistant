@@ -1574,8 +1574,8 @@ export {
   );
   assert.equal(
     Array.from(routesSource.matchAll(/ingredients/g)).length,
-    11,
-    "Routes may add only the accepted 003D, 003K, and Back Office Cost-ingredient workspace registrations to the prior Ingredient routes."
+    13,
+    "Routes may add only the accepted 003D, 003K, and Back Office Canonical Ingredient workspace registrations to the prior Ingredient routes."
   );
   assert.match(
     routesSource,
@@ -1673,7 +1673,7 @@ export {
   );
   assert.match(
     navigationSource,
-    /\{ href: "\/admin\/cost\/ingredients", label: "食材主檔", active: \["cost-ingredients"\] \}/,
+    /\{ href: "\/admin\/ingredients", label: "食材主檔", active: \["ingredients"\] \}/,
     "The Ingredient entry must remain within the Cost navigation axis."
   );
   const approved003CPaths = new Set([
@@ -1686,7 +1686,7 @@ export {
   ]);
   const approved003CResponsibilities = new Map<string, readonly RegExp[]>([
     ["src/web/ingredients/page.ts", [/renderCanonicalIngredientManagement/, /\/api\/admin\/canonical-ingredients/, /DUPLICATE_NAME_WARNING|duplicate-warning/]],
-    ["src/web/shared/navigation.ts", [/href: "\/admin\/cost\/ingredients"/, /label: "食材主檔"/]],
+    ["src/web/shared/navigation.ts", [/href: "\/admin\/ingredients"/, /label: "食材主檔"/]],
     ["src/server/app/routes.ts", [/pathname === "\/admin\/ingredients"/, /renderCanonicalIngredientManagement/]],
     ["src/tests/canonical-ingredient-lifecycle-api.integration.test.ts", [/Rendering the management UI must not write/, /<title>食材主檔/]],
     ["tests/e2e/canonical-ingredient-management.spec.ts", [/Canonical Ingredient management UI/, /\/admin\/ingredients/]],

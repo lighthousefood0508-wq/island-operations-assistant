@@ -78,6 +78,11 @@ function sendHtml(response: ServerResponse, body: string): void {
   response.end(body);
 }
 
+function redirect(response: ServerResponse, location: string): void {
+  response.writeHead(302, { location });
+  response.end();
+}
+
 function sendMockup(response: ServerResponse, filename: string): void {
   sendHtml(response, readFileSync(path.resolve(process.cwd(), "mockups", filename), "utf8"));
 }
@@ -257,8 +262,9 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "GET" && pathname === "/admin/catalog/products") return sendHtml(response, renderCatalogAdmin("products"));
     if (request.method === "GET" && pathname === "/admin/catalog/categories") return sendHtml(response, renderCatalogAdmin("categories"));
     if (request.method === "GET" && pathname === "/admin/ingredients") return sendHtml(response, renderCanonicalIngredientManagement());
+    if (request.method === "GET" && pathname === "/admin/ingredients/new") return sendHtml(response, renderCostBackOffice("ingredients"));
     if (request.method === "GET" && pathname === "/admin/cost") return sendHtml(response, renderCostBackOffice("overview"));
-    if (request.method === "GET" && pathname === "/admin/cost/ingredients") return sendHtml(response, renderCostBackOffice("ingredients"));
+    if (request.method === "GET" && pathname === "/admin/cost/ingredients") return redirect(response, "/admin/ingredients/new");
     if (request.method === "GET" && pathname === "/admin/cost/measurements") return sendHtml(response, renderCostBackOffice("measurements"));
     if (request.method === "GET" && pathname === "/admin/cost/recipes") return sendHtml(response, renderCostBackOffice("recipes"));
     if (request.method === "GET" && pathname === "/admin/cost/suppliers") return sendHtml(response, renderCostBackOffice("suppliers"));

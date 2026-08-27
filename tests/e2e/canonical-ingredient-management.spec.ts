@@ -164,8 +164,6 @@ test("Canonical Ingredient management UI completes Rename, warning and Archive",
   await page.getByRole("link", { name: "成本", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/cost$/);
   await page.getByRole("link", { name: "食材主檔", exact: true }).click();
-  await expect(page).toHaveURL(/\/admin\/cost\/ingredients$/);
-  await page.getByRole("link", { name: /管理既有食材生命週期與引用影響/ }).click();
   await expect(page).toHaveURL(/\/admin\/ingredients$/);
   await expect(page.getByRole("heading", { name: "食材主檔" })).toBeVisible();
   await expect(page.locator('.office-primary a[aria-current="page"]')).toHaveText("成本");

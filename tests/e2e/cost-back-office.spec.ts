@@ -24,7 +24,7 @@ test("Cost Back Office renders QuoteFallback in the guided exact-cost workflow",
   );
   expect(published.ok()).toBeTruthy();
 
-  await page.goto("/admin/cost/ingredients");
+  await page.goto("/admin/ingredients/new");
   await expect(page.getByRole("heading", { name: "正式食材建立" })).toBeVisible();
   await page.locator("#ingredient-name").fill("豬五花");
   await page.locator("#ingredient-form button[type=submit]").click();
@@ -89,7 +89,7 @@ test("Cost Back Office renders QuoteFallback in the guided exact-cost workflow",
   await expect(page.locator(".trace")).toContainText(replacementQuoteId);
   await expect(page.locator(".trace")).not.toContainText(initialQuoteId);
 
-  await page.goto("/admin/cost/ingredients");
+  await page.goto("/admin/ingredients/new");
   await expect(page.locator("#ingredient-list")).toContainText("豬五花");
   await page.goto("/admin/cost/recipes");
   await expect(page.locator("#recipe-list")).toContainText("滷肉飯標準配方");
@@ -99,7 +99,7 @@ test("Cost Back Office is responsive and exposes the exact-value policy", async 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/admin/cost/valuation");
   await expect(page.locator(".exact-note")).toContainText("分子 / 分母");
-  await page.goto("/admin/cost/ingredients");
+  await page.goto("/admin/ingredients/new");
   await expect(page.getByRole("button", { name: "建立正式食材" }))
     .toBeVisible();
   const cards = page.locator(".office-workspace-groups .office-workspace-group");
@@ -191,7 +191,7 @@ test("CostEvidenceBackOfficeBridge lets an operator create accepted evidence and
 });
 
 test("Cost Back Office keeps CanonicalIngredientCreation on its existing facade", async ({ page }) => {
-  await page.goto("/admin/cost/ingredients");
+  await page.goto("/admin/ingredients/new");
   const creationResponse = page.waitForResponse((response) =>
     response.request().method() === "POST"
     && new URL(response.url()).pathname === "/api/admin/cost/ingredients"
@@ -223,7 +223,7 @@ test("Cost Back Office delegates Draft-first Profile re-establishment without UI
 });
 
 test("Cost Back Office keeps IngredientMeasurementProfileCreation on its existing facade", async ({ page }) => {
-  await page.goto("/admin/cost/ingredients");
+  await page.goto("/admin/ingredients/new");
   await page.locator("#ingredient-name").fill("003G facade ingredient");
   await page.locator("#ingredient-form button[type=submit]").click();
   await page.goto("/admin/cost/measurements");

@@ -28,12 +28,12 @@ export function renderCostBackOffice(workspace: CostWorkspace = "overview"): str
       <div><div class="eyebrow">Cost Back Office · VAL-1</div><h1>${workspaceTitle[workspace]}</h1><p>${workspace === "overview" ? "從正式食材、量測設定、已發布配方與採購報價，產生可追溯的精確成本。所有數值以字串與分數保存，不在瀏覽器偷偷四捨五入。" : "這是一個可直接開啟、重新整理與返回的獨立成本工作區；它只使用既有受治理的 Cost API。"}</p></div>
       <div class="hero-stat"><span>目前資料</span><strong id="record-count">0 項</strong><small id="record-breakdown">正在載入…</small></div>
     </section>
-    ${renderBackOfficeNav(workspace === "overview" ? "cost" : workspace === "ingredients" ? "cost-ingredients" : workspace)}
+    ${renderBackOfficeNav(workspace === "overview" ? "cost" : workspace === "ingredients" ? "ingredients" : workspace)}
     <p id="notice" class="notice" role="status" aria-live="polite"></p>
     <section id="cost-overview" class="card"><h2>成本工作區</h2><p class="hint">成本總覽只提供摘要與下一步入口；建立與編輯工作請從上方依分組選擇工作區。</p><div class="steps"><div class="step"><b>01</b>建立食材與計量設定</div><div class="step"><b>02</b>建立並發布配方</div><div class="step"><b>03</b>維護供應商與採購驗收</div><div class="step"><b>04</b>進行正式成本評估</div><div class="step"><b>05</b>保存快照並查看分析</div></div><p id="workspace-overview-summary" class="hint">正在讀取既有正式資料摘要…</p></section>
     <div class="layout">
       <section id="cost-ingredients" class="card">
-        <h2>1. 正式食材</h2><p class="hint">食材名稱是主檔資料；品牌、供應商與包裝不在這裡建立。</p><p><a href="/admin/ingredients">管理既有食材生命週期與引用影響 →</a></p>
+        <h2>新增正式食材</h2><p class="hint">食材名稱是主檔資料；品牌、供應商與包裝不在這裡建立。</p><p><a href="/admin/ingredients">返回食材主檔與生命週期管理 →</a></p>
         <form id="ingredient-form" class="stack"><div class="row"><label>食材名稱<input id="ingredient-name" required placeholder="例如：豬五花"></label><label>分類<select id="ingredient-category"><option value="meat">肉類</option><option value="seafood">海鮮</option><option value="vegetable">蔬菜</option><option value="seasoning">調味料</option><option value="sauce">醬料</option><option value="dry_goods">乾貨</option><option value="frozen">冷凍</option><option value="beverage">飲料</option><option value="packaging">包材</option><option value="other">其他</option></select></label></div><button type="submit">建立正式食材</button></form>
         <div id="ingredient-list" class="summary"></div>
       </section>

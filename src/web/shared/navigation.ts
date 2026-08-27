@@ -1,5 +1,5 @@
 type SystemArea = "pos" | "kitchen" | "admin";
-type BackOfficeArea = "events" | "catalog-categories" | "catalog-products" | "ingredients" | "cost-ingredients" | "measurements" | "recipes" | "suppliers" | "purchases" | "valuation" | "snapshots" | "analytics" | "cost" | "statistics" | "analysis" | "health" | "devices";
+type BackOfficeArea = "events" | "catalog-categories" | "catalog-products" | "ingredients" | "measurements" | "recipes" | "suppliers" | "purchases" | "valuation" | "snapshots" | "analytics" | "cost" | "statistics" | "analysis" | "health" | "devices";
 type BackOfficeAxis = "catalog" | "operations" | "cost" | "system";
 
 type NavItem = { href: string; label: string; active: readonly BackOfficeArea[]; isDefault?: boolean };
@@ -39,7 +39,7 @@ const secondaryItems: Readonly<Record<BackOfficeAxis, readonly NavItem[]>> = {
 const costGroups: readonly NavGroup[] = [
   { label: "成本總覽", items: [{ href: "/admin/cost", label: "成本總覽", active: ["cost"], isDefault: true }] },
   { label: "基礎資料", items: [
-    { href: "/admin/cost/ingredients", label: "食材主檔", active: ["cost-ingredients"] },
+    { href: "/admin/ingredients", label: "食材主檔", active: ["ingredients"] },
     { href: "/admin/cost/measurements", label: "計量設定", active: ["measurements"] },
     { href: "/admin/cost/recipes", label: "配方管理", active: ["recipes"] }
   ] },
@@ -57,7 +57,7 @@ const costGroups: readonly NavGroup[] = [
 function axisFor(area: BackOfficeArea): BackOfficeAxis {
   if (area === "catalog-categories" || area === "catalog-products") return "catalog";
   if (area === "events" || area === "statistics" || area === "analysis") return "operations";
-  if (["ingredients", "cost-ingredients", "measurements", "recipes", "suppliers", "purchases", "valuation", "snapshots", "analytics", "cost"].includes(area)) return "cost";
+  if (["ingredients", "measurements", "recipes", "suppliers", "purchases", "valuation", "snapshots", "analytics", "cost"].includes(area)) return "cost";
   return "system";
 }
 

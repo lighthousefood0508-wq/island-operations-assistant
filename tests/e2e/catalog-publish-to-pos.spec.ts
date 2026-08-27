@@ -1,11 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function createCategory(page: Page, displayName: string, active = true) {
-  await page.goto("/admin/catalog");
+  await page.goto("/admin/catalog/categories");
   await page.locator("#category-name").fill(displayName);
   await page.locator("#category-sort").fill("10");
   await page.locator("#category-active").selectOption(String(active));
   await page.locator("#category-form button[type=submit]").click();
+  await page.goto("/admin/catalog/products");
 }
 
 async function createDraft(page: Page, input: { internalName: string; categoryName: string; displayName?: string; posName?: string; price?: string; channels?: string[] }) {
@@ -44,7 +45,8 @@ test("Admin publication flows through Event inventory to the POS short-name disp
   await createDraft(page, { internalName: "Braised rice", categoryName: "Bento", displayName: "Braised rice", posName: "Rice", price: "180", channels: ["pos"] });
   await publish(page);
   await expect(page.locator("#products")).toContainText("v1");
-  const contract = (await (await page.request.get("/api/catalog/products/published?channel=pos")).json()).data[0];
+  const contracts = (await (await page.request.get("/api/catalog/products/published?channel=pos")).json()).data;
+  const contract = contracts.find((item: { posName: string }) => item.posName === "Rice");
   expect(contract).toMatchObject({ displayName: "Braised rice", posName: "Rice", sellingPrice: 180 });
 
   await page.goto("/admin");
@@ -55,7 +57,11 @@ test("Admin publication flows through Event inventory to the POS short-name disp
   await page.locator("#event-form button[type=submit]").click();
   await expect(page.locator("#event-id")).not.toHaveValue("");
   const eventId = await page.locator("#event-id").inputValue();
-  await page.locator("#published-product").selectOption({ index: 1 });
+  const products = (await (await page.request.get("/api/admin/products")).json()).data;
+  const productId = products.find((item: { internalName: string }) => item.internalName === "Braised rice")?.productId;
+  expect(productId).toBeTruthy();
+  const publishedProduct = (await (await page.request.get(`/api/admin/products/${productId}`)).json()).data;
+  await page.locator("#published-product").selectOption(publishedProduct.versions.at(-1).productVersionId);
   await page.locator("#new-planned").fill("20");
   await page.locator("#add-product-form button[type=submit]").click();
   const saveResponsePromise = page.waitForResponse(response =>

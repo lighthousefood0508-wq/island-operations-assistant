@@ -1574,8 +1574,8 @@ export {
   );
   assert.equal(
     Array.from(routesSource.matchAll(/ingredients/g)).length,
-    9,
-    "Routes may add only the accepted 003D and 003K registrations to the prior Ingredient routes."
+    11,
+    "Routes may add only the accepted 003D, 003K, and Back Office Cost-ingredient workspace registrations to the prior Ingredient routes."
   );
   assert.match(
     routesSource,
@@ -1668,12 +1668,12 @@ export {
   }
   assert.match(
     navigationSource,
-    /\{ key: "catalog", href: "\/admin\/catalog", label: "商品目錄" \},\s*\{ key: "operations", href: "\/admin", label: "場次" \},\s*\{ key: "cost", href: "\/admin\/cost", label: "成本" \}/,
+    /\{ key: "catalog", href: "\/admin\/catalog\/products", label: "商品目錄" \},\s*\{ key: "operations", href: "\/admin", label: "場次" \},\s*\{ key: "cost", href: "\/admin\/cost", label: "成本" \}/,
     "The Back Office primary navigation must expose only the approved Catalog, Operations, and Cost axes."
   );
   assert.match(
     navigationSource,
-    /\{ key: "ingredients", href: "\/admin\/ingredients", label: "食材主檔", active: \["ingredients"\], isDefault: true \}/,
+    /\{ href: "\/admin\/cost\/ingredients", label: "食材主檔", active: \["cost-ingredients"\] \}/,
     "The Ingredient entry must remain within the Cost navigation axis."
   );
   const approved003CPaths = new Set([
@@ -1686,7 +1686,7 @@ export {
   ]);
   const approved003CResponsibilities = new Map<string, readonly RegExp[]>([
     ["src/web/ingredients/page.ts", [/renderCanonicalIngredientManagement/, /\/api\/admin\/canonical-ingredients/, /DUPLICATE_NAME_WARNING|duplicate-warning/]],
-    ["src/web/shared/navigation.ts", [/key: "ingredients"/, /label: "食材主檔"/]],
+    ["src/web/shared/navigation.ts", [/href: "\/admin\/cost\/ingredients"/, /label: "食材主檔"/]],
     ["src/server/app/routes.ts", [/pathname === "\/admin\/ingredients"/, /renderCanonicalIngredientManagement/]],
     ["src/tests/canonical-ingredient-lifecycle-api.integration.test.ts", [/Rendering the management UI must not write/, /<title>食材主檔/]],
     ["tests/e2e/canonical-ingredient-management.spec.ts", [/Canonical Ingredient management UI/, /\/admin\/ingredients/]],
@@ -2980,7 +2980,7 @@ test("PR-COST-009 keeps immutable Recipe Cost Snapshot evidence inside its exact
   ]);
   assert.equal(approvedCost009Paths.size, 28);
   const isCost009Responsibility = (source: string): boolean =>
-    !/CostEvidenceRead|RecipeCostHistory|CostEvidenceBackOfficeBridge|cost-evidence-bridge/.test(source) && /CostSnapshot(?:Id|Repository|Service|Contract)|RecipeCostSnapshot|cost_recipe_snapshot|costSnapshot(?:Count|Ids)|\/snapshots/.test(source);
+    !/CostEvidenceRead|RecipeCostHistory|CostEvidenceBackOfficeBridge|cost-evidence-bridge/.test(source) && /CostSnapshot(?:Id|Repository|Service|Contract)|RecipeCostSnapshot|cost_recipe_snapshot|costSnapshot(?:Count|Ids)|\/api\/admin\/cost\/recipes\/[^'"`]+\/snapshots/.test(source);
   assert.equal(isCost009Responsibility("new RecipeCostSnapshotService(repository)"), true);
   const responsibilityFiles = [
     ...filesUnder(sourceRoot, [".ts", ".tsx"]),
@@ -3114,7 +3114,7 @@ test("PR-COST-012 keeps Cost Analytics inside its exact immutable-History respon
   assert.equal(approvedCost012Paths.size, 11);
   const isCost012Responsibility = (source: string): boolean =>
     !/CostEvidenceBackOfficeBridge|cost-evidence-bridge/.test(source)
-    && /RecipeCostAnalytics|recipe_cost_analytics_|\/analytics/.test(source);
+    && /RecipeCostAnalytics|recipe_cost_analytics_|\/api\/admin\/cost\/recipes\/[^'"`]+\/analytics/.test(source);
   assert.equal(isCost012Responsibility("new RecipeCostAnalyticsService(history)"), true);
   const responsibilityFiles = [
     ...filesUnder(sourceRoot, [".ts", ".tsx"]),

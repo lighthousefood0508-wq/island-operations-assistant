@@ -253,9 +253,19 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     }
     if (request.method === "GET" && pathname === "/admin") return sendHtml(response, renderEventsAdmin());
     if (request.method === "GET" && pathname === "/admin/events") return sendHtml(response, renderEventsAdmin());
-    if (request.method === "GET" && pathname === "/admin/catalog") return sendHtml(response, renderCatalogAdmin());
+    if (request.method === "GET" && pathname === "/admin/catalog") return sendHtml(response, renderCatalogAdmin("products"));
+    if (request.method === "GET" && pathname === "/admin/catalog/products") return sendHtml(response, renderCatalogAdmin("products"));
+    if (request.method === "GET" && pathname === "/admin/catalog/categories") return sendHtml(response, renderCatalogAdmin("categories"));
     if (request.method === "GET" && pathname === "/admin/ingredients") return sendHtml(response, renderCanonicalIngredientManagement());
-    if (request.method === "GET" && pathname === "/admin/cost") return sendHtml(response, renderCostBackOffice());
+    if (request.method === "GET" && pathname === "/admin/cost") return sendHtml(response, renderCostBackOffice("overview"));
+    if (request.method === "GET" && pathname === "/admin/cost/ingredients") return sendHtml(response, renderCostBackOffice("ingredients"));
+    if (request.method === "GET" && pathname === "/admin/cost/measurements") return sendHtml(response, renderCostBackOffice("measurements"));
+    if (request.method === "GET" && pathname === "/admin/cost/recipes") return sendHtml(response, renderCostBackOffice("recipes"));
+    if (request.method === "GET" && pathname === "/admin/cost/suppliers") return sendHtml(response, renderCostBackOffice("suppliers"));
+    if (request.method === "GET" && pathname === "/admin/cost/purchases") return sendHtml(response, renderCostBackOffice("purchases"));
+    if (request.method === "GET" && pathname === "/admin/cost/valuation") return sendHtml(response, renderCostBackOffice("valuation"));
+    if (request.method === "GET" && pathname === "/admin/cost/snapshots") return sendHtml(response, renderCostBackOffice("snapshots"));
+    if (request.method === "GET" && pathname === "/admin/cost/analytics") return sendHtml(response, renderCostBackOffice("analytics"));
     if (request.method === "GET" && pathname === "/admin/analysis") return sendHtml(response, renderAnalysisPlaceholder());
     if (request.method === "GET" && pathname === "/admin/health") return sendHtml(response, renderHealthDashboard());
     if (request.method === "GET" && pathname === "/admin/devices") return sendHtml(response, renderDevicesDebug());

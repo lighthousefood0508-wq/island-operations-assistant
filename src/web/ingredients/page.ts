@@ -22,7 +22,7 @@ export function renderCanonicalIngredientManagement(): string {
   ${renderSystemNav("admin")}
   <main>
     <section class="hero"><div class="eyebrow">Recipe Core · Canonical Ingredient</div><h1>食材主檔</h1><p>查閱正式食材身分與歷史證據；Active 食材可更名或封存。所有變更都以目前載入版本送出，不會自動覆寫衝突。</p></section>
-    ${renderBackOfficeNav("ingredients")}
+    ${renderBackOfficeNav("cost-ingredients")}
     <p id="notice" class="notice" role="status" aria-live="polite">正在載入食材主檔…</p>
     <div class="layout">
       <section class="card" aria-labelledby="collection-title">

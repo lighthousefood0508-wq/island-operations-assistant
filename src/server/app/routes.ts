@@ -46,6 +46,7 @@ import {
 } from "../../system/authentication/index.js";
 import {
   type AuthenticatedRequest,
+  type TrustedPrincipalField,
   commandWithPrincipal,
   loginRedirect,
   requireAccess,
@@ -229,12 +230,12 @@ async function route(request: IncomingMessage, response: ServerResponse, service
       }
       throw error;
     }
-    const readCommand = async (): Promise<Record<string, unknown>> =>
-      commandWithPrincipal(await readJson(request), access.principal);
-    const readCommandValue = async (): Promise<unknown> => {
+    const readCommand = async (trustedField?: TrustedPrincipalField): Promise<Record<string, unknown>> =>
+      commandWithPrincipal(await readJson(request), access.principal, trustedField);
+    const readCommandValue = async (trustedField?: TrustedPrincipalField): Promise<unknown> => {
       const value = await readJsonValue(request);
       return value && typeof value === "object" && !Array.isArray(value)
-        ? commandWithPrincipal(value as Record<string, unknown>, access.principal)
+        ? commandWithPrincipal(value as Record<string, unknown>, access.principal, trustedField)
         : value;
     };
     if (request.method === "POST" && pathname === "/api/auth/logout") {
@@ -318,7 +319,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
         200,
         services.canonicalIngredients.rename(
           canonicalIngredientRenameMatch[1],
-          await readCommandValue()
+          await readCommandValue("actor")
         )
       );
     }
@@ -331,7 +332,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
         200,
         services.canonicalIngredients.archive(
           canonicalIngredientArchiveMatch[1],
-          await readCommandValue()
+          await readCommandValue("actor")
         )
       );
     }
@@ -344,7 +345,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
         200,
         services.canonicalIngredients.reactivate(
           canonicalIngredientReactivateMatch[1],
-          await readCommandValue()
+          await readCommandValue("actor")
         )
       );
     }
@@ -356,14 +357,14 @@ async function route(request: IncomingMessage, response: ServerResponse, service
       return success(
         response,
         201,
-        services.costBackOffice.createIngredient(await readCommand())
+        services.costBackOffice.createIngredient(await readCommand("actor"))
       );
     }
     if (request.method === "POST" && pathname === "/api/admin/cost/suppliers") {
       return success(
         response,
         201,
-        services.costBackOffice.createSupplier(await readCommand())
+        services.costBackOffice.createSupplier(await readCommand("actor"))
       );
     }
     if (request.method === "GET" && pathname === "/api/admin/cost/suppliers") {
@@ -371,14 +372,14 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     }
     const supplierMatch = pathname.match(/^\/api\/admin\/cost\/suppliers\/([^/]+)$/);
     if (request.method === "GET" && supplierMatch?.[1]) return success(response, 200, services.costBackOffice.getSupplier(decodeURIComponent(supplierMatch[1])));
-    if (request.method === "POST" && pathname === "/api/admin/cost/purchases") return success(response, 201, services.costBackOffice.createPurchase(await readCommand()));
+    if (request.method === "POST" && pathname === "/api/admin/cost/purchases") return success(response, 201, services.costBackOffice.createPurchase(await readCommand("actor")));
     const purchaseMatch = pathname.match(/^\/api\/admin\/cost\/purchases\/([^/]+)$/);
     if (request.method === "GET" && purchaseMatch?.[1]) return success(response, 200, services.costBackOffice.getPurchase(decodeURIComponent(purchaseMatch[1])));
-    if (request.method === "PATCH" && purchaseMatch?.[1]) return success(response, 200, services.costBackOffice.revisePurchase(decodeURIComponent(purchaseMatch[1]), await readCommand()));
+    if (request.method === "PATCH" && purchaseMatch?.[1]) return success(response, 200, services.costBackOffice.revisePurchase(decodeURIComponent(purchaseMatch[1]), await readCommand("actor")));
     const purchaseRecordMatch = pathname.match(/^\/api\/admin\/cost\/purchases\/([^/]+)\/records$/);
-    if (request.method === "POST" && purchaseRecordMatch?.[1]) return success(response, 200, services.costBackOffice.recordPurchase(decodeURIComponent(purchaseRecordMatch[1]), await readCommand()));
+    if (request.method === "POST" && purchaseRecordMatch?.[1]) return success(response, 200, services.costBackOffice.recordPurchase(decodeURIComponent(purchaseRecordMatch[1]), await readCommand("recordedBy")));
     const purchaseAcceptanceMatch = pathname.match(/^\/api\/admin\/cost\/purchases\/([^/]+)\/acceptances$/);
-    if (request.method === "POST" && purchaseAcceptanceMatch?.[1]) return success(response, 201, services.costBackOffice.acceptPurchase(decodeURIComponent(purchaseAcceptanceMatch[1]), await readCommand()));
+    if (request.method === "POST" && purchaseAcceptanceMatch?.[1]) return success(response, 201, services.costBackOffice.acceptPurchase(decodeURIComponent(purchaseAcceptanceMatch[1]), await readCommand("acceptedBy")));
     const acceptedPurchasesMatch = pathname.match(/^\/api\/admin\/cost\/purchases\/([^/]+)\/accepted-purchases$/);
     if (request.method === "GET" && acceptedPurchasesMatch?.[1]) return success(response, 200, services.costBackOffice.listAcceptedPurchasesForPurchase(decodeURIComponent(acceptedPurchasesMatch[1])));
     const acceptedPurchaseMatch = pathname.match(/^\/api\/admin\/cost\/accepted-purchases\/([^/]+)$/);
@@ -387,7 +388,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
       return success(
         response,
         201,
-        services.costBackOffice.createProfile(await readCommand())
+        services.costBackOffice.createProfile(await readCommand("actor"))
       );
     }
     const profileSupersessionMatch = pathname.match(
@@ -399,7 +400,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
         201,
         services.costBackOffice.supersedeProfile(
           decodeURIComponent(profileSupersessionMatch[1]),
-          await readCommand()
+          await readCommand("actor")
         )
       );
     }
@@ -412,33 +413,33 @@ async function route(request: IncomingMessage, response: ServerResponse, service
         200,
         services.costBackOffice.deprecateProfile(
           decodeURIComponent(profileDeprecationMatch[1]),
-          await readCommand()
+          await readCommand("actor")
         )
       );
     }
     const profileDraftAppendMatch = pathname.match(/^\/api\/admin\/cost\/profiles\/([^/]+)\/re-establishment-drafts$/);
     if (request.method === "POST" && profileDraftAppendMatch?.[1]) {
-      return success(response, 201, services.costBackOffice.appendProfileReestablishmentDraft(decodeURIComponent(profileDraftAppendMatch[1]), await readCommand()));
+      return success(response, 201, services.costBackOffice.appendProfileReestablishmentDraft(decodeURIComponent(profileDraftAppendMatch[1]), await readCommand("actor")));
     }
     const profileDraftMatch = pathname.match(/^\/api\/admin\/cost\/profiles\/([^/]+)\/drafts\/([^/]+)$/);
     if (request.method === "PATCH" && profileDraftMatch?.[1] && profileDraftMatch[2]) {
-      return success(response, 200, services.costBackOffice.reviseProfileReestablishmentDraft(decodeURIComponent(profileDraftMatch[1]), decodeURIComponent(profileDraftMatch[2]), await readCommand()));
+      return success(response, 200, services.costBackOffice.reviseProfileReestablishmentDraft(decodeURIComponent(profileDraftMatch[1]), decodeURIComponent(profileDraftMatch[2]), await readCommand("actor")));
     }
     const profileDraftActivationMatch = pathname.match(/^\/api\/admin\/cost\/profiles\/([^/]+)\/drafts\/([^/]+)\/activations$/);
     if (request.method === "POST" && profileDraftActivationMatch?.[1] && profileDraftActivationMatch[2]) {
-      return success(response, 200, services.costBackOffice.activateProfileReestablishmentDraft(decodeURIComponent(profileDraftActivationMatch[1]), decodeURIComponent(profileDraftActivationMatch[2]), await readCommand()));
+      return success(response, 200, services.costBackOffice.activateProfileReestablishmentDraft(decodeURIComponent(profileDraftActivationMatch[1]), decodeURIComponent(profileDraftActivationMatch[2]), await readCommand("actor")));
     }
     if (request.method === "POST" && pathname === "/api/admin/cost/recipes") {
       return success(
         response,
         201,
         services.costBackOffice.createAndPublishRecipe(
-          await readCommand()
+          await readCommand("actor")
         )
       );
     }
     const costSnapshotMatch = pathname.match(/^\/api\/admin\/cost\/recipes\/([^/]+)\/snapshots$/);
-    if (request.method === "POST" && costSnapshotMatch?.[1]) return success(response, 201, services.costBackOffice.captureSnapshot(decodeURIComponent(costSnapshotMatch[1]), await readCommand()));
+    if (request.method === "POST" && costSnapshotMatch?.[1]) return success(response, 201, services.costBackOffice.captureSnapshot(decodeURIComponent(costSnapshotMatch[1]), await readCommand("capturedBy")));
     if (request.method === "GET" && costSnapshotMatch?.[1]) return success(response, 200, services.costBackOffice.listSnapshotsForRecipe(decodeURIComponent(costSnapshotMatch[1])));
     const recipeCostHistoryLatestMatch = pathname.match(/^\/api\/admin\/cost\/recipes\/([^/]+)\/cost-history\/latest$/);
     if (request.method === "GET" && recipeCostHistoryLatestMatch?.[1]) return success(response, 200, services.costBackOffice.getLatestRecipeCostHistory(decodeURIComponent(recipeCostHistoryLatestMatch[1])));
@@ -454,7 +455,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
       return success(
         response,
         201,
-        services.costBackOffice.recordQuote(await readCommand())
+        services.costBackOffice.recordQuote(await readCommand("actor"))
       );
     }
     const quoteReplacementMatch = pathname.match(
@@ -466,7 +467,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
         201,
         services.costBackOffice.replaceQuote(
           decodeURIComponent(quoteReplacementMatch[1]),
-          await readCommand()
+          await readCommand("actor")
         )
       );
     }
@@ -514,7 +515,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "GET" && pathname === "/api/events/current") return success(response, 200, services.operations.getCurrentEvent());
     if (request.method === "GET" && pathname === "/api/events/current/products") return success(response, 200, services.operations.getCurrentProducts());
     if (request.method === "POST" && pathname === "/api/orders") {
-      const result = services.orders.createPosOrder(await readCommand());
+      const result = services.orders.createPosOrder(await readCommand("operator"));
       events.publish("order.created", result.order.eventId); events.publish("inventory.changed", result.order.eventId);
       if (!result.replayed && result.order.paymentStatus === "paid") events.publish("payment.confirmed", result.order.eventId);
       return success(response, result.replayed ? 200 : 201, result.order);
@@ -523,7 +524,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "GET" && orderMatch?.[1]) return success(response, 200, services.orders.getOrder(decodeURIComponent(orderMatch[1])));
     const paymentConfirmMatch = pathname.match(/^\/api\/orders\/([^/]+)\/payment\/confirm$/);
     if (request.method === "POST" && paymentConfirmMatch?.[1]) {
-      const result = services.payments.confirmPayment(decodeURIComponent(paymentConfirmMatch[1]), await readCommand());
+      const result = services.payments.confirmPayment(decodeURIComponent(paymentConfirmMatch[1]), await readCommand("operator"));
       if (!result.replayed) {
         events.publish("payment.confirmed", result.order.eventId);
         events.publish("order.completed", result.order.eventId);
@@ -531,23 +532,23 @@ async function route(request: IncomingMessage, response: ServerResponse, service
       return success(response, 200, result);
     }
     const statusMatch = pathname.match(/^\/api\/orders\/([^/]+)\/status$/);
-    if (request.method === "PATCH" && statusMatch?.[1]) { const order = services.lifecycle.changeStatus(decodeURIComponent(statusMatch[1]), await readCommand()); events.publish(order.orderStatus === "completed" ? "order.completed" : "order.production_changed", order.eventId); return success(response, 200, order); }
+    if (request.method === "PATCH" && statusMatch?.[1]) { const order = services.lifecycle.changeStatus(decodeURIComponent(statusMatch[1]), await readCommand("operator")); events.publish(order.orderStatus === "completed" ? "order.completed" : "order.production_changed", order.eventId); return success(response, 200, order); }
     const revertProductionMatch = pathname.match(/^\/api\/orders\/([^/]+)\/production\/revert-completion$/);
-    if (request.method === "POST" && revertProductionMatch?.[1]) { const order = services.lifecycle.revertProductionCompletion(decodeURIComponent(revertProductionMatch[1]), await readCommand()); events.publish("order.production_changed", order.eventId); return success(response, 200, order); }
+    if (request.method === "POST" && revertProductionMatch?.[1]) { const order = services.lifecycle.revertProductionCompletion(decodeURIComponent(revertProductionMatch[1]), await readCommand("operator")); events.publish("order.production_changed", order.eventId); return success(response, 200, order); }
     const noShowMatch = pathname.match(/^\/api\/orders\/([^/]+)\/no-show$/);
-    if (request.method === "POST" && noShowMatch?.[1]) { const order = services.lifecycle.markNoShow(decodeURIComponent(noShowMatch[1]), await readCommand()); events.publish("order.production_changed", order.eventId); return success(response, 200, order); }
+    if (request.method === "POST" && noShowMatch?.[1]) { const order = services.lifecycle.markNoShow(decodeURIComponent(noShowMatch[1]), await readCommand("operator")); events.publish("order.production_changed", order.eventId); return success(response, 200, order); }
     const releaseMatch = pathname.match(/^\/api\/orders\/([^/]+)\/release-inventory$/);
-    if (request.method === "POST" && releaseMatch?.[1]) { const result = services.lifecycle.releaseInventory(decodeURIComponent(releaseMatch[1]), await readCommand()); events.publish("inventory.changed", result.order.eventId); return success(response, 200, result); }
+    if (request.method === "POST" && releaseMatch?.[1]) { const result = services.lifecycle.releaseInventory(decodeURIComponent(releaseMatch[1]), await readCommand("operator")); events.publish("inventory.changed", result.order.eventId); return success(response, 200, result); }
     const currentOrdersMatch = pathname.match(/^\/api\/events\/([^/]+)\/orders$/);
     if (request.method === "GET" && currentOrdersMatch?.[1]) return success(response, 200, services.lifecycle.listEventOrders(decodeURIComponent(currentOrdersMatch[1])));
     const closeMatch = pathname.match(/^\/api\/events\/([^/]+)\/close$/);
-    if (request.method === "POST" && closeMatch?.[1]) { const result = services.lifecycle.closeEvent(decodeURIComponent(closeMatch[1]), await readCommand()); events.publish("event.closed", decodeURIComponent(closeMatch[1])); return success(response, 200, result); }
+    if (request.method === "POST" && closeMatch?.[1]) { const result = services.lifecycle.closeEvent(decodeURIComponent(closeMatch[1]), await readCommand("operator")); events.publish("event.closed", decodeURIComponent(closeMatch[1])); return success(response, 200, result); }
     const reportMatch = pathname.match(/^\/api\/events\/([^/]+)\/daily-report$/);
     if (request.method === "GET" && reportMatch?.[1]) return success(response, 200, readDailyReport(services.dailyReports, reportMatch[1]));
     const statisticsMatch = pathname.match(/^\/api\/events\/([^/]+)\/statistics$/);
     if (request.method === "GET" && statisticsMatch?.[1]) return success(response, 200, services.lifecycle.getStatistics(decodeURIComponent(statisticsMatch[1])));
     const closeoutMatch = pathname.match(/^\/api\/events\/([^/]+)\/closeout$/);
-    if (request.method === "PUT" && closeoutMatch?.[1]) { const eventId = decodeURIComponent(closeoutMatch[1]); const result = services.lifecycle.saveCloseout(eventId, await readCommand()); events.publish("closeout.updated", eventId); return success(response, 200, result); }
+    if (request.method === "PUT" && closeoutMatch?.[1]) { const eventId = decodeURIComponent(closeoutMatch[1]); const result = services.lifecycle.saveCloseout(eventId, await readCommand("operator")); events.publish("closeout.updated", eventId); return success(response, 200, result); }
 
     if (request.method === "GET" && pathname === "/api/admin/operations/daily-reports") return success(response, 200, listDailyReports(services.dailyReports));
     const adminDailyReportMatch = pathname.match(/^\/api\/admin\/operations\/daily-reports\/([^/]+)$/);
@@ -560,7 +561,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "POST" && eventActionMatch?.[1] && eventActionMatch[2]) {
       const eventId = decodeURIComponent(eventActionMatch[1]);
       const action = eventActionMatch[2];
-      if (action === "close") { const result = services.lifecycle.closeEvent(eventId, await readCommand()); events.publish("event.closed", eventId); return success(response, 200, result); }
+      if (action === "close") { const result = services.lifecycle.closeEvent(eventId, await readCommand("operator")); events.publish("event.closed", eventId); return success(response, 200, result); }
       const event = action === "open" ? services.operations.openEvent(eventId)
         : action === "pause" ? services.operations.pauseEvent(eventId)
           : action === "resume" ? services.operations.resumeEvent(eventId)
@@ -571,7 +572,10 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     const inventoryMatch = pathname.match(/^\/api\/admin\/events\/([^/]+)\/sellable-inventory$/);
     if (inventoryMatch?.[1] && request.method === "GET") return success(response, 200, services.operations.getInventory(decodeURIComponent(inventoryMatch[1])));
     if (inventoryMatch?.[1] && request.method === "PUT") {
-      const input = await readCommand();
+      const rawInput = await readCommand();
+      const input = Array.isArray(rawInput.items)
+        ? commandWithPrincipal(rawInput, access.principal, "operator")
+        : rawInput;
       const eventId = decodeURIComponent(inventoryMatch[1]);
       if (Array.isArray(input.items)) {
         const contracts = new Map(services.catalog.getPublishedProducts().map((product) => [product.productVersionId, product]));

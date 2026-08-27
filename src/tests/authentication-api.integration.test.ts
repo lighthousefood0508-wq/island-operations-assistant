@@ -135,6 +135,79 @@ test("role policy permits POS operational reads while denying Cost/Admin authori
   }
 });
 
+test("authenticated command routes bind trusted audit identity only where their command contract declares it", async () => {
+  const databasePath = path.resolve("data", `authentication-command-compatibility-${randomUUID()}.sqlite`);
+  const server = createRosServer({
+    host: "127.0.0.1",
+    port: 0,
+    databasePath,
+    authentication: {
+      mode: "required",
+      secureCookie: false,
+      sessionTtlMinutes: 60,
+      bootstrapAdministrator: { login: "admin", password: "correct-horse-battery" }
+    }
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const command = (body: unknown, cookie: string, origin = baseUrl): RequestInit => ({
+    method: "POST",
+    headers: { cookie, origin, "content-type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  try {
+    const login = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: baseUrl },
+      body: JSON.stringify({ login: "admin", password: "correct-horse-battery" })
+    });
+    assert.equal(login.response.status, 200);
+    const cookie = login.response.headers.get("set-cookie") ?? "";
+    const userId = login.body.data.userId;
+
+    const unauthenticated = await request(baseUrl, "/api/admin/categories", command({ displayName: "Blocked" }, ""));
+    assert.equal(unauthenticated.response.status, 401);
+    const wrongOrigin = await request(baseUrl, "/api/admin/categories", command({ displayName: "Blocked" }, cookie, "https://untrusted.example"));
+    assert.equal(wrongOrigin.response.status, 403);
+
+    const category = await request(baseUrl, "/api/admin/categories", command({ displayName: "Authenticated Catalog", sortOrder: 1, isActive: true }, cookie));
+    assert.equal(category.response.status, 201);
+    const categoryId = category.body.data.categoryId;
+    const updated = await request(baseUrl, `/api/admin/categories/${categoryId}`, {
+      ...command({ displayName: "Updated Catalog", sortOrder: 2, isActive: false }, cookie),
+      method: "PATCH"
+    });
+    assert.equal(updated.response.status, 200);
+    assert.equal(updated.body.data.displayName, "Updated Catalog");
+    assert.equal(updated.body.data.isActive, false);
+    const reactivated = await request(baseUrl, `/api/admin/categories/${categoryId}`, {
+      ...command({ isActive: true }, cookie),
+      method: "PATCH"
+    });
+    assert.equal(reactivated.response.status, 200);
+    const strictActor = await request(baseUrl, "/api/admin/categories", command({ displayName: "Must stay strict", actor: "forged-client" }, cookie));
+    assert.equal(strictActor.response.status, 422);
+    assert.equal(strictActor.body.error.code, "validation_error");
+
+    const product = await request(baseUrl, "/api/admin/products", command({ internalName: "Authenticated Product", categoryId, displayName: "Authenticated Product", posName: "Auth Product", sellingPrice: 120, channels: ["pos"] }, cookie));
+    assert.equal(product.response.status, 201);
+    const published = await request(baseUrl, `/api/admin/products/${product.body.data.productId}/publish`, command({}, cookie));
+    assert.equal(published.response.status, 200);
+
+    const supplier = await request(baseUrl, "/api/admin/cost/suppliers", command({ displayName: "Trusted audit supplier", occurredAt: "2026-08-27T00:00:00.000Z", actor: "forged-client" }, cookie));
+    assert.equal(supplier.response.status, 201);
+    assert.equal(supplier.body.data.createdBy, userId);
+    assert.notEqual(supplier.body.data.createdBy, "forged-client");
+  } finally {
+    server.close();
+    await once(server, "close");
+    for (const suffix of ["", "-wal", "-shm"]) rmSync(`${databasePath}${suffix}`, { force: true });
+  }
+});
+
 test("ProductionRuntimeSecureDeploymentBoundary uses the configured canonical origin for anonymous login", async () => {
   const databasePath = path.resolve("data", `authentication-production-origin-${randomUUID()}.sqlite`);
   const canonicalOrigin = "https://ros.example.test";

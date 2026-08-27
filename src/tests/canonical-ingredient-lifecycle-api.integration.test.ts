@@ -466,12 +466,13 @@ test("four registrations provide six management API behaviors and survive restar
     assert.match(uiRoute.contentType, /^text\/html; charset=utf-8$/);
     assert.match(uiRoute.body, /<title>食材主檔 \| 荒島 ROS 後台<\/title>/);
     assert.match(uiRoute.body, /href="\/admin\/ingredients" aria-current="page">食材主檔<\/a>/);
-    assert.match(uiRoute.body, /href="\/admin\/ingredients\/new">新增正式食材/);
+    assert.match(uiRoute.body, /class="primary-action" href="\/admin\/ingredients\/new">＋ 新增正式食材/);
     assert.match(uiRoute.body, /\/api\/admin\/canonical-ingredients/);
     const newUiRoute = await requestText(running.baseUrl, "/admin/ingredients/new");
     assert.equal(newUiRoute.status, 200);
     assert.match(newUiRoute.body, /<title>正式食材建立 \| 荒島 ROS 後台<\/title>/);
     assert.match(newUiRoute.body, /href="\/admin\/ingredients" aria-current="page">食材主檔<\/a>/);
+    assert.match(newUiRoute.body, /成本 ＞ 基礎資料 ＞ 食材主檔 ＞ 新增正式食材/);
     assert.match(newUiRoute.body, /\/api\/admin\/cost\/ingredients/);
     const legacyCreateRoute = await fetch(`${running.baseUrl}/admin/cost/ingredients`, { redirect: "manual" });
     assert.equal(legacyCreateRoute.status, 302);

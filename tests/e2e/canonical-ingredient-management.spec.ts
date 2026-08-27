@@ -432,6 +432,8 @@ test("Canonical Ingredient management UI reconciles filtered selection and lifec
   }));
   await page.locator("#lifecycle-filter").selectOption("all");
   await expect(page.locator("#ingredient-list")).toHaveText("目前沒有任何食材。");
+  await expect(page.locator("#ingredient-empty-guide")).toBeVisible();
+  await expect(page.getByRole("link", { name: "建立第一項正式食材", exact: true })).toHaveAttribute("href", "/admin/ingredients/new");
 });
 
 test("Canonical Ingredient management UI keeps command responses bound to their immutable identity", async ({ page }) => {

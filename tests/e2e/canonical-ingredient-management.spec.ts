@@ -167,7 +167,7 @@ test("Canonical Ingredient management UI completes Rename, warning and Archive",
   await expect(page).toHaveURL(/\/admin\/ingredients$/);
   await expect(page.getByRole("heading", { name: "食材主檔" })).toBeVisible();
   await expect(page.locator('.office-primary a[aria-current="page"]')).toHaveText("成本");
-  await expect(page.locator('.office-secondary a[aria-current="page"]')).toHaveText("食材主檔");
+  await expect(page.locator('.office-workspace-group a[aria-current="page"]')).toHaveText("食材主檔");
   await expect(page.locator(".office-primary > a")).toHaveText(["商品目錄", "場次", "成本"]);
 
   await expect(page.locator("#ingredient-list")).toContainText(sourceName);
@@ -1302,10 +1302,9 @@ test("Canonical Ingredient management UI remains operable on a representative mo
   await page.goto("/admin/ingredients");
   await expect(page.getByRole("heading", { name: "食材主檔" })).toBeVisible();
   await expect(page.locator("#lifecycle-filter")).toBeVisible();
-  expect(await page.locator(".office-secondary").evaluate((node) => {
-    const value = node as HTMLElement;
-    return getComputedStyle(value).overflowX === "auto" && value.scrollWidth >= value.clientWidth;
-  })).toBe(true);
+  await expect(page.locator(".office-workspace-groups")).toBeVisible();
+  const activeWorkspace = await page.locator(".office-workspace-group a[aria-current=page]").boundingBox();
+  expect(activeWorkspace?.height).toBeGreaterThanOrEqual(38);
   await openIngredient(page, name);
   await expect(page.locator("#rename-form")).toBeVisible();
   const collection = await page.locator(".layout > section").nth(0).boundingBox();

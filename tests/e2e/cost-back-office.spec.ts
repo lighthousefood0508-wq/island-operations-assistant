@@ -24,16 +24,18 @@ test("Cost Back Office renders QuoteFallback in the guided exact-cost workflow",
   );
   expect(published.ok()).toBeTruthy();
 
-  await page.goto("/admin/cost");
-  await expect(page.getByRole("heading", { name: "成本總覽" })).toBeVisible();
+  await page.goto("/admin/ingredients/new");
+  await expect(page.getByRole("heading", { name: "正式食材建立" })).toBeVisible();
   await page.locator("#ingredient-name").fill("豬五花");
   await page.locator("#ingredient-form button[type=submit]").click();
   await expect(page.locator("#ingredient-list")).toContainText("豬五花");
 
+  await page.goto("/admin/cost/measurements");
   await page.locator("#profile-ingredient").selectOption({ label: "豬五花" });
   await page.locator("#profile-form button[type=submit]").click();
   await expect(page.locator("#profile-list")).toContainText("mass → g");
 
+  await page.goto("/admin/cost/recipes");
   await page.locator("#recipe-name").fill("滷肉飯標準配方");
   await page.locator("#recipe-product").selectOption({ index: 1 });
   await page.locator("#recipe-ingredient").selectOption({ label: "豬五花" });
@@ -42,6 +44,7 @@ test("Cost Back Office renders QuoteFallback in the guided exact-cost workflow",
   await expect(page.locator("#recipe-list")).toContainText("滷肉飯標準配方");
   await expect(page.locator("#recipe-list")).toContainText("Published");
 
+  await page.goto("/admin/cost/valuation");
   const evaluationInstant = "2099-01-01T00:00:00.000Z";
   await page.locator("#quote-ingredient").selectOption({ label: "豬五花" });
   await page.locator("#quote-amount").fill("300");
@@ -86,18 +89,20 @@ test("Cost Back Office renders QuoteFallback in the guided exact-cost workflow",
   await expect(page.locator(".trace")).toContainText(replacementQuoteId);
   await expect(page.locator(".trace")).not.toContainText(initialQuoteId);
 
-  await page.reload();
+  await page.goto("/admin/ingredients/new");
   await expect(page.locator("#ingredient-list")).toContainText("豬五花");
+  await page.goto("/admin/cost/recipes");
   await expect(page.locator("#recipe-list")).toContainText("滷肉飯標準配方");
 });
 
 test("Cost Back Office is responsive and exposes the exact-value policy", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/admin/cost");
+  await page.goto("/admin/cost/valuation");
   await expect(page.locator(".exact-note")).toContainText("分子 / 分母");
+  await page.goto("/admin/ingredients/new");
   await expect(page.getByRole("button", { name: "建立正式食材" }))
     .toBeVisible();
-  const cards = page.locator(".layout > .card");
+  const cards = page.locator(".office-workspace-groups .office-workspace-group");
   const first = await cards.nth(0).boundingBox();
   const second = await cards.nth(1).boundingBox();
   expect(first).not.toBeNull();
@@ -115,7 +120,7 @@ test("Cost Evidence Read remains an API-only operational bridge without a new Co
   expect(read.status()).toBe(200);
   expect((await read.json()).data.displayName).toBe("Read bridge supplier");
   await page.goto("/admin/cost");
-  await expect(page.getByRole("heading", { name: "成本總覽" })).toBeVisible();
+  await expect(page.locator("h1")).toHaveText("成本總覽");
 });
 
 test("Recipe Cost History remains an API-only immutable Snapshot timeline", async ({ page }) => {
@@ -127,7 +132,7 @@ test("Recipe Cost History remains an API-only immutable Snapshot timeline", asyn
   expect(body.data.contractName).toBe("RecipeCostHistory");
   expect(body.data.entries).toEqual([]);
   await page.goto("/admin/cost");
-  await expect(page.getByRole("heading", { name: "成本總覽" })).toBeVisible();
+  await expect(page.locator("h1")).toHaveText("成本總覽");
 });
 
 test("Cost Analytics remains an API-only projection of immutable Recipe History", async ({ page }) => {
@@ -140,7 +145,7 @@ test("Cost Analytics remains an API-only projection of immutable Recipe History"
   expect(body.data.snapshots).toEqual([]);
   expect(body.data.latest).toBeNull();
   await page.goto("/admin/cost");
-  await expect(page.getByRole("heading", { name: "成本總覽" })).toBeVisible();
+  await expect(page.locator("h1")).toHaveText("成本總覽");
 });
 
 test("CostEvidenceBackOfficeBridge lets an operator create accepted evidence and read immutable snapshot history", async ({ page }) => {
@@ -157,10 +162,11 @@ test("CostEvidenceBackOfficeBridge lets an operator create accepted evidence and
   const recipe = await page.request.post("/api/admin/cost/recipes", { data: { name: "Evidence bridge recipe", productId, productVersionId: (await (await page.request.get(`/api/admin/products/${productId}`)).json()).data.versions[0].productVersionId, lines: [{ ingredientId, coefficient: "100", scale: 0, unitCode: "g", dimension: "mass" }], standardOutput: { coefficient: "1", scale: 0, unitCode: "each", dimension: "count" }, standardYield: { coefficient: "1", scale: 0, unitCode: "each", dimension: "count" }, occurredAt: instant, actor: "owner" } });
   expect(recipe.status()).toBe(201);
 
-  await page.goto("/admin/cost");
+  await page.goto("/admin/cost/suppliers");
   await page.locator("#supplier-name").fill("Bridge supplier");
   await page.locator("#supplier-form button[type=submit]").click();
   await expect(page.locator("#supplier-list")).toContainText("Bridge supplier");
+  await page.goto("/admin/cost/purchases");
   await page.locator("#purchase-supplier").selectOption({ label: "Bridge supplier" });
   await page.locator("#purchase-line-list select").selectOption({ label: "Bridge pork" });
   await page.locator("#purchase-line-list input[data-purchase-field=quantityCoefficient]").fill("1");
@@ -174,6 +180,7 @@ test("CostEvidenceBackOfficeBridge lets an operator create accepted evidence and
   await page.locator("#purchase-accept-form button[type=submit]").click();
   await expect(page.locator("#accepted-purchase-result")).toContainText("不可變實際採購證據");
 
+  await page.goto("/admin/cost/snapshots");
   await page.locator("#cost-evidence-recipe").selectOption({ label: "Evidence bridge recipe · v1" });
   await page.locator("#snapshot-valued-at").fill(instant);
   await page.locator("#snapshot-captured-at").fill(instant);
@@ -184,7 +191,7 @@ test("CostEvidenceBackOfficeBridge lets an operator create accepted evidence and
 });
 
 test("Cost Back Office keeps CanonicalIngredientCreation on its existing facade", async ({ page }) => {
-  await page.goto("/admin/cost");
+  await page.goto("/admin/ingredients/new");
   const creationResponse = page.waitForResponse((response) =>
     response.request().method() === "POST"
     && new URL(response.url()).pathname === "/api/admin/cost/ingredients"
@@ -216,9 +223,10 @@ test("Cost Back Office delegates Draft-first Profile re-establishment without UI
 });
 
 test("Cost Back Office keeps IngredientMeasurementProfileCreation on its existing facade", async ({ page }) => {
-  await page.goto("/admin/cost");
+  await page.goto("/admin/ingredients/new");
   await page.locator("#ingredient-name").fill("003G facade ingredient");
   await page.locator("#ingredient-form button[type=submit]").click();
+  await page.goto("/admin/cost/measurements");
   await page.locator("#profile-ingredient").selectOption({ label: "003G facade ingredient" });
   const creationResponse = page.waitForResponse((response) =>
     response.request().method() === "POST"

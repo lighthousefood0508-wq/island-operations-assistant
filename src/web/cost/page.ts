@@ -34,7 +34,7 @@ export function renderCostBackOffice(workspace: CostWorkspace = "overview"): str
     <div class="layout">
       <section id="cost-ingredients" class="card">
         <h2>新增正式食材</h2><p class="hint">食材名稱是主檔資料；品牌、供應商與包裝不在這裡建立。</p><p><a href="/admin/ingredients">返回食材主檔與生命週期管理 →</a></p>
-        <form id="ingredient-form" class="stack"><div class="row"><label>食材名稱<input id="ingredient-name" required placeholder="例如：豬五花"></label><label>分類<select id="ingredient-category"><option value="meat">肉類</option><option value="seafood">海鮮</option><option value="vegetable">蔬菜</option><option value="seasoning">調味料</option><option value="sauce">醬料</option><option value="dry_goods">乾貨</option><option value="frozen">冷凍</option><option value="beverage">飲料</option><option value="packaging">包材</option><option value="other">其他</option></select></label></div><button type="submit">建立正式食材</button></form>
+        <form id="ingredient-form" class="stack"><div class="row"><label>食材名稱<input id="ingredient-name" required placeholder="例如：豬五花"></label><label>分類<select id="ingredient-category"><option value="meat">肉類</option><option value="seafood">海鮮</option><option value="vegetable">蔬菜</option><option value="seasoning">調味料</option><option value="sauce">醬料</option><option value="dry_goods">乾貨</option><option value="frozen">冷凍</option><option value="beverage">飲料</option><option value="alcohol">酒類</option><option value="packaging">包材</option><option value="other">其他</option></select></label></div><button type="submit">建立正式食材</button></form>
         <div id="ingredient-list" class="summary"></div>
       </section>
       <section id="cost-measurement" class="card">

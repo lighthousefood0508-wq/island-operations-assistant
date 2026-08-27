@@ -115,6 +115,7 @@ test("v1 writers accept every approved Ingredient category code", () => {
   for (const code of APPROVED_INGREDIENT_CATEGORY_CODES_V1) {
     assert.equal(IngredientCategory.parse(code).code, code);
   }
+  assert.equal(IngredientCategory.parse("alcohol").code, "alcohol");
 });
 
 test("v1 writers reject arbitrary category text", () => {

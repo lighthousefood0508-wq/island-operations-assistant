@@ -3347,6 +3347,9 @@ test("PR-PLATFORM-002 keeps Production Runtime and Secure Deployment inside its 
   const responsibilityFiles = files
     .filter((filename) => isPlatform002Responsibility(readFileSync(filename, "utf8")))
     .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    // PLATFORM-004's dedicated operator-CLI test exercises this configuration
+    // fail-closed. Its responsibility and scope are guarded separately below.
+    .filter((relative) => relative !== "src/tests/authentication-application.test.ts")
     .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
     .sort();
   const approvedResponsibilityFiles = [...approvedPlatform002Paths]
@@ -3401,6 +3404,10 @@ test("PR-PLATFORM-001 keeps Authentication and Role control inside its exact Sys
     path.join(projectRoot, "scripts", "migration-upgrade-014.mjs")
   ].filter((filename) => isPlatform001Responsibility(readFileSync(filename, "utf8")))
     .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    // The operator-only CLI is governed by the dedicated PLATFORM-004
+    // classifier below.  It may compose AuthenticationService without becoming
+    // a PLATFORM-001 HTTP/session responsibility.
+    .filter((relative) => relative !== "src/tools/local-identity-operator.ts")
     .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
     .sort();
   const approvedResponsibilityFiles = [...approvedPlatform001Paths]
@@ -3424,6 +3431,54 @@ test("PR-PLATFORM-001 keeps Authentication and Role control inside its exact Sys
   assert.match(access, /capturedBy: actor/);
   assert.match(routes, /\/api\/auth\/login/);
   assert.doesNotMatch(routes, /POST\s+\/api\/admin\/canonical-ingredients/);
+});
+
+test("PR-PLATFORM-004 keeps governed local identity operations inside its exact operator-only responsibility boundary", () => {
+  const approvedPlatform004Paths = new Set([
+    "package.json",
+    "src/system/authentication/application/authentication-errors.ts",
+    "src/system/authentication/application/authentication-service.ts",
+    "src/system/authentication/domain/authentication-repository.ts",
+    "src/system/authentication/index.ts",
+    "src/system/authentication/infrastructure/sqlite-authentication-repository.ts",
+    "src/tools/local-identity-operator.ts",
+    "src/tests/authentication-application.test.ts",
+    "src/tests/authentication-persistence.integration.test.ts",
+    "src/tests/architecture-guards.test.ts"
+  ]);
+  assert.equal(approvedPlatform004Paths.size, 10);
+  const isPlatform004Responsibility = (source: string): boolean =>
+    /GovernedLocalIdentityOperationsBoundary|local-identity-operator|AuthenticationIdentity(?:NotFound|Duplicate)|LocalIdentityRole|createLocalUser|rotateLocalPassword|setLocalUserStatus|rotatePasswordAndRevokeSessions|protected interactive TTY/.test(source);
+  assert.equal(isPlatform004Responsibility("new AuthenticationService(repository).rotateLocalPassword(command)"), true);
+  const files = [
+    ...filesUnder(sourceRoot, [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"]),
+    path.join(projectRoot, "package.json")
+  ];
+  const responsibilityFiles = files
+    .filter((filename) => isPlatform004Responsibility(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .sort();
+  const approvedResponsibilityFiles = [...approvedPlatform004Paths]
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => isPlatform004Responsibility(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8")))
+    .sort();
+  assert.deepEqual(responsibilityFiles, approvedResponsibilityFiles);
+  assert.equal(approvedPlatform004Paths.has("src/server/app/local-identity-admin-route.ts"), false);
+  assert.equal(
+    isPlatform004Responsibility("export class GovernedLocalIdentityOperationsBoundaryShadowService {}"),
+    true,
+    "The same classifier must reject a simulated unauthorized eleventh local-identity responsibility path."
+  );
+  const service = readFileSync(path.join(sourceRoot, "system", "authentication", "application", "authentication-service.ts"), "utf8");
+  const repository = readFileSync(path.join(sourceRoot, "system", "authentication", "infrastructure", "sqlite-authentication-repository.ts"), "utf8");
+  const cli = readFileSync(path.join(sourceRoot, "tools", "local-identity-operator.ts"), "utf8");
+  assert.doesNotMatch(service, /sqlite|DatabaseAdapter|better-sqlite|CostBackOffice|domains\/cost/i);
+  assert.match(repository, /transactionImmediate/);
+  assert.match(cli, /process\.stdin\.isTTY/);
+  assert.match(cli, /Passwords must not be supplied by argument or environment/);
+  assert.doesNotMatch(cli, /process\.env\.(?:PASSWORD|SECRET)/i);
 });
 
 test("PR-PLATFORM-003 keeps Backup, Restore, Monitoring, and Recovery Evidence inside its exact System-owned responsibility boundary", () => {
@@ -3471,6 +3526,9 @@ test("PR-PLATFORM-003 keeps Backup, Restore, Monitoring, and Recovery Evidence i
   const responsibilityFiles = files
     .filter((filename) => isPlatform003Responsibility(readFileSync(filename, "utf8")))
     .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    // PLATFORM-004's dedicated operator-CLI test supplies an isolated backup
+    // directory solely to prove protected non-interactive input is rejected.
+    .filter((relative) => relative !== "src/tests/authentication-application.test.ts")
     .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
     .sort();
   const approvedResponsibilityFiles = [...approvedPlatform003Paths]

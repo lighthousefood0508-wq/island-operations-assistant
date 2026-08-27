@@ -38,4 +38,7 @@ export interface AuthenticationRepository {
     expiresAt: string;
   }>): void;
   revokeSession(tokenHash: string, revokedAt: string): void;
+  createLocalUser(input: Readonly<{ userId: string; login: string; displayName: string; role: string; passwordAlgorithm: string; passwordSalt: string; passwordHash: string; createdAt: string }>): void;
+  rotatePasswordAndRevokeSessions(input: Readonly<{ userId: string; passwordAlgorithm: string; passwordSalt: string; passwordHash: string; changedAt: string }>): number;
+  setLocalUserStatus(input: Readonly<{ userId: string; status: "active" | "disabled"; changedAt: string }>): number;
 }

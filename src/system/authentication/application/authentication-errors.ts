@@ -17,3 +17,6 @@ export class AuthenticationBootstrapFailure extends Error {
 export class AuthenticationPersistenceFailure extends Error {
   constructor() { super("Authentication data could not be read or written."); this.name = "AuthenticationPersistenceFailure"; }
 }
+
+export class AuthenticationIdentityNotFound extends Error { constructor() { super("Authentication identity was not found."); this.name = "AuthenticationIdentityNotFound"; } }
+export class AuthenticationIdentityDuplicate extends Error { constructor() { super("Authentication identity already exists."); this.name = "AuthenticationIdentityDuplicate"; } }

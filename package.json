@@ -23,6 +23,7 @@
     "production:backup": "node scripts/production-backup.mjs",
     "production:restore:verify": "node scripts/production-restore-verify.mjs",
     "production:monitor": "node scripts/production-monitoring-evidence.mjs",
+    "identity:operator": "tsc -p tsconfig.json && node dist/tools/local-identity-operator.js",
     "verify": "node scripts/verify.mjs",
     "verify:full": "node scripts/verify.mjs && node scripts/e2e-runner.mjs",
     "test:e2e": "node scripts/e2e-runner.mjs",

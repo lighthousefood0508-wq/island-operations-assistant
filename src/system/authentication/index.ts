@@ -1,8 +1,10 @@
-export { AuthenticationService, type AuthenticationLoginResult } from "./application/authentication-service.js";
+export { AuthenticationService, type AuthenticationLoginResult, type LocalIdentityRole } from "./application/authentication-service.js";
 export {
   AuthenticationBootstrapFailure,
   AuthenticationInvalidCredentials,
   AuthenticationPersistenceFailure,
+  AuthenticationIdentityDuplicate,
+  AuthenticationIdentityNotFound,
   AuthenticationRequired,
   AuthenticationValidationFailure
 } from "./application/authentication-errors.js";

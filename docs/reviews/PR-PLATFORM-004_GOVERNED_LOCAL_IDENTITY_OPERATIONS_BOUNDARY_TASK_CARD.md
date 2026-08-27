@@ -1,5 +1,7 @@
 # PR-PLATFORM-004 — Governed Local Identity Operations Boundary
 
+Approval record: DECISIONS #093.
+
 ## Responsibility
 
 Provide a local, offline, operator-only CLI for governed ROS identity create, password rotation plus revoke-all-sessions, and enable/disable operations. No HTTP/UI account management is included.

@@ -1,6 +1,6 @@
 # Decisions
 
-## DECISIONS #092 — Governed Local Identity Operations Boundary
+## DECISIONS #093 — Governed Local Identity Operations Boundary
 
 - **Status**: APPROVED by Owner on 2026-08-26.
 - **Decision**: ROS may provide an operator-only, offline CLI for local identity create, password rotation with revoke-all-sessions, and enable/disable operations. It composes the existing Authentication Application Service and Authentication Repository; it does not expose an HTTP route, UI, browser operation, or direct SQLite procedure.

@@ -5,6 +5,8 @@ import {
   AuthenticationBootstrapFailure,
   AuthenticationInvalidCredentials,
   AuthenticationPersistenceFailure,
+  AuthenticationIdentityDuplicate,
+  AuthenticationIdentityNotFound,
   AuthenticationRequired,
   AuthenticationValidationFailure
 } from "./authentication-errors.js";
@@ -25,6 +27,8 @@ function expiry(issuedAt: string, minutes: number): string {
 }
 
 export type AuthenticationLoginResult = Readonly<{ principal: AuthenticatedPrincipal; sessionToken: string }>;
+export type LocalIdentityRole = "admin" | "pos" | "kitchen" | "closeout";
+const localRoles = new Set<LocalIdentityRole>(["admin", "pos", "kitchen", "closeout"]);
 
 /** AuthenticationRoleBoundary: System-only local credentials and opaque session coordination. */
 export class AuthenticationService {
@@ -105,6 +109,32 @@ export class AuthenticationService {
     if (!sessionToken) throw new AuthenticationRequired();
     try { this.repository.revokeSession(tokenHash(sessionToken), now()); }
     catch { throw new AuthenticationPersistenceFailure(); }
+  }
+
+  createLocalUser(input: Readonly<{ login: unknown; displayName: unknown; role: unknown; password: unknown }>): Readonly<{ login: string; role: LocalIdentityRole }> {
+    if (!validLogin(input.login) || typeof input.displayName !== "string" || !input.displayName.trim() || !validPassword(input.password) || typeof input.role !== "string" || !localRoles.has(input.role as LocalIdentityRole)) throw new AuthenticationValidationFailure();
+    try {
+      if (this.repository.findCredentialByLogin(input.login)) throw new AuthenticationIdentityDuplicate();
+      const createdAt = now(); const salt = randomBytes(16).toString("hex"); const role = input.role as LocalIdentityRole;
+      this.repository.createLocalUser({ userId: `user_${randomUUID()}`, login: input.login, displayName: input.displayName.trim(), role, passwordAlgorithm: algorithm, passwordSalt: salt, passwordHash: credentialHash(input.password, salt), createdAt });
+      return Object.freeze({ login: input.login, role });
+    } catch (error) { if (error instanceof AuthenticationValidationFailure || error instanceof AuthenticationIdentityDuplicate) throw error; throw new AuthenticationPersistenceFailure(); }
+  }
+
+  rotateLocalPassword(input: Readonly<{ login: unknown; password: unknown }>): Readonly<{ login: string; revokedSessionCount: number }> {
+    if (!validLogin(input.login) || !validPassword(input.password)) throw new AuthenticationValidationFailure();
+    try {
+      const identity = this.repository.findCredentialByLogin(input.login); if (!identity) throw new AuthenticationIdentityNotFound();
+      const changedAt = now(); const salt = randomBytes(16).toString("hex");
+      const revokedSessionCount = this.repository.rotatePasswordAndRevokeSessions({ userId: identity.userId, passwordAlgorithm: algorithm, passwordSalt: salt, passwordHash: credentialHash(input.password, salt), changedAt });
+      return Object.freeze({ login: identity.login, revokedSessionCount });
+    } catch (error) { if (error instanceof AuthenticationValidationFailure || error instanceof AuthenticationIdentityNotFound) throw error; throw new AuthenticationPersistenceFailure(); }
+  }
+
+  setLocalUserStatus(input: Readonly<{ login: unknown; status: unknown }>): Readonly<{ login: string; status: "active" | "disabled"; revokedSessionCount: number }> {
+    if (!validLogin(input.login) || (input.status !== "active" && input.status !== "disabled")) throw new AuthenticationValidationFailure();
+    try { const identity = this.repository.findCredentialByLogin(input.login); if (!identity) throw new AuthenticationIdentityNotFound(); const revokedSessionCount = this.repository.setLocalUserStatus({ userId: identity.userId, status: input.status, changedAt: now() }); return Object.freeze({ login: identity.login, status: input.status, revokedSessionCount }); }
+    catch (error) { if (error instanceof AuthenticationValidationFailure || error instanceof AuthenticationIdentityNotFound) throw error; throw new AuthenticationPersistenceFailure(); }
   }
 
   sessionCookie(sessionToken: string): string {

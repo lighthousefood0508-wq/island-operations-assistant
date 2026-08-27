@@ -1,5 +1,14 @@
 # Decisions
 
+## DECISIONS #093 — Governed Local Identity Operations Boundary
+
+- **Status**: APPROVED by Owner on 2026-08-26.
+- **Decision**: ROS may provide an operator-only, offline CLI for local identity create, password rotation with revoke-all-sessions, and enable/disable operations. It composes the existing Authentication Application Service and Authentication Repository; it does not expose an HTTP route, UI, browser operation, or direct SQLite procedure.
+- **Authority and safety**: Roles are closed to `admin`, `pos`, `kitchen`, and `closeout`. Password policy and scrypt hashing remain Authentication Service authority. Password rotation and session revocation are one repository immediate transaction: failure rolls back both. Operators provide passwords only through a hidden TTY prompt or protected stdin; CLI arguments, environment variables, logs, journald, Git, JSON reports, and evidence files must never contain a password.
+- **Evidence**: The CLI emits redacted operator evidence only: operation, target login, role where applicable, operator context, timestamp, revoked-session count, and outcome. It must fail closed for production configuration errors, unknown/duplicate users, unsupported roles, weak passwords, and unprotected non-interactive input.
+- **Scope**: This authorizes only the existing Authentication application/domain/repository boundary, a compiled operator CLI and package script, tests, architecture guard, and security documentation. Existing `users`, `roles`, `user_roles`, and `system_auth_sessions` are sufficient; no migration, schema, package dependency, UI, account self-service, email reset, OAuth, SSO, or new role is authorized.
+- **Consequences**: Local UAT and future deployment owners gain an auditable recovery path for compromised local credentials. The CLI is not a general IAM system and must not be used as a business-domain authority.
+
 ### Canonical Ingredient 003C factual closeout synchronization — prepared, not yet effective
 
 - This is an unnumbered factual synchronization under existing

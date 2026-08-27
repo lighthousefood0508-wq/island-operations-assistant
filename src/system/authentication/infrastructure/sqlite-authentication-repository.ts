@@ -45,4 +45,14 @@ export class SqliteAuthenticationRepository implements AuthenticationRepository 
   revokeSession(tokenHash: string, revokedAt: string): void {
     this.database.execute("UPDATE system_auth_sessions SET revoked_at = COALESCE(revoked_at, ?) WHERE token_hash = ?", [revokedAt, tokenHash]);
   }
+
+  createLocalUser(input: Parameters<AuthenticationRepository["createLocalUser"]>[0]): void {
+    this.database.transactionImmediate(() => { this.database.execute("INSERT INTO users (user_id, login, display_name, status, created_at, password_algorithm, password_salt, password_hash, password_changed_at) VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?)", [input.userId, input.login, input.displayName, input.createdAt, input.passwordAlgorithm, input.passwordSalt, input.passwordHash, input.createdAt]); const role = this.database.queryOne<{ role_id: string }>("SELECT role_id FROM roles WHERE code = ?", [input.role]); if (!role) throw new Error("Local role is unavailable."); this.database.execute("INSERT INTO user_roles (user_id, role_id, assigned_at) VALUES (?, ?, ?)", [input.userId, role.role_id, input.createdAt]); });
+  }
+  rotatePasswordAndRevokeSessions(input: Parameters<AuthenticationRepository["rotatePasswordAndRevokeSessions"]>[0]): number {
+    return this.database.transactionImmediate(() => { const update = this.database.execute("UPDATE users SET password_algorithm = ?, password_salt = ?, password_hash = ?, password_changed_at = ? WHERE user_id = ?", [input.passwordAlgorithm, input.passwordSalt, input.passwordHash, input.changedAt, input.userId]); if (update.changes !== 1) throw new Error("Local identity disappeared."); return this.database.execute("UPDATE system_auth_sessions SET revoked_at = COALESCE(revoked_at, ?) WHERE user_id = ? AND revoked_at IS NULL", [input.changedAt, input.userId]).changes; });
+  }
+  setLocalUserStatus(input: Parameters<AuthenticationRepository["setLocalUserStatus"]>[0]): number {
+    return this.database.transactionImmediate(() => { const update = this.database.execute("UPDATE users SET status = ? WHERE user_id = ?", [input.status, input.userId]); if (update.changes !== 1) throw new Error("Local identity disappeared."); return input.status === "disabled" ? this.database.execute("UPDATE system_auth_sessions SET revoked_at = COALESCE(revoked_at, ?) WHERE user_id = ? AND revoked_at IS NULL", [input.changedAt, input.userId]).changes : 0; });
+  }
 }

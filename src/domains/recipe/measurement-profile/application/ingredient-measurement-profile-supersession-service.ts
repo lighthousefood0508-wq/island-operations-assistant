@@ -6,7 +6,8 @@ import type {
 import type {
   MeasurementProfileFactsResolutionContractV1,
   MeasurementUnitResolutionContractV1,
-  ResolvedMeasurementProfileFactsV1
+  ResolvedMeasurementProfileFactsV1,
+  StableMeasurementUnitCodeV1
 } from "../../contracts/measurement-foundation-contract.js";
 import { CanonicalIngredientId } from "../../ingredient-catalog/identities.js";
 import { IngredientMeasurementProfile } from "../ingredient-measurement-profile.js";
@@ -14,6 +15,7 @@ import {
   IngredientMeasurementProfileSupersessionExpectedVersionConflict,
   IngredientMeasurementProfileSupersessionIngredientInactive,
   IngredientMeasurementProfileSupersessionMeasurementFailure,
+  IngredientMeasurementProfileSupersessionNoChange,
   IngredientMeasurementProfileSupersessionNotFound,
   IngredientMeasurementProfileSupersessionPersistenceFailure,
   IngredientMeasurementProfileSupersessionReferenced,
@@ -72,6 +74,36 @@ function requireExpectedVersion(value: number): number {
   return value;
 }
 
+function normalizeAllowedUnitCodes(
+  values: readonly string[],
+  unitResolver: MeasurementUnitResolutionContractV1
+): readonly StableMeasurementUnitCodeV1[] {
+  const normalized = new Set<StableMeasurementUnitCodeV1>();
+  for (const rawValue of requireValues(values)) {
+    let result;
+    try {
+      result = unitResolver.resolveUnit({ rawValue });
+    } catch {
+      throw new IngredientMeasurementProfileSupersessionMeasurementFailure();
+    }
+    if (result.status !== "resolved") {
+      throw new IngredientMeasurementProfileSupersessionMeasurementFailure();
+    }
+    normalized.add(result.unitCode);
+  }
+  return Object.freeze([...normalized].sort());
+}
+
+function sameAllowedUnitSet(
+  left: readonly StableMeasurementUnitCodeV1[],
+  right: readonly StableMeasurementUnitCodeV1[]
+): boolean {
+  const normalizedLeft = [...new Set(left)].sort();
+  const normalizedRight = [...new Set(right)].sort();
+  return normalizedLeft.length === normalizedRight.length
+    && normalizedLeft.every((unitCode, index) => unitCode === normalizedRight[index]);
+}
+
 function isExpectedVersionConflict(error: unknown): boolean {
   return error instanceof Error
     && error.name === "IngredientMeasurementProfileVersionConflict"
@@ -124,10 +156,20 @@ export class IngredientMeasurementProfileSupersessionService {
       const resolved = this.measurementFacts.resolveProfileFacts({
         rawDimension: requireText(command.dimension),
         rawCanonicalUnit: requireText(command.canonicalUnitCode),
-        rawAllowedUnitValues: requireValues(command.allowedUnitCodes)
+        rawAllowedUnitValues: normalizeAllowedUnitCodes(
+          command.allowedUnitCodes,
+          this.measurementUnits
+        )
       });
       if (resolved.status === "failed") throw new IngredientMeasurementProfileSupersessionMeasurementFailure();
       facts = resolved.facts;
+      if (
+        facts.dimension === active.dimension
+        && facts.canonicalUnitCode === active.canonicalUnitCode
+        && sameAllowedUnitSet(facts.allowedUnitCodes, active.allowedUnitCodes)
+      ) {
+        throw new IngredientMeasurementProfileSupersessionNoChange();
+      }
       crossBasisCorrection = facts.dimension !== active.dimension
         || facts.canonicalUnitCode !== active.canonicalUnitCode;
       reason = command.reason === undefined ? undefined : requireText(command.reason);
@@ -140,6 +182,7 @@ export class IngredientMeasurementProfileSupersessionService {
         || error instanceof IngredientMeasurementProfileSupersessionExpectedVersionConflict
         || error instanceof IngredientMeasurementProfileSupersessionIngredientInactive
         || error instanceof IngredientMeasurementProfileSupersessionMeasurementFailure
+        || error instanceof IngredientMeasurementProfileSupersessionNoChange
         || error instanceof IngredientMeasurementProfileSupersessionValidationFailure
       ) throw error;
       throw new IngredientMeasurementProfileSupersessionValidationFailure();

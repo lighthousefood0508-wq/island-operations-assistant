@@ -598,6 +598,35 @@ test("Cost Back Office supersedes an Active Profile through its delegated facade
     });
     assert.equal(created.status, 201);
     const profileId = created.body.data.profileId;
+    for (const allowedUnitCodes of [["g", "kg"], ["kg", "g"], [" g ", "kg", "g"]]) {
+      const noChange = await request(
+        running.baseUrl,
+        `/api/admin/cost/profiles/${encodeURIComponent(profileId)}/supersessions`,
+        "POST",
+        {
+          expectedVersion: 0,
+          dimension: "mass",
+          canonicalUnitCode: "g",
+          allowedUnitCodes,
+          occurredAt: REPLACEMENT_AT,
+          actor: "owner",
+          reason: `reason text does not create a change: ${allowedUnitCodes.join("|")}`
+        }
+      );
+      assert.equal(noChange.status, 422);
+      assert.equal(noChange.body.error.code, "measurement_profile_supersession_no_change");
+      assert.equal(noChange.body.error.message, "量測設定沒有變更，未建立新版本。");
+    }
+    const afterNoChange = await request(running.baseUrl, "/api/admin/cost/setup");
+    const unchangedProfile = afterNoChange.body.data.profiles.find((profile: any) => profile.profileId === profileId);
+    assert.equal(unchangedProfile.versions.length, 1);
+    assert.equal(unchangedProfile.versions[0].state, "Active");
+    const impactAfterNoChange = await request(
+      running.baseUrl,
+      `/api/admin/cost/profiles/${encodeURIComponent(profileId)}/correction-impact`
+    );
+    assert.equal(impactAfterNoChange.body.data.expectedVersion, 0);
+
     const replacement = await request(
       running.baseUrl,
       `/api/admin/cost/profiles/${encodeURIComponent(profileId)}/supersessions`,

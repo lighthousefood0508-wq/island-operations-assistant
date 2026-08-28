@@ -3640,3 +3640,26 @@ test("PR-PLATFORM-003 keeps Backup, Restore, Monitoring, and Recovery Evidence i
   assert.match(monitoring, /\/health/);
   assert.doesNotMatch(backup + restore + monitoring, /https?:\/\/[^`"']*(slack|pagerduty|discord)|webhook|sqlite3-cli/i);
 });
+
+test("Recipe Multi-Ingredient Owner Workflow remains a thin UI adapter over the governed atomic Recipe boundary", () => {
+  const page = readFileSync(path.join(sourceRoot, "web", "cost", "page.ts"), "utf8");
+  const facade = readFileSync(path.join(sourceRoot, "server", "app", "cost-back-office-service.ts"), "utf8");
+  const recipeWorkspace = page.slice(
+    page.indexOf('<section id="cost-recipes"'),
+    page.indexOf('<section id="cost-quotes"')
+  );
+  assert.match(recipeWorkspace, /建立商品配方/);
+  assert.match(recipeWorkspace, /這批配方可以做幾份/);
+  assert.match(recipeWorkspace, /recipe-line-list/);
+  assert.match(recipeWorkspace, /recipe-review/);
+  assert.doesNotMatch(
+    recipeWorkspace,
+    /recipe-(?:ingredient|quantity|dimension|output|output-unit|output-dimension|yield-unit)/
+  );
+  assert.match(page, /standardYield:\{coefficient:review\.servings,scale:0,unitCode:'each',dimension:'count'\}/);
+  assert.match(page, /lines:review\.lines\.map/);
+  assert.match(facade, /database\.transactionImmediate\(\(\) => \{/);
+  assert.match(facade, /profileRepository\.listProfiles\(\)/);
+  assert.match(facade, /此食材尚未設定配方使用單位，請先完成量測設定/);
+  assert.doesNotMatch(page, /sqlite|better-sqlite|database\.execute/i);
+});

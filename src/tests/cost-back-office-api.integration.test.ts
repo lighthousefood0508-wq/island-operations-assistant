@@ -674,6 +674,127 @@ test("Cost Back Office supersedes an Active Profile through its delegated facade
   }
 });
 
+test("Recipe Owner workflow publishes seven Measurement-governed lines atomically for fifteen servings", async () => {
+  const databasePath = path.resolve("data", `recipe-owner-workflow-${randomUUID()}.sqlite`);
+  const running = await start(databasePath);
+  try {
+    const category = await request(running.baseUrl, "/api/admin/categories", "POST", {
+      displayName: "Owner recipe products",
+      sortOrder: 1
+    });
+    const product = await request(running.baseUrl, "/api/admin/products", "POST", {
+      internalName: "Owner batch meal",
+      categoryId: category.body.data.categoryId,
+      displayName: "Owner batch meal",
+      posName: "Batch meal",
+      sellingPrice: 200,
+      channels: ["pos"]
+    });
+    const publishedProduct = await request(
+      running.baseUrl,
+      `/api/admin/products/${product.body.data.productId}/publish`,
+      "POST",
+      {}
+    );
+    const ingredientIds: string[] = [];
+    for (let index = 0; index < 8; index += 1) {
+      const ingredient = await request(running.baseUrl, "/api/admin/cost/ingredients", "POST", {
+        name: index === 1 ? "花雕酒" : `Batch ingredient ${index + 1}`,
+        categoryCode: index === 1 ? "alcohol" : "other",
+        occurredAt: AT,
+        actor: "owner"
+      });
+      ingredientIds.push(ingredient.body.data.ingredientId);
+      if (index < 7) {
+        const dimension = index === 2 ? "volume" : "mass";
+        const profile = await request(running.baseUrl, "/api/admin/cost/profiles", "POST", {
+          ingredientId: ingredient.body.data.ingredientId,
+          dimension,
+          canonicalUnitCode: dimension === "volume" ? "ml" : "g",
+          allowedUnitCodes: dimension === "volume" ? ["ml", "l", "cc"] : ["g", "kg", "tw_catty"],
+          occurredAt: AT,
+          actor: "owner"
+        });
+        assert.equal(profile.status, 201);
+      }
+    }
+    const baseRecipe = {
+      name: "Fifteen serving batch",
+      productId: product.body.data.productId,
+      productVersionId: publishedProduct.body.data.version.productVersionId,
+      standardOutput: { coefficient: "15", scale: 0, unitCode: "each", dimension: "count" },
+      standardYield: { coefficient: "15", scale: 0, unitCode: "each", dimension: "count" },
+      occurredAt: AT,
+      actor: "owner"
+    };
+    const missingProfile = await request(running.baseUrl, "/api/admin/cost/recipes", "POST", {
+      ...baseRecipe,
+      lines: [
+        { ingredientId: ingredientIds[0], coefficient: "3000", scale: 0, unitCode: "g", dimension: "mass" },
+        { ingredientId: ingredientIds[7], coefficient: "1", scale: 0, unitCode: "g", dimension: "mass" }
+      ]
+    });
+    assert.equal(missingProfile.status, 422);
+    assert.equal(missingProfile.body.error.message, "此食材尚未設定配方使用單位，請先完成量測設定。");
+    assert.equal((await request(running.baseUrl, "/api/admin/cost/setup")).body.data.recipes.length, 0);
+
+    const incompatibleUnit = await request(running.baseUrl, "/api/admin/cost/recipes", "POST", {
+      ...baseRecipe,
+      lines: [{ ingredientId: ingredientIds[0], coefficient: "3000", scale: 0, unitCode: "ml", dimension: "volume" }]
+    });
+    assert.equal(incompatibleUnit.status, 422);
+    assert.equal(incompatibleUnit.body.error.message, "配方單位與食材目前的量測設定不相容。");
+    assert.equal((await request(running.baseUrl, "/api/admin/cost/setup")).body.data.recipes.length, 0);
+
+    const lines = ingredientIds.slice(0, 7).map((ingredientId, index) => ({
+      ingredientId,
+      coefficient: index === 0 ? "3000" : index === 1 ? "300" : "15",
+      scale: 0,
+      unitCode: index === 2 ? "ml" : "g",
+      dimension: index === 2 ? "volume" : "mass"
+    }));
+    const recipe = await request(running.baseUrl, "/api/admin/cost/recipes", "POST", { ...baseRecipe, lines });
+    assert.equal(recipe.status, 201);
+    assert.equal(recipe.body.data.state, "Published");
+    assert.equal((await request(running.baseUrl, "/api/admin/cost/setup")).body.data.recipes.length, 1);
+    for (let index = 0; index < 7; index += 1) {
+      const unitCode = index === 2 ? "ml" : "g";
+      const quote = await request(running.baseUrl, "/api/admin/cost/quotes", "POST", {
+        ingredientId: ingredientIds[index],
+        amountCoefficient: "1",
+        amountScale: 0,
+        quantityCoefficient: "1",
+        quantityScale: 0,
+        unitCode,
+        effectiveFrom: AT,
+        recordedAt: AT,
+        actor: "owner",
+        sourceReferenceId: `recipe-owner-workflow-${index}`
+      });
+      assert.equal(quote.status, 201);
+    }
+    const evaluation = await request(running.baseUrl, "/api/admin/cost/evaluations", "POST", {
+      recipeId: recipe.body.data.recipeId,
+      evaluatedAt: AT
+    });
+    assert.equal(evaluation.status, 200);
+    assert.equal(evaluation.body.data.status, "evaluated");
+    assert.equal(evaluation.body.data.result.lines.length, 7);
+    assert.equal(evaluation.body.data.result.recipe.recipeProjection.standardYield.normalizedQuantity.coefficient, "15");
+
+    const duplicate = await request(running.baseUrl, "/api/admin/cost/recipes", "POST", {
+      ...baseRecipe,
+      name: "Duplicate ingredient batch",
+      lines: [lines[0], lines[0]]
+    });
+    assert.equal(duplicate.status, 422);
+    assert.equal((await request(running.baseUrl, "/api/admin/cost/setup")).body.data.recipes.length, 1);
+  } finally {
+    await stop(running.server);
+    cleanup(databasePath);
+  }
+});
+
 test("Cost Back Office exposes correction impact, permits unreferenced basis correction and blocks referenced correction", async () => {
   const databasePath = path.resolve("data", `cost-back-office-profile-correction-${randomUUID()}.sqlite`);
   const running = await start(databasePath);

@@ -33,6 +33,7 @@ import {
   SqliteCostEvidenceReadPort
 } from "../domains/cost/index.js";
 import { CanonicalIngredientReferenceImpactService } from "../application/canonical-ingredient-reference-impact-service.js";
+import { IngredientMeasurementProfileCorrectionImpactService } from "../application/ingredient-measurement-profile-correction-impact-service.js";
 import {
   SqliteCanonicalIngredientRepository
 } from "../domains/recipe/ingredient-catalog/infrastructure/sqlite-canonical-ingredient-repository.js";
@@ -95,6 +96,11 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
     new SqliteCostSupplierRepository(database)
   );
   const measurementUnits = new MeasurementUnitResolver();
+  const profileCorrectionImpact = new IngredientMeasurementProfileCorrectionImpactService(
+    new SqliteIngredientMeasurementProfileRepository(database, measurementUnits),
+    canonicalIngredientReferenceImpact,
+    new SqliteCostRepository(database)
+  );
   const acceptedPurchaseService = new AcceptedPurchaseService(
     new SqliteCostPurchaseRepository(database),
     new SqliteAcceptedPurchaseRepository(database),
@@ -121,7 +127,8 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
     canonicalIngredientRepository,
     new SqliteIngredientMeasurementProfileRepository(database, measurementUnits),
     new MeasurementProfileFactsResolver(measurementUnits),
-    measurementUnits
+    measurementUnits,
+    profileCorrectionImpact
   );
   const profileDeprecation = new IngredientMeasurementProfileDeprecationService(
     canonicalIngredientRepository,
@@ -145,6 +152,7 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
     recipeCostAnalytics,
     profileCreation,
     profileSupersession,
+    profileCorrectionImpact,
     profileDeprecation,
     profileReestablishment
   );

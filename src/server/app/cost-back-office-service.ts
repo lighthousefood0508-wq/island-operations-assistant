@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseAdapter } from "../../shared/database/database-adapter.js";
 import { HttpError } from "../../shared/errors/http-error.js";
+import {
+  IngredientMeasurementProfileCorrectionImpactNotFound,
+  IngredientMeasurementProfileCorrectionImpactReadFailure,
+  IngredientMeasurementProfileCorrectionImpactService,
+  IngredientMeasurementProfileCorrectionImpactValidationFailure
+} from "../../application/ingredient-measurement-profile-correction-impact-service.js";
 import { CostQuoteLifecycleService } from "../../domains/cost/application/cost-quote-lifecycle-service.js";
 import { IngredientCostQuoteNormalizationService } from "../../domains/cost/application/ingredient-cost-quote-normalization-service.js";
 import { RecipeCostEvaluationService } from "../../domains/cost/application/recipe-cost-evaluation-service.js";
@@ -74,6 +80,7 @@ import { SqliteRecipeRepository } from "../../domains/recipe/infrastructure/sqli
 import { MeasurementNormalizer } from "../../domains/recipe/measurement/measurement-normalizer.js";
 import { MeasurementUnitResolver } from "../../domains/recipe/measurement/measurement-unit-resolver.js";
 import { IngredientMeasurementNormalizationService } from "../../domains/recipe/measurement-profile/ingredient-normalization-service.js";
+import { IngredientMeasurementProfileSupersessionReferenced } from "../../domains/recipe/measurement-profile/application/ingredient-measurement-profile-supersession-errors.js";
 import { SqliteIngredientMeasurementProfileRepository } from "../../domains/recipe/measurement-profile/infrastructure/sqlite-ingredient-measurement-profile-repository.js";
 
 type JsonObject = Record<string, unknown>;
@@ -204,6 +211,7 @@ export class CostBackOfficeService {
     private readonly recipeCostAnalytics: Pick<RecipeCostAnalyticsService, "get">,
     private readonly profileCreation: Pick<IngredientMeasurementProfileCreationService, "create">,
     private readonly profileSupersession: Pick<IngredientMeasurementProfileSupersessionService, "supersede">,
+    private readonly profileCorrectionImpact: Pick<IngredientMeasurementProfileCorrectionImpactService, "getByProfileId">,
     private readonly profileDeprecation: Pick<IngredientMeasurementProfileDeprecationService, "deprecate">,
     private readonly profileReestablishment: Pick<IngredientMeasurementProfileReestablishmentService, "appendDraft" | "reviseDraft" | "activateDraft">
   ) {
@@ -313,6 +321,23 @@ export class CostBackOfficeService {
       });
     } catch (error) {
       throw this.invalidOperation("measurement_profile_invalid", error);
+    }
+  }
+
+  getProfileCorrectionImpact(profileId: string) {
+    try {
+      return this.profileCorrectionImpact.getByProfileId(profileId);
+    } catch (error) {
+      if (error instanceof IngredientMeasurementProfileCorrectionImpactValidationFailure) {
+        throw new HttpError(422, "measurement_profile_correction_impact_invalid", "Measurement Profile correction identity is invalid.");
+      }
+      if (error instanceof IngredientMeasurementProfileCorrectionImpactNotFound) {
+        throw new HttpError(404, "measurement_profile_not_found", "Ingredient Measurement Profile was not found.");
+      }
+      if (error instanceof IngredientMeasurementProfileCorrectionImpactReadFailure) {
+        throw new HttpError(500, "measurement_profile_correction_impact_failed", "Measurement Profile correction impact could not be read.");
+      }
+      throw new HttpError(500, "measurement_profile_correction_impact_failed", "Measurement Profile correction impact could not be read.");
     }
   }
 
@@ -648,6 +673,9 @@ export class CostBackOfficeService {
     }
     if (error instanceof IngredientMeasurementProfileSupersessionMeasurementFailure) {
       return new HttpError(422, "measurement_profile_measurement_resolution_failed", "Replacement Measurement Profile facts could not be resolved.");
+    }
+    if (error instanceof IngredientMeasurementProfileSupersessionReferenced) {
+      return new HttpError(409, "measurement_profile_correction_referenced", "Measurement basis cannot be changed while this Ingredient is referenced.");
     }
     if (error instanceof IngredientMeasurementProfileSupersessionPersistenceFailure) {
       return new HttpError(500, "measurement_profile_supersession_persistence_failed", "Measurement Profile supersession could not be persisted.");

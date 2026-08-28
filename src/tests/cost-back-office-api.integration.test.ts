@@ -645,6 +645,45 @@ test("Cost Back Office supersedes an Active Profile through its delegated facade
   }
 });
 
+test("Cost Back Office exposes correction impact, permits unreferenced basis correction and blocks referenced correction", async () => {
+  const databasePath = path.resolve("data", `cost-back-office-profile-correction-${randomUUID()}.sqlite`);
+  const running = await start(databasePath);
+  try {
+    const ingredient = await request(running.baseUrl, "/api/admin/cost/ingredients", "POST", { name: "Correction rice wine", categoryCode: "alcohol", occurredAt: AT, actor: "owner" });
+    const created = await request(running.baseUrl, "/api/admin/cost/profiles", "POST", { ingredientId: ingredient.body.data.ingredientId, dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g"], occurredAt: AT, actor: "owner" });
+    const profileId = created.body.data.profileId;
+    const impact = await request(running.baseUrl, `/api/admin/cost/profiles/${encodeURIComponent(profileId)}/correction-impact`);
+    assert.equal(impact.status, 200);
+    assert.equal(impact.body.data.expectedVersion, 0);
+    assert.equal(impact.body.data.crossBasisCorrectionAllowed, true);
+    assert.equal(impact.body.data.activeVersion.canonicalUnitCode, "g");
+    const corrected = await request(running.baseUrl, `/api/admin/cost/profiles/${encodeURIComponent(profileId)}/supersessions`, "POST", { expectedVersion: 0, dimension: "volume", canonicalUnitCode: "ml", allowedUnitCodes: ["ml", "cc"], occurredAt: REPLACEMENT_AT, actor: "owner", reason: "Correct mistaken mass basis" });
+    assert.equal(corrected.status, 201);
+    assert.equal(corrected.body.data.versions.find((version: any) => version.state === "Active").canonicalUnitCode, "ml");
+
+    const referencedIngredient = await request(running.baseUrl, "/api/admin/cost/ingredients", "POST", { name: "Referenced cooking wine", categoryCode: "alcohol", occurredAt: AT, actor: "owner" });
+    const referencedProfile = await request(running.baseUrl, "/api/admin/cost/profiles", "POST", { ingredientId: referencedIngredient.body.data.ingredientId, dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g"], occurredAt: AT, actor: "owner" });
+    const supplier = await request(running.baseUrl, "/api/admin/cost/suppliers", "POST", { displayName: "Correction supplier", occurredAt: AT, actor: "owner" });
+    const purchase = await request(running.baseUrl, "/api/admin/cost/purchases", "POST", { supplierId: supplier.body.data.supplierId, lines: [{ ingredientId: referencedIngredient.body.data.ingredientId, quantityCoefficient: "1", quantityScale: 0, unitCode: "g" }], occurredAt: AT, actor: "owner" });
+    assert.equal(purchase.status, 201);
+    const blockedImpact = await request(running.baseUrl, `/api/admin/cost/profiles/${encodeURIComponent(referencedProfile.body.data.profileId)}/correction-impact`);
+    assert.equal(blockedImpact.status, 200);
+    assert.equal(blockedImpact.body.data.crossBasisCorrectionAllowed, false);
+    assert.deepEqual(blockedImpact.body.data.references.purchases.purchaseIds, [purchase.body.data.purchaseId]);
+    const blocked = await request(running.baseUrl, `/api/admin/cost/profiles/${encodeURIComponent(referencedProfile.body.data.profileId)}/supersessions`, "POST", { expectedVersion: 0, dimension: "volume", canonicalUnitCode: "ml", allowedUnitCodes: ["ml"], occurredAt: REPLACEMENT_AT, actor: "owner", reason: "Attempt referenced correction" });
+    assert.equal(blocked.status, 409);
+    assert.equal(blocked.body.error.code, "measurement_profile_correction_referenced");
+    assert.doesNotMatch(JSON.stringify(blocked.body), /sqlite|database|table|stack|cause/i);
+    const setup = await request(running.baseUrl, "/api/admin/cost/setup");
+    const unchanged = setup.body.data.profiles.find((profile: any) => profile.profileId === referencedProfile.body.data.profileId);
+    assert.equal(unchanged.versions.length, 1);
+    assert.equal(unchanged.versions[0].canonicalUnitCode, "g");
+  } finally {
+    await stop(running.server);
+    cleanup(databasePath);
+  }
+});
+
 test("Cost Back Office deprecates an Active Profile through its delegated facade", async () => {
   const databasePath = path.resolve(
     "data",

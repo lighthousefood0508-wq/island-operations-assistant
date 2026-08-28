@@ -407,6 +407,18 @@ async function route(request: IncomingMessage, response: ServerResponse, service
         services.costBackOffice.createProfile(await readCommand("actor"))
       );
     }
+    const profileCorrectionImpactMatch = pathname.match(
+      /^\/api\/admin\/cost\/profiles\/([^/]+)\/correction-impact$/
+    );
+    if (request.method === "GET" && profileCorrectionImpactMatch?.[1]) {
+      return success(
+        response,
+        200,
+        services.costBackOffice.getProfileCorrectionImpact(
+          decodeURIComponent(profileCorrectionImpactMatch[1])
+        )
+      );
+    }
     const profileSupersessionMatch = pathname.match(
       /^\/api\/admin\/cost\/profiles\/([^/]+)\/supersessions$/
     );

@@ -13,6 +13,30 @@ test("Cost Back Office offers 酒類 as a governed formal Ingredient category", 
   expect((await (await created).json()).data.categoryCode).toBe("alcohol");
 });
 
+test("Measurement settings explain their purpose and create an impact-confirmed correction version", async ({ page }) => {
+  const instant = "2026-08-27T00:00:00.000Z";
+  const ingredient = await page.request.post("/api/admin/cost/ingredients", { data: { name: "量測更正米酒", categoryCode: "alcohol", occurredAt: instant, actor: "owner" } });
+  const ingredientId = (await ingredient.json()).data.ingredientId as string;
+  const profile = await page.request.post("/api/admin/cost/profiles", { data: { ingredientId, dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g"], occurredAt: instant, actor: "owner" } });
+  expect(profile.status()).toBe(201);
+  await page.goto("/admin/cost/measurements");
+  await expect(page.locator("#cost-measurement")).toContainText("請定義該食材在配方與採購中使用的單位");
+  await page.locator("#profile-ingredient").selectOption({ label: "量測更正米酒" });
+  await expect(page.locator("#profile-current")).toContainText("mass → g");
+  await expect(page.locator("#profile-impact")).toContainText("目前沒有引用");
+  await page.locator("#profile-dimension").selectOption("volume");
+  await page.locator("#profile-reason").fill("建檔時誤選重量，實際以量杯使用");
+  page.once("dialog", (dialog) => dialog.accept());
+  const corrected = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/supersessions"));
+  await page.locator("#profile-submit").click();
+  const correctedResponse = await corrected;
+  expect(correctedResponse.status(), JSON.stringify(await correctedResponse.json())).toBe(201);
+  await expect(page.locator("#notice")).toContainText("舊版歷史已保留");
+  await expect(page.locator("#profile-current")).toContainText("volume → ml");
+  await expect(page.locator("#profile-impact")).toContainText("目前沒有引用");
+  await expect(page.locator("#profile-list")).toContainText("volume → ml");
+});
+
 test("Cost Back Office renders QuoteFallback in the guided exact-cost workflow", async ({ page }) => {
   const category = await page.request.post("/api/admin/categories", {
     data: { displayName: "Costed meals", sortOrder: 1 }

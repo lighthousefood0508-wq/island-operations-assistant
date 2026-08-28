@@ -16,6 +16,7 @@ import {
   IngredientMeasurementProfileSupersessionMeasurementFailure,
   IngredientMeasurementProfileSupersessionNotFound,
   IngredientMeasurementProfileSupersessionPersistenceFailure,
+  IngredientMeasurementProfileSupersessionReferenced,
   IngredientMeasurementProfileSupersessionValidationFailure
 } from "./ingredient-measurement-profile-supersession-errors.js";
 
@@ -33,6 +34,10 @@ type ProfileSupersessionStore = Readonly<{
     profile: IngredientMeasurementProfile,
     expectedVersion: number
   ): number;
+}>;
+
+export type IngredientMeasurementProfileCorrectionReferenceGate = Readonly<{
+  hasBlockingReferences(ingredientId: string): boolean;
 }>;
 
 export type IngredientMeasurementProfileSupersessionCommand = Readonly<{
@@ -79,7 +84,8 @@ export class IngredientMeasurementProfileSupersessionService {
     private readonly ingredients: IngredientLookup,
     private readonly profiles: ProfileSupersessionStore,
     private readonly measurementFacts: MeasurementProfileFactsResolutionContractV1,
-    private readonly measurementUnits: MeasurementUnitResolutionContractV1
+    private readonly measurementUnits: MeasurementUnitResolutionContractV1,
+    private readonly correctionReferences: IngredientMeasurementProfileCorrectionReferenceGate
   ) {}
 
   supersede(
@@ -91,6 +97,9 @@ export class IngredientMeasurementProfileSupersessionService {
     let actor: string;
     let active: Extract<IngredientMeasurementProfileContractV1["versions"][number], { state: "Active" }>;
     let facts: ResolvedMeasurementProfileFactsV1;
+    let ingredientId: string;
+    let crossBasisCorrection = false;
+    let reason: string | undefined;
     try {
       const profileId = requireText(command.profileId);
       expectedVersion = requireExpectedVersion(command.expectedVersion);
@@ -103,6 +112,7 @@ export class IngredientMeasurementProfileSupersessionService {
         throw new IngredientMeasurementProfileSupersessionExpectedVersionConflict();
       }
       const contract = profile.toContract();
+      ingredientId = contract.ingredientId;
       const candidate = contract.versions.find((version) => version.state === "Active");
       if (candidate === undefined || candidate.state !== "Active") {
         throw new IngredientMeasurementProfileSupersessionValidationFailure();
@@ -118,7 +128,10 @@ export class IngredientMeasurementProfileSupersessionService {
       });
       if (resolved.status === "failed") throw new IngredientMeasurementProfileSupersessionMeasurementFailure();
       facts = resolved.facts;
-      if (facts.dimension !== active.dimension || facts.canonicalUnitCode !== active.canonicalUnitCode) {
+      crossBasisCorrection = facts.dimension !== active.dimension
+        || facts.canonicalUnitCode !== active.canonicalUnitCode;
+      reason = command.reason === undefined ? undefined : requireText(command.reason);
+      if (crossBasisCorrection && reason === undefined) {
         throw new IngredientMeasurementProfileSupersessionValidationFailure();
       }
     } catch (error) {
@@ -130,6 +143,17 @@ export class IngredientMeasurementProfileSupersessionService {
         || error instanceof IngredientMeasurementProfileSupersessionValidationFailure
       ) throw error;
       throw new IngredientMeasurementProfileSupersessionValidationFailure();
+    }
+
+    if (crossBasisCorrection) {
+      try {
+        if (this.correctionReferences.hasBlockingReferences(ingredientId)) {
+          throw new IngredientMeasurementProfileSupersessionReferenced();
+        }
+      } catch (error) {
+        if (error instanceof IngredientMeasurementProfileSupersessionReferenced) throw error;
+        throw new IngredientMeasurementProfileSupersessionPersistenceFailure();
+      }
     }
 
     let superseded: IngredientMeasurementProfile;
@@ -156,7 +180,7 @@ export class IngredientMeasurementProfileSupersessionService {
         transition: {
           occurredAt,
           actorId: actor,
-          ...(command.reason === undefined ? {} : { reason: requireText(command.reason) })
+          ...(reason === undefined ? {} : { reason })
         },
         unitResolver: this.measurementUnits
       });

@@ -1833,6 +1833,8 @@ test("Ingredient 003D Reference Impact stays read-only behind Domain-owned publi
       )
     )
     .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/application/ingredient-measurement-profile-correction-impact-service.ts")
+    .filter((relative) => relative !== "src/tests/ingredient-measurement-profile-correction-impact-application.test.ts")
     .sort();
   assert.deepEqual(
     markerFiles,
@@ -1844,7 +1846,12 @@ test("Ingredient 003D Reference Impact stays read-only behind Domain-owned publi
     applicationRoot,
     "canonical-ingredient-reference-impact-service.ts"
   );
-  assert.deepEqual(filesUnder(applicationRoot, [".ts"]), [applicationService]);
+  assert.deepEqual(
+    filesUnder(applicationRoot, [".ts"]).filter((filename) =>
+      !filename.endsWith("ingredient-measurement-profile-correction-impact-service.ts")
+    ),
+    [applicationService]
+  );
   const applicationSource = readFileSync(applicationService, "utf8");
   const recipePublicIndex = path.join(sourceRoot, "domains", "recipe", "index.ts");
   const costPublicIndex = path.join(sourceRoot, "domains", "cost", "index.ts");
@@ -1977,8 +1984,10 @@ test("Ingredient 003D Reference Impact stays read-only behind Domain-owned publi
     costIndexSource.slice(cost003DOffset).startsWith(`export type {
   CostAcceptedPurchaseReferenceImpactReadModelV1,
   CostIngredientQuoteReferenceImpactReadModelV1,
+  CostPurchaseReferenceImpactReadModelV1,
   CostSnapshotReferenceImpactReadModelV1,
-  CostIngredientReferenceImpactReadPort
+  CostIngredientReferenceImpactReadPort,
+  CostPurchaseReferenceImpactReadPort
 } from "./domain/ingredient-reference-impact-read-port.js";
 export { CostSnapshot, type CostSnapshotContractV1 } from "./domain/cost-snapshot.js";
 export type { CostSnapshotRepository } from "./domain/cost-snapshot-repository.js";
@@ -2423,6 +2432,7 @@ test("Ingredient 003H keeps Active Profile supersession behind its Application b
   ]
     .filter((filename) => supersessionResponsibility.test(readFileSync(filename, "utf8")))
     .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/web/cost/page.ts")
     .sort();
   assert.deepEqual(
     supersessionFiles,
@@ -2876,7 +2886,9 @@ test("PR-COST-007 keeps Accepted Purchase actual-price evidence inside its exact
   const responsibilityFiles = [...filesUnder(sourceRoot, [".ts", ".tsx"]), ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"]), ...filesUnder(path.join(projectRoot, "migrations"), [".sql"])]
     .filter((filename) => isCost007Responsibility(readFileSync(filename, "utf8")))
     .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
-    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts").sort();
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => relative !== "src/application/ingredient-measurement-profile-correction-impact-service.ts")
+    .filter((relative) => relative !== "src/tests/ingredient-measurement-profile-correction-impact-application.test.ts").sort();
   const approvedResponsibilityFiles = [...approvedCost007Paths].filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
     .filter((relative) => isCost007Responsibility(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8"))).sort();
   assert.deepEqual(responsibilityFiles, approvedResponsibilityFiles);
@@ -2988,7 +3000,9 @@ test("PR-COST-009 keeps immutable Recipe Cost Snapshot evidence inside its exact
     ...filesUnder(path.join(projectRoot, "migrations"), [".sql"])
   ].filter((filename) => isCost009Responsibility(readFileSync(filename, "utf8")))
     .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
-    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts").sort();
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => relative !== "src/application/ingredient-measurement-profile-correction-impact-service.ts")
+    .filter((relative) => relative !== "src/tests/ingredient-measurement-profile-correction-impact-application.test.ts").sort();
   const approvedResponsibilityFiles = [...approvedCost009Paths]
     .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
     .filter((relative) => isCost009Responsibility(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8"))).sort();
@@ -3312,6 +3326,60 @@ test("PR-OPERATIONS-003 keeps Daily Report Sales Contract reads inside their exa
   assert.match(repository, /operations_event_closures/);
   assert.match(routes, /\/api\/admin\/operations\/daily-reports/);
   assert.doesNotMatch(service, /sqlite|DatabaseAdapter|better-sqlite|INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|payment-provider|webhook/i);
+});
+
+test("PR-INGREDIENT-003L keeps Measurement Profile correction inside its exact impact-confirmed responsibility boundary", () => {
+  const approved003LPaths = new Set([
+    "src/application/ingredient-measurement-profile-correction-impact-service.ts",
+    "src/domains/cost/domain/ingredient-reference-impact-read-port.ts",
+    "src/domains/cost/infrastructure/sqlite-cost-repository.ts",
+    "src/domains/cost/index.ts",
+    "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-supersession-errors.ts",
+    "src/domains/recipe/measurement-profile/application/ingredient-measurement-profile-supersession-service.ts",
+    "src/server/app/cost-back-office-service.ts",
+    "src/server/app/routes.ts",
+    "src/server/index.ts",
+    "src/web/cost/page.ts",
+    "src/tests/ingredient-measurement-profile-correction-impact-application.test.ts",
+    "src/tests/ingredient-measurement-profile-supersession-application.test.ts",
+    "src/tests/canonical-ingredient-reference-impact-persistence.integration.test.ts",
+    "src/tests/cost-back-office-api.integration.test.ts",
+    "src/tests/architecture-guards.test.ts",
+    "tests/e2e/cost-back-office.spec.ts"
+  ]);
+  assert.equal(approved003LPaths.size, 16);
+  const is003LCorrectionResponsibility = (source: string): boolean =>
+    /IngredientMeasurementProfileCorrectionImpact|measurement_profile_correction_(?:impact|referenced)|correction-impact|更正影響確認/.test(source);
+  assert.equal(is003LCorrectionResponsibility("class IngredientMeasurementProfileCorrectionImpactShadow {}"), true);
+  const files = [
+    ...filesUnder(sourceRoot, [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "tests"), [".ts", ".tsx"])
+  ];
+  const responsibilityFiles = files
+    .filter((filename) => is003LCorrectionResponsibility(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .sort();
+  const approvedResponsibilityFiles = [...approved003LPaths]
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => is003LCorrectionResponsibility(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8")))
+    .sort();
+  assert.deepEqual(responsibilityFiles, approvedResponsibilityFiles);
+  assert.equal(approved003LPaths.has("src/server/app/measurement-profile-correction-admin-service.ts"), false);
+  assert.equal(
+    is003LCorrectionResponsibility("export class IngredientMeasurementProfileCorrectionImpactUnauthorizedSeventeenthPath {}"),
+    true,
+    "The same classifier must reject a simulated unauthorized seventeenth correction-responsibility path."
+  );
+  const supersession = readFileSync(path.join(sourceRoot, "domains", "recipe", "measurement-profile", "application", "ingredient-measurement-profile-supersession-service.ts"), "utf8");
+  const impact = readFileSync(path.join(sourceRoot, "application", "ingredient-measurement-profile-correction-impact-service.ts"), "utf8");
+  const routes = readFileSync(path.join(sourceRoot, "server", "app", "routes.ts"), "utf8");
+  assert.match(supersession, /supersedeActive\(/);
+  assert.match(supersession, /measurementFacts\.resolveProfileFacts/);
+  assert.match(supersession, /hasBlockingReferences/);
+  assert.doesNotMatch(supersession, /SELECT\s|INSERT\s|UPDATE\s|DELETE\s|DatabaseAdapter|sqlite/i);
+  assert.match(impact, /findIngredientPurchaseReferences/);
+  assert.match(routes, /\/correction-impact/);
 });
 
 test("PR-PLATFORM-002 keeps Production Runtime and Secure Deployment inside its exact System-owned responsibility boundary", () => {

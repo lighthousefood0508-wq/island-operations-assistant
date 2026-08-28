@@ -7,6 +7,7 @@ import {
 import type {
   CostAcceptedPurchaseReferenceImpactReadModelV1,
   CostIngredientQuoteReferenceImpactReadModelV1,
+  CostPurchaseReferenceImpactReadModelV1,
   CostSnapshotReferenceImpactReadModelV1,
   CostIngredientReferenceImpactReadPort
 } from "../domain/ingredient-reference-impact-read-port.js";
@@ -268,6 +269,25 @@ export class SqliteCostRepository implements
 
   findIngredientCostSnapshotReferences(ingredientId: IngredientId): CostSnapshotReferenceImpactReadModelV1 {
     try { const rows=this.database.queryMany<{costSnapshotId:string}>(`SELECT DISTINCT cost_snapshot_id AS costSnapshotId FROM cost_recipe_snapshot_lines WHERE ingredient_id=? ORDER BY cost_snapshot_id ASC`,[ingredientId.value]); return Object.freeze({contractName:"CostSnapshotReferenceImpact",contractVersion:1,costSnapshotIds:Object.freeze(rows.map(row=>row.costSnapshotId))}); } catch(error) { return mapTechnicalFailure("find Cost Snapshot references",error); }
+  }
+
+  findIngredientPurchaseReferences(ingredientId: IngredientId): CostPurchaseReferenceImpactReadModelV1 {
+    try {
+      const rows = this.database.queryMany<{ purchaseId: string }>(
+        `SELECT DISTINCT purchase_id AS purchaseId
+           FROM cost_purchase_lines
+          WHERE ingredient_id = ?
+          ORDER BY purchase_id ASC`,
+        [ingredientId.value]
+      );
+      return Object.freeze({
+        contractName: "CostPurchaseReferenceImpact",
+        contractVersion: 1,
+        purchaseIds: Object.freeze(rows.map((row) => row.purchaseId))
+      });
+    } catch (error) {
+      return mapTechnicalFailure("find Purchase references", error);
+    }
   }
 
   findEligibleAcceptedPurchaseLines(

@@ -4,6 +4,7 @@ type IngredientMeasurementProfileSupersessionErrorCode =
   | "INGREDIENT_MEASUREMENT_PROFILE_SUPERSESSION_INGREDIENT_INACTIVE"
   | "INGREDIENT_MEASUREMENT_PROFILE_SUPERSESSION_EXPECTED_VERSION_CONFLICT"
   | "INGREDIENT_MEASUREMENT_PROFILE_SUPERSESSION_MEASUREMENT_FAILURE"
+  | "INGREDIENT_MEASUREMENT_PROFILE_SUPERSESSION_REFERENCED"
   | "INGREDIENT_MEASUREMENT_PROFILE_SUPERSESSION_PERSISTENCE_FAILURE";
 
 abstract class IngredientMeasurementProfileSupersessionError extends Error {
@@ -57,6 +58,15 @@ extends IngredientMeasurementProfileSupersessionError {
 
   constructor() {
     super("Replacement Measurement Profile facts could not be resolved.");
+  }
+}
+
+export class IngredientMeasurementProfileSupersessionReferenced
+extends IngredientMeasurementProfileSupersessionError {
+  readonly code = "INGREDIENT_MEASUREMENT_PROFILE_SUPERSESSION_REFERENCED" as const;
+
+  constructor() {
+    super("Measurement basis cannot be changed while the Ingredient is referenced.");
   }
 }
 

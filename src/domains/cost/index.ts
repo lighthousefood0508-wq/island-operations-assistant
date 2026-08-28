@@ -163,8 +163,10 @@ export { RecipeCostEvaluationError } from "./application/recipe-cost-evaluation-
 export type {
   CostAcceptedPurchaseReferenceImpactReadModelV1,
   CostIngredientQuoteReferenceImpactReadModelV1,
+  CostPurchaseReferenceImpactReadModelV1,
   CostSnapshotReferenceImpactReadModelV1,
-  CostIngredientReferenceImpactReadPort
+  CostIngredientReferenceImpactReadPort,
+  CostPurchaseReferenceImpactReadPort
 } from "./domain/ingredient-reference-impact-read-port.js";
 export { CostSnapshot, type CostSnapshotContractV1 } from "./domain/cost-snapshot.js";
 export type { CostSnapshotRepository } from "./domain/cost-snapshot-repository.js";

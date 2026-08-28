@@ -13,6 +13,7 @@ import { IngredientMeasurementProfile } from "../domains/recipe/measurement-prof
 import { IngredientMeasurementProfileVersionConflict } from "../domains/recipe/measurement-profile/persistence/errors.js";
 import { MeasurementUnitResolver } from "../domains/recipe/measurement/measurement-unit-resolver.js";
 import type { MeasurementProfileFactsResolutionContractV1 } from "../domains/recipe/contracts/measurement-foundation-contract.js";
+import { IngredientMeasurementProfileSupersessionReferenced } from "../domains/recipe/measurement-profile/application/ingredient-measurement-profile-supersession-errors.js";
 
 const IDS = Object.freeze({
   ingredient: "ing_123e4567-e89b-42d3-a456-426614174000",
@@ -61,6 +62,17 @@ class ProfileFixture {
   }
 }
 
+class CorrectionReferenceFixture {
+  blocked = false;
+  failure: unknown = undefined;
+  reads = 0;
+  hasBlockingReferences() {
+    this.reads += 1;
+    if (this.failure !== undefined) throw this.failure;
+    return this.blocked;
+  }
+}
+
 function command(overrides: Record<string, unknown> = {}) {
   return {
     profileId: IDS.profile,
@@ -82,12 +94,14 @@ function fixture(
     resolveProfileFacts() {
       return Object.freeze({ status: "resolved" as const, facts: Object.freeze({ dimension: "mass" as const, canonicalUnitCode: "g" as const, allowedUnitCodes: Object.freeze(["g", "kg"] as const) }) });
     }
-  }
+  },
+  correctionReferences = new CorrectionReferenceFixture()
 ) {
   return {
     ingredients,
     profiles,
-    service: new IngredientMeasurementProfileSupersessionService(ingredients, profiles, facts, new MeasurementUnitResolver())
+    correctionReferences,
+    service: new IngredientMeasurementProfileSupersessionService(ingredients, profiles, facts, new MeasurementUnitResolver(), correctionReferences)
   };
 }
 
@@ -103,7 +117,7 @@ test("Profile Supersession Service preserves one continuous Active version and i
   assert.equal(setup.profiles.writes, 1);
 });
 
-test("Profile Supersession Service forwards raw facts and rejects family changes without writing", () => {
+test("Profile Supersession Service forwards raw facts and permits an unreferenced, reasoned basis correction", () => {
   const seen: unknown[] = [];
   const setup = fixture(undefined, undefined, {
     resolveProfileFacts(input) {
@@ -111,8 +125,42 @@ test("Profile Supersession Service forwards raw facts and rejects family changes
       return Object.freeze({ status: "resolved" as const, facts: Object.freeze({ dimension: "volume" as const, canonicalUnitCode: "ml" as const, allowedUnitCodes: Object.freeze(["ml"] as const) }) });
     }
   });
-  assert.throws(() => setup.service.supersede(command({ dimension: "owner-token", canonicalUnitCode: "owner-unit", allowedUnitCodes: ["owner-allowed"] })), IngredientMeasurementProfileSupersessionValidationFailure);
+  const result = setup.service.supersede(command({ dimension: "owner-token", canonicalUnitCode: "owner-unit", allowedUnitCodes: ["owner-allowed"], reason: "correct mistaken basis" }));
   assert.deepEqual(seen, [{ rawDimension: "owner-token", rawCanonicalUnit: "owner-unit", rawAllowedUnitValues: ["owner-allowed"] }]);
+  assert.equal(result.versions.find((version) => version.state === "Active")?.canonicalUnitCode, "ml");
+  assert.equal(setup.correctionReferences.reads, 1);
+  assert.equal(setup.profiles.writes, 1);
+});
+
+test("Profile Supersession Service blocks referenced or unreasoned basis corrections with zero writes", () => {
+  const references = new CorrectionReferenceFixture();
+  references.blocked = true;
+  const setup = fixture(undefined, undefined, {
+    resolveProfileFacts() {
+      return Object.freeze({ status: "resolved" as const, facts: Object.freeze({ dimension: "volume" as const, canonicalUnitCode: "ml" as const, allowedUnitCodes: Object.freeze(["ml"] as const) }) });
+    }
+  }, references);
+  assert.throws(() => setup.service.supersede(command({ dimension: "volume", canonicalUnitCode: "ml", allowedUnitCodes: ["ml"] })), IngredientMeasurementProfileSupersessionReferenced);
+  assert.equal(setup.profiles.writes, 0);
+
+  const unreasoned = fixture(undefined, undefined, {
+    resolveProfileFacts() {
+      return Object.freeze({ status: "resolved" as const, facts: Object.freeze({ dimension: "volume" as const, canonicalUnitCode: "ml" as const, allowedUnitCodes: Object.freeze(["ml"] as const) }) });
+    }
+  });
+  assert.throws(() => unreasoned.service.supersede(command({ dimension: "volume", canonicalUnitCode: "ml", allowedUnitCodes: ["ml"], reason: undefined })), IngredientMeasurementProfileSupersessionValidationFailure);
+  assert.equal(unreasoned.profiles.writes, 0);
+});
+
+test("Profile Supersession Service fails closed when correction-impact reads fail", () => {
+  const references = new CorrectionReferenceFixture();
+  references.failure = new Error("raw private read failure");
+  const setup = fixture(undefined, undefined, {
+    resolveProfileFacts() {
+      return Object.freeze({ status: "resolved" as const, facts: Object.freeze({ dimension: "volume" as const, canonicalUnitCode: "ml" as const, allowedUnitCodes: Object.freeze(["ml"] as const) }) });
+    }
+  }, references);
+  assert.throws(() => setup.service.supersede(command({ dimension: "volume", canonicalUnitCode: "ml", allowedUnitCodes: ["ml"] })), IngredientMeasurementProfileSupersessionPersistenceFailure);
   assert.equal(setup.profiles.writes, 0);
 });
 

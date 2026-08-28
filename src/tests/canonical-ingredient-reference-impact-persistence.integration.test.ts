@@ -356,9 +356,12 @@ function seed(database: DatabaseAdapter): void {
   insertQuote(database, "cost_quote_bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", INGREDIENT_ID);
   insertQuote(database, "cost_quote_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", INGREDIENT_ID, "cost_quote_bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
   insertQuote(database, "cost_quote_cccccccc-cccc-4ccc-8ccc-cccccccccccc", OTHER_INGREDIENT_ID);
+  database.execute("INSERT INTO cost_suppliers VALUES (?,?,?,?,?)", ["supplier_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "Fixture Supplier", CREATED_AT, "owner", 0]);
+  database.execute("INSERT INTO cost_purchase_aggregates VALUES (?,?,?,?,?,?,?,?,?,?)", ["pur_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "supplier_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "Draft", CREATED_AT, "owner", CREATED_AT, "owner", null, null, 0]);
+  database.execute("INSERT INTO cost_purchase_lines VALUES (?,?,?,?,?,?,?)", ["pur_line_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "pur_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", 0, INGREDIENT_ID, "1", 0, "g"]);
 }
 
-test("Domain-owned readers preserve exact Recipe and Cost history with four set-based reads", (t) => {
+test("Domain-owned readers preserve exact Recipe and Cost history with five set-based reads", (t) => {
   const { database } = fixture(t);
   const counted = new CountingAdapter(database);
   const recipe = new SqliteRecipeRepository(counted).findIngredientReferences(
@@ -370,8 +373,11 @@ test("Domain-owned readers preserve exact Recipe and Cost history with four set-
   const accepted = new SqliteCostRepository(counted).findIngredientAcceptedPurchaseReferences(
     IngredientId.parse(INGREDIENT_ID)
   );
+  const purchases = new SqliteCostRepository(counted).findIngredientPurchaseReferences(
+    IngredientId.parse(INGREDIENT_ID)
+  );
 
-  assert.equal(counted.queries.length, 4);
+  assert.equal(counted.queries.length, 5);
   assert.equal(recipe.draftReferences.length, 4);
   assert.deepEqual(
     [...new Set(recipe.draftReferences.map((reference) => reference.recipeId))],
@@ -393,6 +399,7 @@ test("Domain-owned readers preserve exact Recipe and Cost history with four set-
     "cost_quote_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     "cost_quote_bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
   ]);
+  assert.deepEqual(purchases.purchaseIds, ["pur_aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"]);
   assert.deepEqual(accepted.acceptedPurchaseIds, []);
   assert.equal(counted.queries.some((query) => /cost_purchases|cost_purchase_items/.test(query.sql)), false);
 
@@ -415,7 +422,7 @@ test("Domain-owned readers preserve exact Recipe and Cost history with four set-
       `Reference Impact query ${index + 1} plan: ${plan.details.join(" | ")}`
     );
   });
-  assert.equal(plans.length, 4);
+  assert.equal(plans.length, 5);
   assert.equal(
     plans.slice(0, 2).every((plan) =>
       plan.details.some((detail) => /SCAN l/.test(detail))
@@ -491,6 +498,12 @@ test("Domain readers preserve typed technical failures", () => {
   );
   assert.throws(
     () => new SqliteCostRepository(failing).findIngredientQuoteReferences(
+      IngredientId.parse(INGREDIENT_ID)
+    ),
+    CostPersistenceFailure
+  );
+  assert.throws(
+    () => new SqliteCostRepository(failing).findIngredientPurchaseReferences(
       IngredientId.parse(INGREDIENT_ID)
     ),
     CostPersistenceFailure

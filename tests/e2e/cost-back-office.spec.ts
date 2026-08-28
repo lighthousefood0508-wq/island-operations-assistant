@@ -15,18 +15,35 @@ test("Cost Back Office offers 酒類 as a governed formal Ingredient category", 
 
 test("Measurement settings explain their purpose and create an impact-confirmed correction version", async ({ page }) => {
   const instant = "2026-08-27T00:00:00.000Z";
-  const ingredient = await page.request.post("/api/admin/cost/ingredients", { data: { name: "量測更正米酒", categoryCode: "alcohol", occurredAt: instant, actor: "owner" } });
+  const ingredientName = `量測更正米酒-${Date.now()}`;
+  const ingredient = await page.request.post("/api/admin/cost/ingredients", { data: { name: ingredientName, categoryCode: "alcohol", occurredAt: instant, actor: "owner" } });
   const ingredientId = (await ingredient.json()).data.ingredientId as string;
-  const profile = await page.request.post("/api/admin/cost/profiles", { data: { ingredientId, dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g"], occurredAt: instant, actor: "owner" } });
+  const profile = await page.request.post("/api/admin/cost/profiles", { data: { ingredientId, dimension: "mass", canonicalUnitCode: "g", allowedUnitCodes: ["g", "kg"], occurredAt: instant, actor: "owner" } });
   expect(profile.status()).toBe(201);
   await page.goto("/admin/cost/measurements");
   await expect(page.locator("#cost-measurement")).toContainText("請定義該食材在配方與採購中使用的單位");
-  await page.locator("#profile-ingredient").selectOption({ label: "量測更正米酒" });
+  await page.locator("#profile-ingredient").selectOption({ label: ingredientName });
   await expect(page.locator("#profile-current")).toContainText("mass → g");
   await expect(page.locator("#profile-impact")).toContainText("目前沒有引用");
+  await expect(page.locator("#profile-change-status")).toContainText("請先修改量綱、基準單位或允許單位");
+  await expect(page.locator("#profile-submit")).toBeDisabled();
+  await page.locator("#profile-reason").fill("只改更正原因不構成量測變更");
+  await expect(page.locator("#profile-submit")).toBeDisabled();
+  await page.locator("#profile-units").fill("kg, g");
+  await expect(page.locator("#profile-submit")).toBeDisabled();
+  await page.locator("#profile-units").fill("g, kg, g");
+  await expect(page.locator("#profile-submit")).toBeDisabled();
   await page.locator("#profile-dimension").selectOption("volume");
   await page.locator("#profile-reason").fill("建檔時誤選重量，實際以量杯使用");
-  page.once("dialog", (dialog) => dialog.accept());
+  await expect(page.locator("#profile-submit")).toBeEnabled();
+  await expect(page.locator("#profile-change-status")).toContainText("量綱：重量 → 容量");
+  page.once("dialog", async (dialog) => {
+    expect(dialog.message()).toContain("原設定：重量 / g");
+    expect(dialog.message()).toContain("新設定：容量 / ml");
+    expect(dialog.message()).toContain("實際變更項目");
+    expect(dialog.message()).toContain("量綱：重量 → 容量");
+    await dialog.accept();
+  });
   const corrected = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/supersessions"));
   await page.locator("#profile-submit").click();
   const correctedResponse = await corrected;

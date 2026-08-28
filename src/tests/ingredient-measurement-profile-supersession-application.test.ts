@@ -7,13 +7,17 @@ import {
   IngredientMeasurementProfileSupersessionNotFound,
   IngredientMeasurementProfileSupersessionPersistenceFailure,
   IngredientMeasurementProfileSupersessionService,
-  IngredientMeasurementProfileSupersessionValidationFailure
+  IngredientMeasurementProfileSupersessionValidationFailure,
+  MeasurementProfileFactsResolver
 } from "../domains/recipe/index.js";
 import { IngredientMeasurementProfile } from "../domains/recipe/measurement-profile/ingredient-measurement-profile.js";
 import { IngredientMeasurementProfileVersionConflict } from "../domains/recipe/measurement-profile/persistence/errors.js";
 import { MeasurementUnitResolver } from "../domains/recipe/measurement/measurement-unit-resolver.js";
 import type { MeasurementProfileFactsResolutionContractV1 } from "../domains/recipe/contracts/measurement-foundation-contract.js";
-import { IngredientMeasurementProfileSupersessionReferenced } from "../domains/recipe/measurement-profile/application/ingredient-measurement-profile-supersession-errors.js";
+import {
+  IngredientMeasurementProfileSupersessionNoChange,
+  IngredientMeasurementProfileSupersessionReferenced
+} from "../domains/recipe/measurement-profile/application/ingredient-measurement-profile-supersession-errors.js";
 
 const IDS = Object.freeze({
   ingredient: "ing_123e4567-e89b-42d3-a456-426614174000",
@@ -79,7 +83,7 @@ function command(overrides: Record<string, unknown> = {}) {
     expectedVersion: 0,
     dimension: "mass",
     canonicalUnitCode: "g",
-    allowedUnitCodes: ["g", "kg"],
+    allowedUnitCodes: ["g"],
     occurredAt: T1,
     actor: "owner",
     reason: "supplier packaging revision",
@@ -90,11 +94,9 @@ function command(overrides: Record<string, unknown> = {}) {
 function fixture(
   ingredients = new IngredientFixture(),
   profiles = new ProfileFixture(),
-  facts: MeasurementProfileFactsResolutionContractV1 = {
-    resolveProfileFacts() {
-      return Object.freeze({ status: "resolved" as const, facts: Object.freeze({ dimension: "mass" as const, canonicalUnitCode: "g" as const, allowedUnitCodes: Object.freeze(["g", "kg"] as const) }) });
-    }
-  },
+  facts: MeasurementProfileFactsResolutionContractV1 = new MeasurementProfileFactsResolver(
+    new MeasurementUnitResolver()
+  ),
   correctionReferences = new CorrectionReferenceFixture()
 ) {
   return {
@@ -114,10 +116,11 @@ test("Profile Supersession Service preserves one continuous Active version and i
   assert.equal(oldVersion?.effectiveTo, T1);
   assert.equal(replacement?.effectiveFrom, T1);
   assert.notEqual(replacement?.identity.profileVersionId, IDS.version);
+  assert.deepEqual(replacement?.allowedUnitCodes, ["g"]);
   assert.equal(setup.profiles.writes, 1);
 });
 
-test("Profile Supersession Service forwards raw facts and permits an unreferenced, reasoned basis correction", () => {
+test("Profile Supersession Service uses the formal facts boundary and permits an unreferenced, reasoned basis correction", () => {
   const seen: unknown[] = [];
   const setup = fixture(undefined, undefined, {
     resolveProfileFacts(input) {
@@ -125,11 +128,35 @@ test("Profile Supersession Service forwards raw facts and permits an unreference
       return Object.freeze({ status: "resolved" as const, facts: Object.freeze({ dimension: "volume" as const, canonicalUnitCode: "ml" as const, allowedUnitCodes: Object.freeze(["ml"] as const) }) });
     }
   });
-  const result = setup.service.supersede(command({ dimension: "owner-token", canonicalUnitCode: "owner-unit", allowedUnitCodes: ["owner-allowed"], reason: "correct mistaken basis" }));
-  assert.deepEqual(seen, [{ rawDimension: "owner-token", rawCanonicalUnit: "owner-unit", rawAllowedUnitValues: ["owner-allowed"] }]);
+  const result = setup.service.supersede(command({ dimension: "volume", canonicalUnitCode: "ml", allowedUnitCodes: [" ml "], reason: "correct mistaken basis" }));
+  assert.deepEqual(seen, [{ rawDimension: "volume", rawCanonicalUnit: "ml", rawAllowedUnitValues: ["ml"] }]);
   assert.equal(result.versions.find((version) => version.state === "Active")?.canonicalUnitCode, "ml");
   assert.equal(setup.correctionReferences.reads, 1);
   assert.equal(setup.profiles.writes, 1);
+});
+
+test("Profile Supersession Service rejects canonically identical corrections without impact reads or writes", () => {
+  const candidates = [
+    ["g", "kg"],
+    ["kg", "g"],
+    [" g ", "kg", "g"],
+    ["公克", "公斤", "kg"]
+  ];
+  for (const allowedUnitCodes of candidates) {
+    const setup = fixture();
+    assert.throws(
+      () => setup.service.supersede(command({ allowedUnitCodes, reason: `different reason ${allowedUnitCodes.join("|")}` })),
+      (error: unknown) => {
+        assert.ok(error instanceof IngredientMeasurementProfileSupersessionNoChange);
+        assert.equal(error.message, "量測設定沒有變更，未建立新版本。");
+        return true;
+      }
+    );
+    assert.equal(setup.profiles.writes, 0);
+    assert.equal(setup.correctionReferences.reads, 0);
+    assert.equal(setup.profiles.aggregateVersion, 0);
+    assert.equal(setup.profiles.profile?.toContract().versions.length, 1);
+  }
 });
 
 test("Profile Supersession Service blocks referenced or unreasoned basis corrections with zero writes", () => {

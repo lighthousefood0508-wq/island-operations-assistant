@@ -80,7 +80,10 @@ import { SqliteRecipeRepository } from "../../domains/recipe/infrastructure/sqli
 import { MeasurementNormalizer } from "../../domains/recipe/measurement/measurement-normalizer.js";
 import { MeasurementUnitResolver } from "../../domains/recipe/measurement/measurement-unit-resolver.js";
 import { IngredientMeasurementNormalizationService } from "../../domains/recipe/measurement-profile/ingredient-normalization-service.js";
-import { IngredientMeasurementProfileSupersessionReferenced } from "../../domains/recipe/measurement-profile/application/ingredient-measurement-profile-supersession-errors.js";
+import {
+  IngredientMeasurementProfileSupersessionNoChange,
+  IngredientMeasurementProfileSupersessionReferenced
+} from "../../domains/recipe/measurement-profile/application/ingredient-measurement-profile-supersession-errors.js";
 import { SqliteIngredientMeasurementProfileRepository } from "../../domains/recipe/measurement-profile/infrastructure/sqlite-ingredient-measurement-profile-repository.js";
 
 type JsonObject = Record<string, unknown>;
@@ -673,6 +676,9 @@ export class CostBackOfficeService {
     }
     if (error instanceof IngredientMeasurementProfileSupersessionMeasurementFailure) {
       return new HttpError(422, "measurement_profile_measurement_resolution_failed", "Replacement Measurement Profile facts could not be resolved.");
+    }
+    if (error instanceof IngredientMeasurementProfileSupersessionNoChange) {
+      return new HttpError(422, "measurement_profile_supersession_no_change", "量測設定沒有變更，未建立新版本。");
     }
     if (error instanceof IngredientMeasurementProfileSupersessionReferenced) {
       return new HttpError(409, "measurement_profile_correction_referenced", "Measurement basis cannot be changed while this Ingredient is referenced.");

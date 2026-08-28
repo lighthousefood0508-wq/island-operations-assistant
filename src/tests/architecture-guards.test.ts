@@ -3349,7 +3349,7 @@ test("PR-INGREDIENT-003L keeps Measurement Profile correction inside its exact i
   ]);
   assert.equal(approved003LPaths.size, 16);
   const is003LCorrectionResponsibility = (source: string): boolean =>
-    /IngredientMeasurementProfileCorrectionImpact|measurement_profile_correction_(?:impact|referenced)|correction-impact|更正影響確認/.test(source);
+    /IngredientMeasurementProfileCorrectionImpact|IngredientMeasurementProfileSupersessionNoChange|measurement_profile_(?:correction_(?:impact|referenced)|supersession_no_change)|correction-impact|更正影響確認|量測設定沒有變更/.test(source);
   assert.equal(is003LCorrectionResponsibility("class IngredientMeasurementProfileCorrectionImpactShadow {}"), true);
   const files = [
     ...filesUnder(sourceRoot, [".ts", ".tsx"]),
@@ -3376,10 +3376,21 @@ test("PR-INGREDIENT-003L keeps Measurement Profile correction inside its exact i
   const routes = readFileSync(path.join(sourceRoot, "server", "app", "routes.ts"), "utf8");
   assert.match(supersession, /supersedeActive\(/);
   assert.match(supersession, /measurementFacts\.resolveProfileFacts/);
+  assert.match(supersession, /sameAllowedUnitSet/);
+  assert.match(supersession, /IngredientMeasurementProfileSupersessionNoChange/);
+  assert.ok(
+    supersession.indexOf("IngredientMeasurementProfileSupersessionNoChange")
+      < supersession.indexOf("profile.supersedeActive"),
+    "No-op corrections must fail before Aggregate supersession and persistence."
+  );
   assert.match(supersession, /hasBlockingReferences/);
   assert.doesNotMatch(supersession, /SELECT\s|INSERT\s|UPDATE\s|DELETE\s|DatabaseAdapter|sqlite/i);
   assert.match(impact, /findIngredientPurchaseReferences/);
   assert.match(routes, /\/correction-impact/);
+  const costPage = readFileSync(path.join(sourceRoot, "web", "cost", "page.ts"), "utf8");
+  assert.match(costPage, /profile-change-status/);
+  assert.match(costPage, /請先修改量綱、基準單位或允許單位/);
+  assert.match(costPage, /correctionSummary/);
 });
 
 test("PR-PLATFORM-002 keeps Production Runtime and Secure Deployment inside its exact System-owned responsibility boundary", () => {

@@ -54,6 +54,105 @@ test("Measurement settings explain their purpose and create an impact-confirmed 
   await expect(page.locator("#profile-list")).toContainText("volume → ml");
 });
 
+test("Recipe Owner workflow previews and atomically publishes a seven-ingredient batch", async ({ page }) => {
+  const instant = "2026-08-28T00:00:00.000Z";
+  const suffix = Date.now();
+  const category = await page.request.post("/api/admin/categories", {
+    data: { displayName: `Recipe workflow ${suffix}`, sortOrder: 2 }
+  });
+  const product = await page.request.post("/api/admin/products", {
+    data: {
+      internalName: `Owner batch ${suffix}`,
+      categoryId: (await category.json()).data.categoryId,
+      displayName: `一曲東坡肉 ${suffix}`,
+      posName: `東坡肉 ${suffix}`,
+      sellingPrice: 200,
+      channels: ["pos"]
+    }
+  });
+  const productId = (await product.json()).data.productId as string;
+  expect((await page.request.post(`/api/admin/products/${productId}/publish`, { data: {} })).ok()).toBeTruthy();
+  const ingredientNames = ["豬五花", "花雕酒", "醬油", "冰糖", "老薑", "青蔥", "八角", "未設定單位食材"].map(name => `${name}-${suffix}`);
+  for (let index = 0; index < ingredientNames.length; index += 1) {
+    const ingredient = await page.request.post("/api/admin/cost/ingredients", {
+      data: { name: ingredientNames[index], categoryCode: index === 1 ? "alcohol" : "other", occurredAt: instant, actor: "owner" }
+    });
+    if (index < 7) {
+      const ingredientId = (await ingredient.json()).data.ingredientId as string;
+      const dimension = index === 2 ? "volume" : "mass";
+      expect((await page.request.post("/api/admin/cost/profiles", {
+        data: {
+          ingredientId,
+          dimension,
+          canonicalUnitCode: dimension === "volume" ? "ml" : "g",
+          allowedUnitCodes: dimension === "volume" ? ["ml", "l", "cc"] : ["g", "kg", "tw_catty"],
+          occurredAt: instant,
+          actor: "owner"
+        }
+      })).status()).toBe(201);
+    }
+  }
+
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await page.goto("/admin/cost/recipes");
+  await expect(page.getByRole("heading", { name: "建立商品配方" })).toBeVisible();
+  await expect(page.locator("#cost-recipes")).toContainText("一份代表實際販售給客人的一個商品單位");
+  await page.locator("#recipe-name").fill(`一曲東坡肉標準配方-${suffix}`);
+  await page.locator("#recipe-product").selectOption({ label: `一曲東坡肉 ${suffix} · v1` });
+  await page.locator("#recipe-yield").fill("15");
+
+  const firstIngredient = page.locator('[data-recipe-line="0"][data-recipe-field="ingredientId"]');
+  await firstIngredient.selectOption({ label: ingredientNames[7] });
+  await expect(page.locator(".recipe-line-note.error")).toContainText("此食材尚未設定配方使用單位");
+  await expect(page.locator(".recipe-line-note.error a")).toHaveAttribute("href", /\/admin\/cost\/measurements\?ingredientId=/);
+  await page.locator('[data-recipe-line="0"][data-recipe-field="quantity"]').fill("1");
+  await page.locator("#recipe-form button[type=submit]").click();
+  await expect(page.locator("#notice")).toContainText("此食材尚未設定配方使用單位");
+  await firstIngredient.selectOption({ label: ingredientNames[0] });
+
+  for (let index = 1; index < 7; index += 1) await page.locator("#recipe-add-line").click();
+  for (let index = 0; index < 7; index += 1) {
+    await page.locator(`[data-recipe-line="${index}"][data-recipe-field="ingredientId"]`).selectOption({ label: ingredientNames[index] });
+    await page.locator(`[data-recipe-line="${index}"][data-recipe-field="quantity"]`).fill(index === 0 ? "3000" : index === 1 ? "300" : "15");
+  }
+  await expect(page.locator('[data-recipe-line="1"][data-recipe-field="unitCode"] option')).toHaveText(["公克（g）", "公斤（kg）", "台斤"]);
+  await expect(page.locator('[data-recipe-line="2"][data-recipe-field="unitCode"] option')).toContainText(["毫升（ml）", "公升（L）", "毫升（cc）"]);
+
+  await page.locator("#recipe-yield").fill("0");
+  await page.locator("#recipe-form button[type=submit]").click();
+  await expect(page.locator("#notice")).toContainText("必須是大於 0 的整數");
+  await page.locator("#recipe-yield").fill("15");
+  await page.locator('[data-recipe-line="0"][data-recipe-field="quantity"]').fill("-1");
+  await page.locator("#recipe-form button[type=submit]").click();
+  await expect(page.locator("#notice")).toContainText("第 1 列使用量必須是大於 0 的數值");
+  await page.locator('[data-recipe-line="0"][data-recipe-field="quantity"]').fill("3000");
+
+  await page.locator('[data-recipe-line="6"][data-recipe-field="ingredientId"]').selectOption({ label: ingredientNames[0] });
+  await page.locator("#recipe-form button[type=submit]").click();
+  await expect(page.locator("#notice")).toContainText("同一食材不得重複加入配方");
+  await expect(page.locator("#recipe-form")).toBeVisible();
+  await page.locator('[data-recipe-line="6"][data-recipe-field="ingredientId"]').selectOption({ label: ingredientNames[6] });
+  await page.locator('[data-recipe-line="6"][data-recipe-field="quantity"]').fill("15");
+
+  await page.locator("#recipe-form button[type=submit]").click();
+  await expect(page.locator("#recipe-review")).toContainText("本批產量");
+  await expect(page.locator("#recipe-review")).toContainText("15 份");
+  await expect(page.locator("#recipe-review")).toContainText("7 項");
+  await expect(page.locator("#recipe-review")).toContainText("3000 公克（g）");
+  await expect(page.locator("#recipe-review")).toContainText("200 公克（g）");
+  await page.locator("#recipe-review-back").click();
+  await expect(page.locator("#recipe-form")).toBeVisible();
+  await expect(page.locator("#recipe-name")).toHaveValue(`一曲東坡肉標準配方-${suffix}`);
+  await page.locator("#recipe-form button[type=submit]").click();
+  const publishedRecipe = page.waitForResponse(response =>
+    response.request().method() === "POST" && new URL(response.url()).pathname === "/api/admin/cost/recipes"
+  );
+  await page.locator("#recipe-publish").click();
+  expect((await publishedRecipe).status()).toBe(201);
+  await expect(page.locator("#recipe-list")).toContainText(`一曲東坡肉標準配方-${suffix}`);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+});
+
 test("Cost Back Office renders QuoteFallback in the guided exact-cost workflow", async ({ page }) => {
   const category = await page.request.post("/api/admin/categories", {
     data: { displayName: "Costed meals", sortOrder: 1 }
@@ -92,9 +191,11 @@ test("Cost Back Office renders QuoteFallback in the guided exact-cost workflow",
   await page.goto("/admin/cost/recipes");
   await page.locator("#recipe-name").fill("滷肉飯標準配方");
   await page.locator("#recipe-product").selectOption({ index: 1 });
-  await page.locator("#recipe-ingredient").selectOption({ label: "豬五花" });
-  await page.locator("#recipe-quantity").fill("100");
+  await page.locator('[data-recipe-line="0"][data-recipe-field="ingredientId"]').selectOption({ label: "豬五花" });
+  await page.locator('[data-recipe-line="0"][data-recipe-field="quantity"]').fill("100");
   await page.locator("#recipe-form button[type=submit]").click();
+  await expect(page.locator("#recipe-review")).toContainText("每份約用量");
+  await page.locator("#recipe-publish").click();
   await expect(page.locator("#recipe-list")).toContainText("滷肉飯標準配方");
   await expect(page.locator("#recipe-list")).toContainText("Published");
 

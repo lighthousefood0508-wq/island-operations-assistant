@@ -417,6 +417,7 @@ export class CostBackOfficeService {
           text(input, "productId"),
           text(input, "productVersionId")
         );
+        const measurementProfiles = this.profileRepository.listProfiles();
         for (const line of objectArray(input, "lines")) {
           const ingredient = this.ingredientRepository.findById(
             CanonicalIngredientId.parse(text(line, "ingredientId"))
@@ -425,6 +426,24 @@ export class CostBackOfficeService {
             throw new Error("Recipe Ingredient does not exist.");
           }
           const lineDimension = dimension(line, "dimension");
+          const lineUnitCode = text(line, "unitCode");
+          const measurementProfile = measurementProfiles.find(
+            (profile) => profile.ingredientId === ingredient.ingredientId.value
+          );
+          const activeMeasurementVersion = measurementProfile?.versions.find(
+            (version) => version.state === "Active"
+          );
+          if (activeMeasurementVersion === undefined) {
+            throw new Error("此食材尚未設定配方使用單位，請先完成量測設定。");
+          }
+          if (
+            activeMeasurementVersion.dimension !== lineDimension
+            || !activeMeasurementVersion.allowedUnitCodes.some(
+              (allowedUnitCode) => allowedUnitCode === lineUnitCode
+            )
+          ) {
+            throw new Error("配方單位與食材目前的量測設定不相容。");
+          }
           recipe.addIngredient(
             IngredientReference.create({
               ingredientReferenceId: ingredient.ingredientId,
@@ -436,7 +455,7 @@ export class CostBackOfficeService {
             Quantity.create(
               BigInt(text(line, "coefficient")),
               integer(line, "scale"),
-              Unit.create(text(line, "unitCode"), lineDimension)
+              Unit.create(lineUnitCode, lineDimension)
             )
           );
         }

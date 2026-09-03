@@ -1,5 +1,6 @@
 import { renderRealtimeDebug } from "../shared/realtime-debug.js";
 import { renderVoiceRuntime } from "../shared/voice.js";
+import { renderDisplayModeControls, renderDisplayModeRuntime, renderDisplayModeStyles } from "../shared/display-mode.js";
 
 export function renderKitchen(): string {
   return `<!doctype html>
@@ -29,6 +30,7 @@ export function renderKitchen(): string {
       .brand{font-size:18px}.top h1{font-size:36px}.event{font-size:22px}.event-status{font-size:16px}.sync-status{font-size:17px}.clock{height:86px;font-size:66px}
     }
     @media(min-width:901px){.voice-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.voice-button{min-height:82px}.production-totals{grid-template-columns:repeat(4,minmax(0,1fr))}.total-item{border-right:1px solid var(--line)}.upcoming-list{grid-template-columns:repeat(3,minmax(0,1fr));align-items:start}.upcoming-list>.order-list{display:grid}.card{padding:12px}.order-no{font-size:27px}.items{font-size:22px}}
+    ${renderDisplayModeStyles()}
   </style>
 </head>
 <body>
@@ -63,6 +65,7 @@ export function renderKitchen(): string {
           <a href="/pos">POS 點餐</a>
           <span class="current" aria-disabled="true">廚房系統</span>
           <a href="/admin">後台管理</a>
+          ${renderDisplayModeControls()}
         </nav>
       </details>
     </header>
@@ -104,6 +107,7 @@ export function renderKitchen(): string {
       <div id="served" class="order-list served-list"></div>
     </section>
   </main>
+  ${renderDisplayModeRuntime()}
   ${renderVoiceRuntime()}
   <script>
     const sync=window.__rosRealtime,$=id=>document.getElementById(id);

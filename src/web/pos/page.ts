@@ -1,5 +1,6 @@
 import { renderRealtimeDebug } from "../shared/realtime-debug.js";
 import { renderVoiceRuntime } from "../shared/voice.js";
+import { renderDisplayModeControls, renderDisplayModeRuntime, renderDisplayModeStyles } from "../shared/display-mode.js";
 
 export function renderPos(): string {
   return `<!doctype html>
@@ -15,6 +16,7 @@ export function renderPos(): string {
     .cash-calculator{display:grid;grid-template-columns:1fr 1fr;gap:7px;align-items:end}.cash-calculator[hidden]{display:none}.cash-change{min-height:39px;border:1px solid #b9cbc4;border-radius:6px;background:#f7faf8;padding:7px 9px;display:flex;align-items:center;justify-content:space-between;gap:8px}.cash-change strong{font-size:18px;color:#0d675e}.sync-status{display:flex!important;align-items:center;justify-content:flex-end;gap:7px}.sync-status #connection-status[data-state="connected"]{color:#167b53}.sync-status #connection-status[data-state="reconnecting"]{color:#9a6500}.sync-status #connection-status[data-state="offline"]{color:#b13f2e}.sync-device-label{display:none}.sync-debug-toggle{display:none!important}@media(max-width:900px){.sync-status{justify-content:flex-start}}@media(max-width:620px){.cash-calculator{grid-template-columns:1fr}}
     .collection-panel{border-top:1px solid #e1e9e5;margin-top:10px;padding-top:10px}.collection-panel strong{display:block;margin-bottom:6px}.collection-actions{display:grid;grid-template-columns:1fr 1fr minmax(140px,auto);gap:7px}.collection-actions button{background:#f4f1eb;color:#24383b;border:1px solid #d8d2c8;font-weight:800}.collection-actions button[aria-pressed="true"]{background:#e1f2ed;color:#0d675e;border-color:#0d796d}.collection-actions .confirm-payment{background:#0d796d;color:#fff;border-color:#0d796d}@media(max-width:620px){.collection-actions{grid-template-columns:1fr 1fr}.collection-actions .confirm-payment{grid-column:1/-1}}
     .voice-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:0 0 10px}.voice-button{border:1px solid #b8cbc4;background:#f8fbf9;color:#24484b;font-weight:900;padding:9px 10px}.voice-button:active{background:#e1f2ed}@media(max-width:620px){.voice-button{padding:9px 4px;font-size:13px}}
+    ${renderDisplayModeStyles()}
   </style>
 </head>
 <body>
@@ -28,6 +30,7 @@ export function renderPos(): string {
           <span class="current" aria-disabled="true">POS 點餐</span>
           <a href="/kitchen">廚房系統</a>
           <a href="/admin">後台管理</a>
+          ${renderDisplayModeControls()}
         </nav>
       </details>
     </header>
@@ -132,6 +135,7 @@ export function renderPos(): string {
       </section>
     </section>
   </main>
+  ${renderDisplayModeRuntime()}
   ${renderVoiceRuntime()}
   <script>
     const sync=window.__rosRealtime;

@@ -105,12 +105,14 @@ test("realtime clients refresh central state after order and Kitchen changes wit
     await expect(posB.locator("#sync-last-event")).toHaveText(lastBusinessEvent!);
 
     await kitchen.locator('[data-status="preparing"]').click();
-    await expect(posA.locator("#preorder-orders")).toContainText("製作中");
-    await expect(posB.locator("#preorder-orders")).toContainText("製作中");
+    await expect(posA.locator("#orders")).toContainText("製作中");
+    await expect(posB.locator("#orders")).toContainText("製作中");
+    await expect(posA.locator("#preorder-orders")).not.toContainText("SYNC-001");
+    await expect(posB.locator("#preorder-orders")).not.toContainText("SYNC-001");
     await expect(statistics.locator("#sync-last-event")).toHaveText(/order\.production_changed/);
     await kitchen.locator('[data-status="ready"]').click();
-    await expect(posA.locator("#preorder-orders")).toContainText("可取餐");
-    await expect(posB.locator("#preorder-orders")).toContainText("可取餐");
+    await expect(posA.locator("#orders")).toContainText("可取餐");
+    await expect(posB.locator("#orders")).toContainText("可取餐");
     const statisticsBeforeServed = await api(setup, `/api/events/${eventId}/statistics`);
     assertApiSuccess(statisticsBeforeServed, `Realtime statistics before served eventId=${eventId}`);
     await kitchen.locator('[data-status="served"]').click();
@@ -121,8 +123,8 @@ test("realtime clients refresh central state after order and Kitchen changes wit
 
     kitchen.once("dialog", dialog => dialog.accept());
     await kitchen.locator('[data-revert-production]').click();
-    await expect(posA.locator("#preorder-orders")).toContainText("可取餐");
-    await expect(posB.locator("#preorder-orders")).toContainText("可取餐");
+    await expect(posA.locator("#orders")).toContainText("可取餐");
+    await expect(posB.locator("#orders")).toContainText("可取餐");
     await expect(kitchen.locator("#ready")).toContainText("SYNC-001");
     await expect(kitchen.locator("#served")).not.toContainText("SYNC-001");
     const statisticsAfterReversal = await api(setup, `/api/events/${eventId}/statistics`);

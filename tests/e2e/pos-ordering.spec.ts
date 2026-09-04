@@ -301,7 +301,13 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await page.locator("#preorder-search").fill("");
 
     await page.locator('#preorder-orders [data-order-action="start"]').click();
-    await page.locator('#preorder-orders [data-order-action="served"]').click();
+    await expect(page.locator("#preorder-orders")).not.toContainText("POSUI-002");
+    await expect(page.locator("#preorder-count")).toHaveText("0");
+    await page.locator('button[data-tab="pending"]').click();
+    await expect(page.locator("#orders")).toContainText("POSUI-002");
+    await expect(page.locator("#orders")).toContainText("製作中");
+    await page.locator('#orders [data-order-action="served"]').click();
+    await page.locator('button[data-tab="preorder"]').click();
     await expect(page.locator("#preorder-orders")).not.toContainText("POSUI-002");
     await expect(page.locator("#completed-preorder-orders")).toContainText("POSUI-002");
     await expect(page.locator("#completed-preorder-orders")).toContainText("Lin Updated");
@@ -312,10 +318,10 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
 
     page.once("dialog", dialog => dialog.accept());
     await page.locator('#served-orders [data-revert-production]').click();
-    await page.locator('button[data-tab="preorder"]').click();
-    await expect(page.locator("#preorder-orders")).toContainText("POSUI-002");
-    await expect(page.locator("#preorder-orders")).toContainText("可取餐");
-    await page.locator('#preorder-orders [data-order-action="served"]').click();
+    await page.locator('button[data-tab="pending"]').click();
+    await expect(page.locator("#orders")).toContainText("POSUI-002");
+    await expect(page.locator("#orders")).toContainText("可取餐");
+    await page.locator('#orders [data-order-action="served"]').click();
     await page.locator('button[data-tab="served"]').click();
     await page.locator('#served-orders [data-collection-method="LINE_PAY"]').click();
     await page.locator('#served-orders [data-confirm-payment]').click();

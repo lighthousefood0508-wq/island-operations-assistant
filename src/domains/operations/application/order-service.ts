@@ -193,4 +193,77 @@ export class OrderService {
     if (!order) throw new HttpError(404, "ORDER_NOT_FOUND", "Order was not found.");
     return order;
   }
+
+  listEventOrders(eventId: string): OperationsOrder[] {
+    if (!eventId.trim()) throw new HttpError(400, "VALIDATION_ERROR", "eventId is required.", { field: "eventId" });
+    return this.repository.listEventOrders(eventId);
+  }
+
+  updateScheduledOrder(orderId: string, payload: unknown): OperationsOrder {
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new HttpError(400, "VALIDATION_ERROR", "Request body must be an object.");
+    const value = payload as Record<string, unknown>;
+    const expectedRevision = requiredText(value.expectedRevision, "expectedRevision");
+    if (!Array.isArray(value.items) || value.items.length === 0) throw new HttpError(422, "RESERVATION_ITEMS_REQUIRED", "預約單至少需要一個品項。", { field: "items" });
+    const items = value.items.map(parseItem);
+    const customerName = optionalText(value.customerName, "customerName");
+    const customerPhoneTail = optionalPhoneTail(value.customerPhoneTail);
+    const paymentMethod = optionalPaymentMethod(value.paymentMethod);
+    if (!paymentMethod) throw new HttpError(422, "PAYMENT_METHOD_REQUIRED", "請選擇付款方式。", { field: "paymentMethod" });
+    const notes = optionalText(value.notes, "notes");
+    const operator = clientText(value.operator, "operator", "local-pos");
+    const device = clientText(value.deviceId, "deviceId", "POS");
+
+    return this.repository.transactionImmediate(() => {
+      const current = this.repository.getOrder(orderId);
+      if (!current) throw new HttpError(404, "ORDER_NOT_FOUND", "Order was not found.");
+      if (current.revision !== expectedRevision) throw new HttpError(409, "ORDER_CONCURRENTLY_CHANGED", "預約單已被其他裝置更新，請重新整理後再試。");
+      if (!current.scheduledPickupAt) throw new HttpError(409, "RESERVATION_ONLY", "Only scheduled pickup Orders can be edited here.");
+      if (current.orderStatus !== "confirmed" || current.paymentStatus !== "unpaid" || current.productionStatus === "served") throw new HttpError(409, "RESERVATION_EDIT_LOCKED", "已出餐、已付款、已完成或已取消的預約單不可直接覆寫。");
+      const event = this.repository.findEvent(current.eventId);
+      if (!event) throw new HttpError(404, "EVENT_NOT_FOUND", "Event was not found.");
+      if (!["open", "paused"].includes(event.status)) throw new HttpError(409, "EVENT_NOT_OPERATIONAL", "Only an OPEN or PAUSED Event reservation can be edited.");
+      const pickup = scheduledPickupAt(value.scheduledPickupAt, event);
+      if (!pickup) throw new HttpError(422, "SCHEDULED_PICKUP_INVALID", "預約單必須保留取餐時間。", { field: "scheduledPickupAt" });
+      const normalized = normalizeItems(items);
+      const resolved = normalized.map((item) => {
+        const product = this.repository.findProduct(current.eventId, item.productId);
+        if (!product) throw new HttpError(404, "PRODUCT_NOT_IN_EVENT", "Product is not sellable in this event.");
+        if (product.product_version_id !== item.productVersionId) throw new HttpError(409, "PRODUCT_VERSION_MISMATCH", "商品版本已變更，請重新整理後再試。");
+        if (product.is_active !== 1 || !(JSON.parse(product.channels_json) as unknown[]).includes("pos")) throw new HttpError(409, "CHANNEL_NOT_ENABLED", "Product is not enabled for POS in this Event snapshot.");
+        const snapshot = this.repository.getProductSnapshot(current.eventId, item);
+        if (!snapshot) throw new HttpError(409, "PRODUCT_VERSION_MISMATCH", "商品版本已變更，請重新整理後再試。");
+        return { item, snapshot };
+      });
+      const linesChanged = JSON.stringify(current.items.map((item) => ({ productId: item.productId, productVersionId: item.productVersionId, quantity: item.quantity, notes: item.notes }))) !== JSON.stringify(normalized);
+      if (linesChanged && new Set(normalized.map((item) => item.productId)).size !== normalized.length) throw new HttpError(422, "DUPLICATE_PRODUCT", "同一商品不可重複加入預約單。", { field: "items" });
+      if (linesChanged && !["not_started", "queued"].includes(current.productionStatus)) throw new HttpError(409, "RESERVATION_ITEMS_LOCKED", "餐點已開始製作，只能修改客人資料、取餐時間與訂單備註。");
+      const subtotal = resolved.reduce((total, entry) => total + entry.snapshot.sellingPrice * entry.item.quantity, 0);
+      const metadataChanged = current.scheduledPickupAt !== pickup || current.customerName !== customerName || current.customerPhoneTail !== customerPhoneTail || current.paymentMethod !== paymentMethod || current.notes !== notes;
+      if (!linesChanged && !metadataChanged) throw new HttpError(422, "RESERVATION_NOT_CHANGED", "預約單沒有變更，未儲存。");
+      const timestamp = now();
+      if (linesChanged) {
+        const totals = (source: readonly { productId: string; productVersionId: string; quantity: number }[]) => {
+          const result = new Map<string, { productId: string; productVersionId: string; quantity: number }>();
+          for (const item of source) {
+            const key = `${item.productId}\u0000${item.productVersionId}`;
+            const found = result.get(key);
+            result.set(key, { productId: item.productId, productVersionId: item.productVersionId, quantity: (found?.quantity ?? 0) + item.quantity });
+          }
+          return result;
+        };
+        const before = totals(current.items), after = totals(normalized);
+        for (const [key, item] of new Map([...before, ...after])) {
+          const oldQuantity = before.get(key)?.quantity ?? 0;
+          const newQuantity = after.get(key)?.quantity ?? 0;
+          if (!this.repository.adjustSoldQuantity(current.eventId, item.productId, item.productVersionId, newQuantity - oldQuantity, timestamp)) throw new HttpError(409, "INSUFFICIENT_QUANTITY", "商品已售完或剩餘數量不足。");
+        }
+        this.repository.replaceOrderItems(orderId, resolved, timestamp);
+      }
+      if (!this.repository.updateReservationHeader(orderId, { scheduledPickupAt: pickup, customerName, customerPhoneTail, paymentMethod, notes, subtotal })) throw new HttpError(409, "ORDER_CONCURRENTLY_CHANGED", "預約單已被其他裝置更新，請重新整理後再試。");
+      const updated = this.repository.getOrder(orderId);
+      if (!updated) throw new Error("Updated order could not be loaded.");
+      this.repository.insertReservationRevisionAudit({ orderId, operator, deviceId: device, before: current, after: updated, occurredAt: timestamp });
+      return updated;
+    });
+  }
 }

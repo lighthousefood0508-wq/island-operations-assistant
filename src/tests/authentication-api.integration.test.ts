@@ -128,6 +128,12 @@ test("role policy permits POS operational reads while denying Cost/Admin authori
       body: JSON.stringify({ status: "preparing" })
     });
     assert.equal(productionCommand.response.status, 404, "POS role may reach the existing production-state boundary without gaining Cost/Admin authority");
+    const reservationCorrection = await request(baseUrl, "/api/orders/order_missing/reservation", {
+      method: "PATCH",
+      headers: { cookie, origin: baseUrl, "content-type": "application/json" },
+      body: JSON.stringify({ expectedRevision: "missing", items: [{ productId: "missing", productVersionId: "missing", quantity: 1 }], paymentMethod: "cash" })
+    });
+    assert.equal(reservationCorrection.response.status, 400, "POS role reaches reservation validation rather than being denied by authorization");
   } finally {
     server.close();
     await once(server, "close");

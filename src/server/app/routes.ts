@@ -550,6 +550,8 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     }
     const orderMatch = pathname.match(/^\/api\/orders\/([^/]+)$/);
     if (request.method === "GET" && orderMatch?.[1]) return success(response, 200, services.orders.getOrder(decodeURIComponent(orderMatch[1])));
+    const reservationEditMatch = pathname.match(/^\/api\/orders\/([^/]+)\/reservation$/);
+    if (request.method === "PATCH" && reservationEditMatch?.[1]) { const order = services.orders.updateScheduledOrder(decodeURIComponent(reservationEditMatch[1]), await readCommand("operator")); events.publish("order.updated", order.eventId); events.publish("inventory.changed", order.eventId); return success(response, 200, order); }
     const paymentConfirmMatch = pathname.match(/^\/api\/orders\/([^/]+)\/payment\/confirm$/);
     if (request.method === "POST" && paymentConfirmMatch?.[1]) {
       const result = services.payments.confirmPayment(decodeURIComponent(paymentConfirmMatch[1]), await readCommand("operator"));
@@ -568,7 +570,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     const releaseMatch = pathname.match(/^\/api\/orders\/([^/]+)\/release-inventory$/);
     if (request.method === "POST" && releaseMatch?.[1]) { const result = services.lifecycle.releaseInventory(decodeURIComponent(releaseMatch[1]), await readCommand("operator")); events.publish("inventory.changed", result.order.eventId); return success(response, 200, result); }
     const currentOrdersMatch = pathname.match(/^\/api\/events\/([^/]+)\/orders$/);
-    if (request.method === "GET" && currentOrdersMatch?.[1]) return success(response, 200, services.lifecycle.listEventOrders(decodeURIComponent(currentOrdersMatch[1])));
+    if (request.method === "GET" && currentOrdersMatch?.[1]) return success(response, 200, services.orders.listEventOrders(decodeURIComponent(currentOrdersMatch[1])));
     const closeMatch = pathname.match(/^\/api\/events\/([^/]+)\/close$/);
     if (request.method === "POST" && closeMatch?.[1]) { const result = services.lifecycle.closeEvent(decodeURIComponent(closeMatch[1]), await readCommand("operator")); events.publish("event.closed", decodeURIComponent(closeMatch[1])); return success(response, 200, result); }
     const reportMatch = pathname.match(/^\/api\/events\/([^/]+)\/daily-report$/);

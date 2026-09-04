@@ -200,7 +200,7 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await expect(page.locator("#orders")).toContainText("less sauce");
     await expect(page.locator("#orders")).toContainText("counter pickup");
     await expect(page.locator('#orders [data-order-action="start"]')).toBeVisible();
-    await expect(page.locator("#orders button:disabled")).toBeVisible();
+    await expect(page.locator("#orders [data-edit-reservation]")).toHaveCount(0);
     await page.locator("#orders [data-view-order]").click();
     await expect(page.locator("#orders")).toContainText("confirmed");
     await expect(kitchen.locator("#pending")).toContainText("Miles");
@@ -281,8 +281,30 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     });
     expect(scheduledOrders.body.data.find((order: any) => order.orderNumber === "POSUI-002")?.scheduledPickupAt).toContain("2026-07-20T18:30:00");
 
+    await page.locator('#preorder-orders [data-edit-reservation]').click();
+    await expect(page.locator("#reservation-editor")).toBeVisible();
+    for (const viewport of [{ width: 1024, height: 768 }, { width: 768, height: 1024 }]) {
+      await page.setViewportSize(viewport);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      const editorBox = await page.locator("#reservation-editor").boundingBox();
+      expect(editorBox && editorBox.x >= 0 && editorBox.x + editorBox.width <= viewport.width).toBe(true);
+    }
+    await page.locator("#edit-customer-name").fill("Lin Updated");
+    await page.locator("#edit-pickup-time").selectOption("19:00");
+    await page.locator('[data-edit-item-note="0"]').fill("customer edit");
+    await page.locator("#editor-save").click();
+    await expect(page.locator("#notice")).toContainText("預約單 POSUI-002 已更新並保留修改紀錄");
+    await expect(page.locator("#preorder-orders")).toContainText("Lin Updated");
+    await expect(page.locator("#preorder-orders")).toContainText("customer edit");
+    await page.locator("#preorder-search").fill("Lin Updated");
+    await expect(page.locator("#preorder-orders")).toContainText("POSUI-002");
+    await page.locator("#preorder-search").fill("");
+
     await page.locator('#preorder-orders [data-order-action="start"]').click();
     await page.locator('#preorder-orders [data-order-action="served"]').click();
+    await expect(page.locator("#preorder-orders")).not.toContainText("POSUI-002");
+    await expect(page.locator("#completed-preorder-orders")).toContainText("POSUI-002");
+    await expect(page.locator("#completed-preorder-orders")).toContainText("Lin Updated");
     await page.locator('button[data-tab="served"]').click();
     await page.locator("#served-search").fill("");
     await expect(page.locator('#served-orders [data-confirm-payment]')).toBeVisible();

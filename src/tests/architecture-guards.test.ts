@@ -3663,3 +3663,26 @@ test("Recipe Multi-Ingredient Owner Workflow remains a thin UI adapter over the 
   assert.match(facade, /此食材尚未設定配方使用單位，請先完成量測設定/);
   assert.doesNotMatch(page, /sqlite|better-sqlite|database\.execute/i);
 });
+
+test("POS Reservation Review and Correction stays inside Operations and preserves immutable completed history", () => {
+  const service = readFileSync(path.join(sourceRoot, "domains", "operations", "application", "order-service.ts"), "utf8");
+  const repository = readFileSync(path.join(sourceRoot, "domains", "operations", "infrastructure", "order-repository.ts"), "utf8");
+  const routes = readFileSync(path.join(sourceRoot, "server", "app", "routes.ts"), "utf8");
+  const access = readFileSync(path.join(sourceRoot, "server", "app", "access-control.ts"), "utf8");
+  const page = readFileSync(path.join(sourceRoot, "web", "pos", "page.ts"), "utf8");
+  assert.match(service, /updateScheduledOrder/);
+  assert.match(service, /expectedRevision/);
+  assert.match(service, /RESERVATION_EDIT_LOCKED/);
+  assert.match(service, /RESERVATION_ITEMS_LOCKED/);
+  assert.match(repository, /transactionImmediate/);
+  assert.match(repository, /adjustSoldQuantity/);
+  assert.match(repository, /order\.reservation_updated/);
+  assert.match(routes, /\/reservation/);
+  assert.match(access, /orders\\\/\[\^\/\]\+\\\/reservation/);
+  assert.match(page, /待處理預約/);
+  assert.match(page, /已完成預約/);
+  assert.match(page, /completed-preorder-orders/);
+  assert.match(page, /data-edit-reservation/);
+  assert.doesNotMatch(service + repository, /domains\/(catalog|cost|recipe)/i);
+  assert.doesNotMatch(page, /localStorage.*(?:order|reservation)|indexedDB/i);
+});

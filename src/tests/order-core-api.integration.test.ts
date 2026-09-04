@@ -81,6 +81,50 @@ test("ScheduledPickupOrderLifecycleBoundary accepts only the explicit Event-loca
   }
 });
 
+test("scheduled reservation edit API updates the existing Order atomically and rejects no-op or stale writes", async () => {
+  const { server, baseUrl, databasePath, eventId, product } = await setup(3);
+  try {
+    const created = await request(baseUrl, "/api/orders", "POST", { ...payload(eventId, product, "scheduled-edit-api"), scheduledPickupAt: "2026-07-20T18:30:00+08:00" });
+    const edit = {
+      expectedRevision: created.body.data.revision,
+      scheduledPickupAt: "2026-07-20T19:00:00+08:00",
+      customerName: "Lin",
+      customerPhoneTail: "456",
+      paymentMethod: "LINE_PAY",
+      notes: "customer reconfirmed",
+      items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 2, notes: "less sauce" }],
+      operator: "spoofed-client",
+      deviceId: "POS-A"
+    };
+    const updated = await request(baseUrl, `/api/orders/${created.body.data.orderId}/reservation`, "PATCH", edit);
+    assert.equal(updated.status, 200);
+    assert.equal(updated.body.data.customerName, "Lin");
+    assert.equal(updated.body.data.scheduledPickupAt, "2026-07-20T19:00:00+08:00");
+    assert.equal(updated.body.data.grandTotal, 360);
+    assert.equal(updated.body.data.items[0].quantity, 2);
+    assert.notEqual(updated.body.data.revision, created.body.data.revision);
+
+    const noOp = await request(baseUrl, `/api/orders/${created.body.data.orderId}/reservation`, "PATCH", { ...edit, expectedRevision: updated.body.data.revision });
+    assert.equal(noOp.status, 422);
+    assert.equal(noOp.body.error.code, "RESERVATION_NOT_CHANGED");
+    const stale = await request(baseUrl, `/api/orders/${created.body.data.orderId}/reservation`, "PATCH", { ...edit, customerName: "Stale", expectedRevision: created.body.data.revision });
+    assert.equal(stale.status, 409);
+    assert.equal(stale.body.error.code, "ORDER_CONCURRENTLY_CHANGED");
+
+    const database = new Database(databasePath, { readonly: true });
+    try {
+      const inventory = database.prepare("SELECT sold_quantity FROM operations_sellable_inventory WHERE event_id = ? AND product_version_id = ?").get(eventId, product.productVersionId) as { sold_quantity: number };
+      const audit = database.prepare("SELECT COUNT(*) AS count FROM audit_logs WHERE entity_id = ? AND action = 'order.reservation_updated'").get(created.body.data.orderId) as { count: number };
+      assert.equal(inventory.sold_quantity, 2);
+      assert.equal(audit.count, 1);
+    } finally {
+      database.close();
+    }
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("two POS requests for the final sellable portion produce one success and one insufficient response", async () => {
   const { server, baseUrl, databasePath, eventId, product } = await setup(1);
   try {

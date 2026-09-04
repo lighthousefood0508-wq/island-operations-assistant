@@ -11,14 +11,16 @@ import { createDatabase } from "../shared/database/database-provider.js";
 import { runMigrations } from "../shared/database/migrate.js";
 
 const product = { contractVersion: "2" as const, productId: "prod_rice", productVersionId: "pver_rice", categoryId: "cat_rice", displayCategoryName: "Rice", displayCategorySortOrder: 1, displayName: "Braised Rice", posName: "Rice", sellingPrice: 180, channels: ["pos"], isActive: true, publishedAt: "2026-07-20T00:00:00.000Z" };
+const drink = { contractVersion: "2" as const, productId: "prod_tea", productVersionId: "pver_tea", categoryId: "cat_drink", displayCategoryName: "Drink", displayCategorySortOrder: 2, displayName: "Cold Tea", posName: "Tea", sellingPrice: 40, channels: ["pos"], isActive: true, publishedAt: "2026-07-20T00:00:00.000Z" };
 
-function fixture(quantity = 2) {
+function fixture(quantity = 2, includeDrink = false) {
   const database = createDatabase({ host: "127.0.0.1", port: 0, databasePath: path.resolve("data", `order-core-${randomUUID()}.sqlite`) });
   runMigrations(database);
   const operations = new OperationsService(new OperationsRepository(database));
   const orders = new OrderService(new OrderRepository(database), new PaymentRepository(database));
   const event = operations.createEvent({ eventCode: "YONG", displayName: "Night market", date: "2026-07-20", startTime: "17:00", endTime: "22:00" });
   operations.setSellableInventory(event.eventId, product, { plannedQuantity: quantity });
+  if (includeDrink) operations.setSellableInventory(event.eventId, drink, { plannedQuantity: 4 });
   operations.openEvent(event.eventId);
   return { database, event, orders, inventory: new OrderRepository(database) };
 }
@@ -40,7 +42,7 @@ test("POS order atomically creates frozen snapshots and decrements sellable quan
   assert.equal(result.order.paymentMethod, "CASH");
   assert.equal(result.order.servedAt, null);
   assert.equal(result.order.grandTotal, 180);
-  assert.deepEqual(result.order.items[0], { orderItemId: result.order.items[0]?.orderItemId, productId: product.productId, productVersionId: product.productVersionId, displayNameSnapshot: "Braised Rice", posNameSnapshot: "Rice", displayCategoryNameSnapshot: "Rice", unitListPrice: 180, unitSellingPrice: 180, quantity: 1, lineDiscount: 0, lineTotal: 180, notes: "less sauce", costStatus: "unavailable" });
+  assert.deepEqual(result.order.items[0], { orderItemId: result.order.items[0]?.orderItemId, productId: product.productId, productVersionId: product.productVersionId, displayNameSnapshot: "Braised Rice", posNameSnapshot: "Rice", posName: "Rice", displayCategoryNameSnapshot: "Rice", unitListPrice: 180, unitSellingPrice: 180, quantity: 1, lineDiscount: 0, lineTotal: 180, notes: "less sauce", costStatus: "unavailable" });
   assert.deepEqual(inventory.getInventoryState(event.eventId, product.productVersionId), { soldQuantity: 1, remainingQuantity: 1 });
   assert.equal(database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM audit_logs WHERE action = 'order_created' AND entity_id = ?", [result.order.orderId])?.count, 1);
   database.close();
@@ -54,6 +56,65 @@ test("ScheduledPickupOrderLifecycleBoundary stores its explicit instant and uses
   assert.equal(result.order.scheduledPickupAt, "2026-07-20T18:30:00+08:00");
   assert.deepEqual(inventory.getInventoryState(event.eventId, product.productVersionId), { soldQuantity: 1, remainingQuantity: 1 });
   assert.equal(database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM audit_logs WHERE action = 'order_created' AND entity_id = ?", [result.order.orderId])?.count, 1);
+  database.close();
+});
+
+test("scheduled order editing atomically revises details, items, totals, inventory, revision, and audit", () => {
+  const { database, event, orders, inventory } = fixture(5, true);
+  const created = orders.createPosOrder({ ...payload(event.eventId, "reservation-edit"), scheduledPickupAt: "2026-07-20T18:30:00+08:00" }).order;
+
+  const updated = orders.updateScheduledOrder(created.orderId, {
+    expectedRevision: created.revision,
+    scheduledPickupAt: "2026-07-20T19:00:00+08:00",
+    customerName: "Lin",
+    customerPhoneTail: "456",
+    paymentMethod: "LINE_PAY",
+    notes: "customer confirmed",
+    operator: "Owner",
+    deviceId: "POS-A",
+    items: [
+      { productId: product.productId, productVersionId: product.productVersionId, quantity: 2, notes: "less sauce" },
+      { productId: drink.productId, productVersionId: drink.productVersionId, quantity: 1, notes: null }
+    ]
+  });
+
+  assert.notEqual(updated.revision, created.revision);
+  assert.equal(updated.customerName, "Lin");
+  assert.equal(updated.customerPhoneTail, "456");
+  assert.equal(updated.scheduledPickupAt, "2026-07-20T19:00:00+08:00");
+  assert.equal(updated.paymentMethod, "LINE_PAY");
+  assert.equal(updated.grandTotal, 400);
+  assert.equal(updated.items.length, 2);
+  assert.deepEqual(inventory.getInventoryState(event.eventId, product.productVersionId), { soldQuantity: 2, remainingQuantity: 3 });
+  assert.deepEqual(inventory.getInventoryState(event.eventId, drink.productVersionId), { soldQuantity: 1, remainingQuantity: 3 });
+  assert.equal(database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM audit_logs WHERE action = 'order.reservation_updated' AND entity_id = ?", [created.orderId])?.count, 1);
+  database.close();
+});
+
+test("scheduled order editing fails closed on stale revisions, duplicate products, and insufficient inventory", () => {
+  const { database, event, orders, inventory } = fixture(1);
+  const created = orders.createPosOrder({ ...payload(event.eventId, "reservation-edit-fail"), scheduledPickupAt: "2026-07-20T18:30:00+08:00" }).order;
+  const base = { expectedRevision: created.revision, scheduledPickupAt: created.scheduledPickupAt, customerName: created.customerName, customerPhoneTail: created.customerPhoneTail, paymentMethod: created.paymentMethod, notes: created.notes, operator: "Owner", deviceId: "POS-A" };
+  assert.throws(() => orders.updateScheduledOrder(created.orderId, { ...base, expectedRevision: "stale", items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }] }), (error: unknown) => (error as { code?: string }).code === "ORDER_CONCURRENTLY_CHANGED");
+  assert.throws(() => orders.updateScheduledOrder(created.orderId, { ...base, items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }, { productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: "again" }] }), (error: unknown) => (error as { code?: string }).code === "DUPLICATE_PRODUCT");
+  assert.throws(() => orders.updateScheduledOrder(created.orderId, { ...base, items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 2, notes: null }] }), (error: unknown) => (error as { code?: string }).code === "INSUFFICIENT_QUANTITY");
+  assert.deepEqual(inventory.getInventoryState(event.eventId, product.productVersionId), { soldQuantity: 1, remainingQuantity: 0 });
+  assert.equal(database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM audit_logs WHERE action = 'order.reservation_updated' AND entity_id = ?", [created.orderId])?.count, 0);
+  database.close();
+});
+
+test("started reservations allow contact correction but lock item changes, and served history is immutable", () => {
+  const { database, event, orders } = fixture(3);
+  const created = orders.createPosOrder({ ...payload(event.eventId, "reservation-started"), scheduledPickupAt: "2026-07-20T18:30:00+08:00" }).order;
+  database.execute("UPDATE operations_orders SET production_status = 'preparing' WHERE order_id = ?", [created.orderId]);
+  const preparing = orders.getOrder(created.orderId);
+  const common = { expectedRevision: preparing.revision, scheduledPickupAt: preparing.scheduledPickupAt, customerName: "Corrected", customerPhoneTail: preparing.customerPhoneTail, paymentMethod: preparing.paymentMethod, notes: preparing.notes, operator: "Owner", deviceId: "POS-A" };
+  assert.throws(() => orders.updateScheduledOrder(created.orderId, { ...common, items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 2, notes: "less sauce" }] }), (error: unknown) => (error as { code?: string }).code === "RESERVATION_ITEMS_LOCKED");
+  const corrected = orders.updateScheduledOrder(created.orderId, { ...common, items: preparing.items.map((item) => ({ productId: item.productId, productVersionId: item.productVersionId, quantity: item.quantity, notes: item.notes })) });
+  assert.equal(corrected.customerName, "Corrected");
+  database.execute("UPDATE operations_orders SET production_status = 'served', served_at = ? WHERE order_id = ?", [new Date().toISOString(), created.orderId]);
+  const served = orders.getOrder(created.orderId);
+  assert.throws(() => orders.updateScheduledOrder(created.orderId, { ...common, expectedRevision: served.revision, items: served.items.map((item) => ({ productId: item.productId, productVersionId: item.productVersionId, quantity: item.quantity, notes: item.notes })) }), (error: unknown) => (error as { code?: string }).code === "RESERVATION_EDIT_LOCKED");
   database.close();
 });
 

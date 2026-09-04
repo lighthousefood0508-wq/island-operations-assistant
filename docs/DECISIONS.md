@@ -1,5 +1,20 @@
 # Decisions
 
+## DECISIONS #095 — POS Reservation Review and Correction Boundary
+
+- **Status**: APPROVED by Owner on 2026-09-04 for implementation, verification, PR publication/review, merge, integration closeout, and deployment to the existing Windows UAT runtime while this exact responsibility remains unchanged.
+- **Single responsibility**: Make every scheduled pickup Order in the current Event easy to review from POS, retain completed scheduled Orders at the bottom of the same reservation workspace, and permit a controlled correction of an unresolved scheduled Order without creating a second Reservation authority.
+- **Projection and operator workflow**:
+  - The existing Operations Event Order projection remains the source of truth and returns the complete current-Event population without a browser or persistence row limit.
+  - POS groups scheduled Orders into pending and completed sections, keeps full customer/pickup/item/note/amount/status detail visible, and searches order number, customer name, phone tail, notes, and item names. Completed scheduled Orders remain independently available through the existing served-order workspace.
+  - Completed, paid, cancelled, or served historical Orders cannot be silently overwritten. An unpaid served Order uses the existing explicit production-completion reversal before it can return to the active workflow.
+- **Correction command**:
+  - A new Operations-owned scheduled-Order correction operation may change customer name, phone tail, payment-method intent, pickup instant, notes, and — only while production is `not_started` or `queued` — item selection, item notes, and quantities.
+  - Item correction reuses the frozen Event Product snapshots, recalculates the existing subtotal/grand total, and adjusts Operations sellable quantity by the exact old/new delta inside one immediate transaction. Insufficient quantity, invalid Event/Product version, duplicate product, stale revision, or any failed line causes zero writes.
+  - Every successful correction requires the current deterministic Order revision, trusted authenticated operator identity, and device context, and appends before/after audit evidence. A no-op returns validation failure and appends no evidence.
+- **Protected boundaries**: This decision changes no schema or migration, Product/Sales Contract, payment evidence, completed Order, Event closeout, Kitchen authority, Cost, Recipe, Ingredient, Cloudflare, Windows scheduling, Docker/n8n, or UAT data during development. It does not create a Customer aggregate or a second Reservation table/service.
+- **Verification**: Focused application/persistence/API tests cover atomic item/inventory/total correction, metadata-only correction after production starts, stale/no-op/duplicate/insufficient failures, immutable served history, and audit evidence. Chromium E2E covers current-Event full display, search, edit dialog, completed-at-bottom behavior, production reversal compatibility, and tablet-safe layout; existing authentication/role/CSRF, Operations lifecycle/payment/closeout, SSE, architecture, migration, build, lint, and full verification remain required.
+
 ## DECISIONS #094 — Ingredient Measurement Profile Correction and Impact Confirmation Boundary
 
 - **Status**: APPROVED by Owner on 2026-08-28 for governance, implementation, verification, publication, review, merge, integration closeout, and the existing Windows UAT deployment while this exact responsibility remains unchanged.

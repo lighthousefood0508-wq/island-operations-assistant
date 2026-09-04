@@ -24,6 +24,7 @@ function requiredRoles(pathname: string, method: string | undefined): readonly R
   if (pathname === "/pos" || pathname === "/order") return ["admin", "pos"];
   if (pathname === "/kitchen") return ["admin", "kitchen"];
   if (/^\/api\/orders\/[^/]+\/status$/.test(pathname) && method === "PATCH") return ["admin", "pos", "kitchen"];
+  if (/^\/api\/orders\/[^/]+\/reservation$/.test(pathname) && method === "PATCH") return ["admin", "pos"];
   if (/^\/api\/orders\/[^/]+\/production\/revert-completion$/.test(pathname)) return ["admin", "pos", "kitchen", "closeout"];
   if (/^\/api\/orders\/[^/]+\/(no-show|release-inventory)$/.test(pathname)) return ["admin", "closeout"];
   if (/^\/api\/events\/[^/]+\/(close|daily-report|statistics|closeout)$/.test(pathname)) return ["admin", "closeout"];

@@ -63,6 +63,7 @@ export type OrderItem = Readonly<{
   productVersionId: string;
   displayNameSnapshot: string;
   posNameSnapshot: string;
+  posName: string;
   displayCategoryNameSnapshot: string | null;
   unitListPrice: number;
   unitSellingPrice: number;
@@ -94,6 +95,7 @@ export type OperationsOrder = Readonly<{
   createdAt: string;
   confirmedAt: string;
   servedAt: string | null;
+  revision: string;
   items: readonly OrderItem[];
 }>;
 

@@ -1,4 +1,6 @@
+import { createHash } from "node:crypto";
 import type { DatabaseAdapter } from "../../../shared/database/database-adapter.js";
+import { createId } from "../../../shared/utils/ids.js";
 import type { OperationsOrder, OrderItem, OrderStatus, PaymentMethod, PaymentStatus, PosOrderItemInput, ProductionStatus } from "../domain/types.js";
 
 type EventRow = { event_id: string; event_code: string; date: string; start_time: string; end_time: string; status: string };
@@ -28,18 +30,20 @@ export type OrderProductSnapshot = Readonly<{
 }>;
 
 function mapOrder(row: OrderRow, items: readonly OrderItem[]): OperationsOrder {
-  return {
+  const order = {
     orderId: row.order_id, orderNumber: row.order_number, eventId: row.event_id, source: row.source,
     orderStatus: row.order_status, paymentStatus: row.payment_status, productionStatus: row.production_status, cancellationReason: row.cancellation_reason,
     scheduledPickupAt: row.scheduled_pickup_at, customerName: row.customer_name, customerPhoneTail: row.customer_phone_tail, paymentMethod: row.payment_method, notes: row.notes, subtotal: row.subtotal, discountTotal: row.discount_total,
     grandTotal: row.grand_total, paidTotal: row.paid_total, createdAt: row.created_at, confirmedAt: row.confirmed_at, servedAt: row.served_at, items
   };
+  const revision = createHash("sha256").update(JSON.stringify(order)).digest("hex");
+  return { ...order, revision };
 }
 
 function mapItem(row: OrderItemRow): OrderItem {
   return {
     orderItemId: row.order_item_id, productId: row.product_id, productVersionId: row.product_version_id,
-    displayNameSnapshot: row.display_name_snapshot, posNameSnapshot: row.pos_name_snapshot,
+    displayNameSnapshot: row.display_name_snapshot, posNameSnapshot: row.pos_name_snapshot, posName: row.pos_name_snapshot,
     displayCategoryNameSnapshot: row.display_category_name_snapshot, unitListPrice: row.unit_list_price,
     unitSellingPrice: row.unit_selling_price, quantity: row.quantity, lineDiscount: row.line_discount,
     lineTotal: row.line_total, notes: row.notes, costStatus: row.cost_status
@@ -86,6 +90,22 @@ export class OrderRepository {
     return result.changes === 1;
   }
 
+  adjustSoldQuantity(eventId: string, productId: string, productVersionId: string, delta: number, timestamp: string): boolean {
+    if (delta === 0) return true;
+    if (delta > 0) {
+      return this.database.execute(`UPDATE operations_sellable_inventory
+        SET sold_quantity = sold_quantity + ?, updated_at = ?
+        WHERE event_id = ? AND product_id = ? AND product_version_id = ? AND is_enabled = 1
+          AND planned_quantity - reserved_quantity - sold_quantity >= ?`,
+      [delta, timestamp, eventId, productId, productVersionId, delta]).changes === 1;
+    }
+    const release = Math.abs(delta);
+    return this.database.execute(`UPDATE operations_sellable_inventory
+      SET sold_quantity = sold_quantity - ?, updated_at = ?
+      WHERE event_id = ? AND product_id = ? AND product_version_id = ? AND sold_quantity >= ?`,
+    [release, timestamp, eventId, productId, productVersionId, release]).changes === 1;
+  }
+
   nextOrderSequence(eventId: string, timestamp: string): number {
     this.database.execute("INSERT OR IGNORE INTO operations_event_order_sequences (event_id, next_sequence, updated_at) VALUES (?, 1, ?)", [eventId, timestamp]);
     const row = this.database.queryOne<{ next_sequence: number }>("SELECT next_sequence FROM operations_event_order_sequences WHERE event_id = ?", [eventId]);
@@ -127,6 +147,38 @@ export class OrderRepository {
     const items = this.database.queryMany<OrderItemRow>(`SELECT order_item_id, product_id, product_version_id, display_name_snapshot, pos_name_snapshot, display_category_name_snapshot,
       unit_list_price, unit_selling_price, quantity, line_discount, line_total, notes, cost_status FROM operations_order_items WHERE order_id = ? ORDER BY rowid`, [orderId]).map(mapItem);
     return mapOrder(order, items);
+  }
+
+  listEventOrders(eventId: string): OperationsOrder[] {
+    const rows = this.database.queryMany<OrderRow>(`SELECT order_id, order_number, event_id, source, order_status, payment_status, production_status, cancellation_reason, scheduled_pickup_at, customer_name, customer_phone_tail, payment_method, notes,
+      subtotal, discount_total, grand_total, paid_total, created_at, confirmed_at, served_at FROM operations_orders WHERE event_id = ? ORDER BY COALESCE(scheduled_pickup_at, created_at), order_number`, [eventId]);
+    return rows.map((row) => {
+      const items = this.database.queryMany<OrderItemRow>(`SELECT order_item_id, product_id, product_version_id, display_name_snapshot, pos_name_snapshot, display_category_name_snapshot,
+        unit_list_price, unit_selling_price, quantity, line_discount, line_total, notes, cost_status FROM operations_order_items WHERE order_id = ? ORDER BY rowid`, [row.order_id]).map(mapItem);
+      return mapOrder(row, items);
+    });
+  }
+
+  updateReservationHeader(orderId: string, input: { scheduledPickupAt: string; customerName: string | null; customerPhoneTail: string | null; paymentMethod: PaymentMethod; notes: string | null; subtotal: number }): boolean {
+    return this.database.execute(`UPDATE operations_orders
+      SET scheduled_pickup_at = ?, customer_name = ?, customer_phone_tail = ?, payment_method = ?, notes = ?, subtotal = ?, grand_total = ?
+      WHERE order_id = ? AND order_status = 'confirmed' AND payment_status = 'unpaid' AND scheduled_pickup_at IS NOT NULL`,
+    [input.scheduledPickupAt, input.customerName, input.customerPhoneTail, input.paymentMethod, input.notes, input.subtotal, input.subtotal, orderId]).changes === 1;
+  }
+
+  replaceOrderItems(orderId: string, entries: readonly { item: PosOrderItemInput; snapshot: OrderProductSnapshot }[], createdAt: string): void {
+    this.database.execute("DELETE FROM operations_order_items WHERE order_id = ?", [orderId]);
+    for (const entry of entries) this.insertOrderItem({ orderItemId: createId("order_item_"), orderId, item: entry.item, snapshot: entry.snapshot, createdAt });
+  }
+
+  insertReservationRevisionAudit(input: { orderId: string; operator: string; deviceId: string; before: OperationsOrder; after: OperationsOrder; occurredAt: string }): void {
+    this.database.execute("INSERT INTO audit_logs (audit_log_id, actor_user_id, entity_type, entity_id, action, before_json, after_json, occurred_at) VALUES (?, NULL, 'order', ?, 'order.reservation_updated', ?, ?, ?)", [
+      `audit_${createHash("sha256").update(`${input.orderId}\u0000${input.occurredAt}\u0000${input.after.revision}`).digest("hex").slice(0, 32)}`,
+      input.orderId,
+      JSON.stringify({ operator: input.operator, deviceId: input.deviceId, order: input.before }),
+      JSON.stringify({ operator: input.operator, deviceId: input.deviceId, order: input.after }),
+      input.occurredAt
+    ]);
   }
 
   getInventoryState(eventId: string, productVersionId: string): { soldQuantity: number; remainingQuantity: number } | undefined {

@@ -352,6 +352,55 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
   }
 });
 
+test("reservation workspace renders one order per row in pickup-time order", async ({ page }) => {
+  const { eventId, contracts } = await setupOpenEvent(page, "POSROW", [
+    { name: "Reservation meal", posName: "Meal", price: 180, quantity: 10 }
+  ]);
+  let testError: unknown;
+  try {
+    const product = contracts[0];
+    for (const [index, pickup] of ["19:00", "17:30", "18:15"].entries()) {
+      const result = await api(page, "/api/orders", "POST", {
+        source: "pos",
+        eventId,
+        idempotencyKey: `reservation-row-${index}`,
+        items: [{ productId: product?.productId, productVersionId: product?.productVersionId, quantity: 1, notes: null }],
+        scheduledPickupAt: `2026-07-20T${pickup}:00+08:00`,
+        paymentCollected: false,
+        customerName: `Guest ${index + 1}`,
+        customerPhoneTail: `10${index}`,
+        paymentMethod: "CASH"
+      });
+      assertApiSuccess(result, `create reservation row ${index + 1}`);
+    }
+
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto("/pos");
+    await page.locator('button[data-tab="preorder"]').click();
+    const cards = page.locator("#preorder-orders > article.order");
+    await expect(cards).toHaveCount(3);
+    const text = await cards.allTextContents();
+    expect(text[0]).toContain("POSROW-002");
+    expect(text[0]).toContain("下午05:30");
+    expect(text[1]).toContain("POSROW-003");
+    expect(text[1]).toContain("下午06:15");
+    expect(text[2]).toContain("POSROW-001");
+    expect(text[2]).toContain("下午07:00");
+    const boxes = await Promise.all([0, 1, 2].map(index => cards.nth(index).boundingBox()));
+    expect(boxes.every(box => box !== null)).toBe(true);
+    expect(boxes[1]!.y).toBeGreaterThan(boxes[0]!.y + boxes[0]!.height - 1);
+    expect(boxes[2]!.y).toBeGreaterThan(boxes[1]!.y + boxes[1]!.height - 1);
+    expect(Math.abs(boxes[0]!.x - boxes[1]!.x)).toBeLessThan(2);
+    expect(Math.abs(boxes[0]!.width - boxes[1]!.width)).toBeLessThan(2);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  } catch (error) {
+    testError = error;
+    throw error;
+  } finally {
+    await completeCleanup(testError, [() => closeEvent(page, eventId)]);
+  }
+});
+
 test("two POS browser contexts race for the final portion and only one creates an Order", async ({ browser, page }) => {
   const { eventId, contracts } = await setupOpenEvent(page, "RACEUI", [{ name: "Last bowl", posName: "Last", price: 150, quantity: 1 }]);
   const firstContext: BrowserContext = await browser.newContext();

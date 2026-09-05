@@ -1,4 +1,5 @@
 import type { DatabaseAdapter } from "../../../shared/database/database-adapter.js";
+import { hasNonterminalEventModification as eventHasNonterminalModification, hasNonterminalOrderModification } from "./order-modification-lock.js";
 import type { DailyReportReadPort } from "../domain/daily-report-read-port.js";
 import type { DailyReport, OrderStatus, PaymentCloseoutReconciliation, PaymentMethod, PaymentStatus, ProductionStatus } from "../domain/types.js";
 
@@ -69,12 +70,17 @@ export type LifecycleOrder = Readonly<{ orderId: string; orderNumber: string; ev
 export class LifecycleRepository implements DailyReportReadPort {
   constructor(private readonly database: DatabaseAdapter) {}
   transactionImmediate<T>(work: () => T): T { return this.database.transactionImmediate(work); }
+  hasNonterminalModification(orderId: string): boolean { return hasNonterminalOrderModification(this.database, orderId); }
+  hasNonterminalEventModification(eventId: string): boolean { return eventHasNonterminalModification(this.database, eventId); }
   findOrder(orderId: string): LifecycleOrder | undefined {
     const row = this.database.queryOne<OrderRow>("SELECT order_id, order_number, event_id, source, created_at, scheduled_pickup_at, customer_name, customer_phone_tail, payment_method, notes, order_status, payment_status, production_status, cancellation_reason, grand_total, paid_total, served_at FROM operations_orders WHERE order_id = ?", [orderId]);
     return row && this.mapOrder(row);
   }
   listEventOrders(eventId: string): LifecycleOrder[] {
-    return this.database.queryMany<OrderRow>("SELECT order_id, order_number, event_id, source, created_at, scheduled_pickup_at, customer_name, customer_phone_tail, payment_method, notes, order_status, payment_status, production_status, cancellation_reason, grand_total, paid_total, served_at FROM operations_orders WHERE event_id = ? ORDER BY COALESCE(scheduled_pickup_at, created_at), order_number", [eventId]).map((row) => this.mapOrder(row));
+    return this.database.queryMany<OrderRow>(`SELECT order_id, order_number, event_id, source, created_at, scheduled_pickup_at, customer_name, customer_phone_tail, payment_method, notes, order_status, payment_status, production_status, cancellation_reason, grand_total, paid_total, served_at
+      FROM operations_orders
+      WHERE event_id = ? AND order_id NOT IN (SELECT superseded_order_id FROM operations_order_replacements)
+      ORDER BY COALESCE(scheduled_pickup_at, created_at), order_number`, [eventId]).map((row) => this.mapOrder(row));
   }
   private mapOrder(row: OrderRow): LifecycleOrder { return { orderId: row.order_id, orderNumber: row.order_number, eventId: row.event_id, source: row.source, createdAt: row.created_at, scheduledPickupAt: row.scheduled_pickup_at, customerName: row.customer_name, customerPhoneTail: row.customer_phone_tail, paymentMethod: row.payment_method, notes: row.notes, orderStatus: row.order_status, paymentStatus: row.payment_status, productionStatus: row.production_status, cancellationReason: row.cancellation_reason, grandTotal: row.grand_total, paidTotal: row.paid_total, servedAt: row.served_at, items: this.database.queryMany<{ pos_name_snapshot: string; quantity: number; notes: string | null }>("SELECT pos_name_snapshot, quantity, notes FROM operations_order_items WHERE order_id = ? ORDER BY rowid", [row.order_id]).map((item) => ({ posName: item.pos_name_snapshot, quantity: item.quantity, notes: item.notes })) }; }
   updateProductionStatus(orderId: string, from: ProductionStatus, to: ProductionStatus, timestamp: string): boolean { return this.database.execute("UPDATE operations_orders SET production_status = ?, served_at = CASE WHEN ? = 'served' THEN ? ELSE served_at END WHERE order_id = ? AND production_status = ?", [to, to, timestamp, orderId, from]).changes === 1; }
@@ -140,8 +146,12 @@ export class LifecycleRepository implements DailyReportReadPort {
   }
   getStatistics(eventId: string): Record<string, unknown> {
     const event = this.findEvent(eventId); if (!event) return {};
-    const totals = this.database.queryOne<{ orders: number; amount: number; unresolved: number; cancelled: number; no_show: number; scheduled: number }>(`SELECT COUNT(*) AS orders, COALESCE(SUM(CASE WHEN order_status != 'cancelled' THEN grand_total ELSE 0 END), 0) AS amount, SUM(CASE WHEN order_status NOT IN ('completed','cancelled') THEN 1 ELSE 0 END) AS unresolved, SUM(CASE WHEN order_status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled, SUM(CASE WHEN cancellation_reason = 'no_show' THEN 1 ELSE 0 END) AS no_show, SUM(CASE WHEN scheduled_pickup_at IS NOT NULL AND order_status != 'cancelled' THEN 1 ELSE 0 END) AS scheduled FROM operations_orders WHERE event_id = ?`, [eventId]) ?? { orders: 0, amount: 0, unresolved: 0, cancelled: 0, no_show: 0, scheduled: 0 };
-    const products = this.database.queryMany<{ product_id: string; pos_name_snapshot: string; quantity: number }>(`SELECT i.product_id, i.pos_name_snapshot, SUM(i.quantity) AS quantity FROM operations_order_items i JOIN operations_orders o ON o.order_id = i.order_id WHERE o.event_id = ? AND o.order_status != 'cancelled' GROUP BY i.product_id, i.pos_name_snapshot ORDER BY i.pos_name_snapshot`, [eventId]);
+    const totals = this.database.queryOne<{ orders: number; amount: number; unresolved: number; cancelled: number; no_show: number; scheduled: number }>(`SELECT COUNT(*) AS orders, COALESCE(SUM(CASE WHEN order_status != 'cancelled' THEN grand_total ELSE 0 END), 0) AS amount, SUM(CASE WHEN order_status NOT IN ('completed','cancelled') THEN 1 ELSE 0 END) AS unresolved, SUM(CASE WHEN order_status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled, SUM(CASE WHEN cancellation_reason = 'no_show' THEN 1 ELSE 0 END) AS no_show, SUM(CASE WHEN scheduled_pickup_at IS NOT NULL AND order_status != 'cancelled' THEN 1 ELSE 0 END) AS scheduled
+      FROM operations_orders WHERE event_id = ?
+        AND order_id NOT IN (SELECT superseded_order_id FROM operations_order_replacements)`, [eventId]) ?? { orders: 0, amount: 0, unresolved: 0, cancelled: 0, no_show: 0, scheduled: 0 };
+    const products = this.database.queryMany<{ product_id: string; pos_name_snapshot: string; quantity: number }>(`SELECT i.product_id, i.pos_name_snapshot, SUM(i.quantity) AS quantity FROM operations_order_items i JOIN operations_orders o ON o.order_id = i.order_id WHERE o.event_id = ? AND o.order_status != 'cancelled'
+      AND o.order_id NOT IN (SELECT superseded_order_id FROM operations_order_replacements)
+      GROUP BY i.product_id, i.pos_name_snapshot ORDER BY i.pos_name_snapshot`, [eventId]);
     const inventory = this.database.queryMany<{ product_id: string; product_version_id: string; pos_name: string; remaining: number }>("SELECT i.product_id, i.product_version_id, COALESCE(p.pos_name, i.product_id) AS pos_name, i.planned_quantity - i.reserved_quantity - i.sold_quantity AS remaining FROM operations_sellable_inventory i LEFT JOIN operations_product_copies p ON p.product_version_id = i.product_version_id WHERE i.event_id = ?", [eventId]);
     const closeout = this.database.queryOne<CloseoutRow>("SELECT cash_received, line_pay_received, other_received, waste_amount, notes, updated_at FROM operations_event_closeouts WHERE event_id = ?", [eventId]);
     const closeoutItems = this.database.queryMany<CloseoutItemRow>("SELECT product_id, product_version_id, remaining_quantity, waste_quantity, retained_quantity, updated_at FROM operations_event_closeout_items WHERE event_id = ? ORDER BY product_version_id", [eventId]);
@@ -163,16 +173,21 @@ export class LifecycleRepository implements DailyReportReadPort {
     const items = this.database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_event_closeout_items WHERE event_id = ?", [eventId])?.count ?? 0;
     return inventory.length === items;
   }
-  unresolvedCount(eventId: string): number { return this.database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_orders WHERE event_id = ? AND order_status NOT IN ('completed', 'cancelled')", [eventId])?.count ?? 0; }
+  unresolvedCount(eventId: string): number { return this.database.queryOne<{ count: number }>(`SELECT COUNT(*) AS count FROM operations_orders
+    WHERE event_id = ? AND order_status NOT IN ('completed', 'cancelled')
+      AND order_id NOT IN (SELECT superseded_order_id FROM operations_order_replacements)`, [eventId])?.count ?? 0; }
   buildReport(event: EventRow, closedAt: string, paymentReconciliation: PaymentCloseoutReconciliation): DailyReport {
     const counts = this.database.queryOne<{ total: number; completed: number; cancelled: number; no_show: number }>(`SELECT COUNT(*) AS total,
       SUM(CASE WHEN order_status = 'completed' THEN 1 ELSE 0 END) AS completed,
       SUM(CASE WHEN order_status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled,
       SUM(CASE WHEN order_status = 'cancelled' AND cancellation_reason = 'no_show' THEN 1 ELSE 0 END) AS no_show
-      FROM operations_orders WHERE event_id = ?`, [event.event_id]) ?? { total: 0, completed: 0, cancelled: 0, no_show: 0 };
+      FROM operations_orders WHERE event_id = ?
+        AND order_id NOT IN (SELECT superseded_order_id FROM operations_order_replacements)`, [event.event_id]) ?? { total: 0, completed: 0, cancelled: 0, no_show: 0 };
     const products = this.database.queryMany<{ product_id: string; pos_name_snapshot: string; quantity: number; revenue: number }>(`SELECT i.product_id, i.pos_name_snapshot, SUM(i.quantity) AS quantity, SUM(i.line_total) AS revenue
       FROM operations_order_items i JOIN operations_orders o ON o.order_id = i.order_id
-      WHERE o.event_id = ? AND o.order_status = 'completed' GROUP BY i.product_id, i.pos_name_snapshot ORDER BY i.pos_name_snapshot`, [event.event_id]);
+      WHERE o.event_id = ? AND o.order_status = 'completed'
+        AND o.order_id NOT IN (SELECT superseded_order_id FROM operations_order_replacements)
+      GROUP BY i.product_id, i.pos_name_snapshot ORDER BY i.pos_name_snapshot`, [event.event_id]);
     const payments = this.paymentTotals(event.event_id);
     return { event: { eventId: event.event_id, eventCode: event.event_code, displayName: event.display_name, date: event.date, startTime: event.start_time, endTime: event.end_time }, orders: { total: counts.total, completed: counts.completed ?? 0, cancelled: counts.cancelled ?? 0, noShow: counts.no_show ?? 0 }, products: products.map((item) => ({ productId: item.product_id, posName: item.pos_name_snapshot, quantity: item.quantity, revenue: item.revenue })), payments: { cash: payments.cash, linePay: payments.linePay, other: 0 }, paymentReconciliation, closedAt };
   }

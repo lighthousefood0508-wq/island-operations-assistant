@@ -216,6 +216,7 @@ export class OrderService {
     return this.repository.transactionImmediate(() => {
       const current = this.repository.getOrder(orderId);
       if (!current) throw new HttpError(404, "ORDER_NOT_FOUND", "Order was not found.");
+      if (this.repository.hasNonterminalModification(orderId)) throw new HttpError(409, "ORDER_MODIFICATION_PENDING", "此訂單已有尚未完成的修改，暫時不能再次編輯。");
       if (current.revision !== expectedRevision) throw new HttpError(409, "ORDER_CONCURRENTLY_CHANGED", "預約單已被其他裝置更新，請重新整理後再試。");
       if (!current.scheduledPickupAt) throw new HttpError(409, "RESERVATION_ONLY", "Only scheduled pickup Orders can be edited here.");
       if (current.orderStatus !== "confirmed" || current.paymentStatus !== "unpaid" || current.productionStatus === "served") throw new HttpError(409, "RESERVATION_EDIT_LOCKED", "已出餐、已付款、已完成或已取消的預約單不可直接覆寫。");

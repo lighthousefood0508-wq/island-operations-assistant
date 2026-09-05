@@ -31,6 +31,12 @@ function reconciliation(input: unknown, candidate: PaymentCloseoutReconciliation
 
 export class LifecycleService {
   constructor(private readonly repository: LifecycleRepository) {}
+  private ensureOrderUnlocked(orderId: string): void {
+    if (this.repository.hasNonterminalModification(orderId)) throw new HttpError(409, "ORDER_MODIFICATION_PENDING", "此訂單正在修改，暫時不能變更訂單或製作狀態。");
+  }
+  private ensureEventUnlocked(eventId: string): void {
+    if (this.repository.hasNonterminalEventModification(eventId)) throw new HttpError(409, "EVENT_MODIFICATION_PENDING", "場次仍有尚未完成的訂單修改，暫時不能儲存收攤或關閉場次。");
+  }
   listEventOrders(eventId: string): LifecycleOrder[] { return this.repository.listEventOrders(eventId); }
   changeStatus(orderId: string, input: unknown): LifecycleOrder {
     const target = (input as Record<string, unknown>)?.status;
@@ -49,6 +55,7 @@ export class LifecycleService {
     return this.repository.transactionImmediate(() => {
       const order = this.repository.findOrder(orderId);
       if (!order) throw new HttpError(404, "ORDER_NOT_FOUND", "Order was not found.");
+      this.ensureOrderUnlocked(orderId);
       if (order.orderStatus === "completed") throw new HttpError(409, "ORDER_ALREADY_COMPLETED", "A completed Order cannot be reverted by a Production-only action.");
       if (order.orderStatus !== "confirmed" || order.productionStatus !== "served" || !order.servedAt) throw new HttpError(409, "ORDER_NOT_SERVED", "Only a confirmed served Order can revert Production completion.");
       const event = this.repository.findEvent(order.eventId);
@@ -84,6 +91,7 @@ export class LifecycleService {
   private transitionProduction(orderId: string, target: ProductionStatus, actor: string): LifecycleOrder {
     return this.repository.transactionImmediate(() => {
       const order = this.repository.findOrder(orderId); if (!order) throw new HttpError(404, "ORDER_NOT_FOUND", "Order was not found.");
+      this.ensureOrderUnlocked(orderId);
       if (terminal(order.orderStatus) || !productionTransitions[order.productionStatus].includes(target)) throw new HttpError(409, "ILLEGAL_STATUS_TRANSITION", "This Production status transition is not allowed.");
       const timestamp = now();
       if (!this.repository.updateProductionStatus(orderId, order.productionStatus, target, timestamp)) throw new HttpError(409, "ORDER_CONCURRENTLY_CHANGED", "Order changed concurrently; refresh and retry.");
@@ -99,6 +107,7 @@ export class LifecycleService {
   private completeOrder(orderId: string, actor: string): LifecycleOrder {
     return this.repository.transactionImmediate(() => {
       const order = this.repository.findOrder(orderId); if (!order) throw new HttpError(404, "ORDER_NOT_FOUND", "Order was not found.");
+      this.ensureOrderUnlocked(orderId);
       if (order.orderStatus !== "confirmed") throw new HttpError(409, "ILLEGAL_STATUS_TRANSITION", "Only confirmed Orders may complete.");
       if (order.paymentStatus !== "paid" || order.productionStatus !== "served") throw new HttpError(409, "ORDER_COMPLETION_REQUIREMENTS_NOT_MET", "Order completion requires paid payment and served production.");
       const timestamp = now();
@@ -110,6 +119,7 @@ export class LifecycleService {
   private cancelOrder(orderId: string, actor: string, reason: string | null, action: string): LifecycleOrder {
     return this.repository.transactionImmediate(() => {
       const order = this.repository.findOrder(orderId); if (!order) throw new HttpError(404, "ORDER_NOT_FOUND", "Order was not found.");
+      this.ensureOrderUnlocked(orderId);
       if (terminal(order.orderStatus) || !["draft", "submitted", "confirmed"].includes(order.orderStatus)) throw new HttpError(409, "ILLEGAL_STATUS_TRANSITION", "This Order status transition is not allowed.");
       const timestamp = now();
       if (!this.repository.cancelOrder(orderId, order.orderStatus, reason, timestamp)) throw new HttpError(409, "ORDER_CONCURRENTLY_CHANGED", "Order changed concurrently; refresh and retry.");
@@ -122,6 +132,7 @@ export class LifecycleService {
     const actor = operator((input as Record<string, unknown>)?.operator);
     return this.repository.transactionImmediate(() => {
       const order = this.repository.findOrder(orderId); if (!order) throw new HttpError(404, "ORDER_NOT_FOUND", "Order was not found.");
+      this.ensureOrderUnlocked(orderId);
       if (order.orderStatus !== "cancelled" || order.cancellationReason !== "no_show") throw new HttpError(409, "RELEASE_ONLY_FOR_NO_SHOW", "Only cancelled Orders with cancellationReason=no_show may release inventory.");
       if (order.productionStatus !== "not_started") throw new HttpError(409, "RELEASE_AFTER_PRODUCTION_FORBIDDEN", "Prepared Orders cannot release sellable quantity.");
       if (this.repository.hasRelease(orderId)) return { order, released: false };
@@ -138,6 +149,7 @@ export class LifecycleService {
     return this.repository.transactionImmediate(() => {
       const closed = this.repository.findClosure(eventId); if (closed) return { report: closed, replayed: true };
       const event = this.repository.findEvent(eventId); if (!event) throw new HttpError(404, "EVENT_NOT_FOUND", "Event was not found.");
+      this.ensureEventUnlocked(eventId);
       if (event.status !== "open" && event.status !== "paused") throw new HttpError(409, "EVENT_NOT_OPERATIONAL", "Only an OPEN or PAUSED Event can be closed.");
       const unresolved = this.repository.unresolvedCount(eventId); if (unresolved) throw new HttpError(409, "EVENT_CLOSE_BLOCKED", "Resolve all non-terminal Orders first.", { unresolved: String(unresolved) });
       if (!this.repository.hasCompleteCloseout(eventId)) throw new HttpError(409, "EVENT_CLOSEOUT_REQUIRED", "Complete the per-product waste and retained closeout before closing the Event.");
@@ -177,7 +189,7 @@ export class LifecycleService {
       return { ...item, wasteQuantity, retainedQuantity: item.remainingQuantity - wasteQuantity };
     });
     const timestamp = now(); const actor = operator(value?.operator); const auditLogId = createId("audit_"); const notes = typeof value?.notes === "string" ? value.notes.slice(0, 1000) : "";
-    this.repository.transactionImmediate(() => { this.repository.saveCloseout(eventId, { cashReceived, linePayReceived, otherReceived, wasteAmount, notes, updatedAt: timestamp, operator: actor, auditLogId }); this.repository.replaceCloseoutItems(eventId, closeoutItems.map((item) => ({ ...item, updatedAt: timestamp }))); this.repository.insertAudit({ auditLogId, entityType: "event", entityId: eventId, action: "closeout_updated", metadata: { operator: actor, eventId, itemCount: closeoutItems.length }, occurredAt: timestamp }); });
+    this.repository.transactionImmediate(() => { this.ensureEventUnlocked(eventId); this.repository.saveCloseout(eventId, { cashReceived, linePayReceived, otherReceived, wasteAmount, notes, updatedAt: timestamp, operator: actor, auditLogId }); this.repository.replaceCloseoutItems(eventId, closeoutItems.map((item) => ({ ...item, updatedAt: timestamp }))); this.repository.insertAudit({ auditLogId, entityType: "event", entityId: eventId, action: "closeout_updated", metadata: { operator: actor, eventId, itemCount: closeoutItems.length }, occurredAt: timestamp }); });
     return this.getStatistics(eventId);
   }
 }

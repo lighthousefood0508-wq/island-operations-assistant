@@ -1,6 +1,7 @@
 import type { DatabaseAdapter } from "../../../shared/database/database-adapter.js";
 import type { OperationsOrder, OperationsPayment, PaymentMethod } from "../domain/types.js";
 import { OrderRepository } from "./order-repository.js";
+import { hasNonterminalOrderModification } from "./order-modification-lock.js";
 
 type PaymentRow = {
   payment_id: string;
@@ -40,6 +41,10 @@ export class PaymentRepository {
 
   transactionImmediate<T>(work: () => T): T {
     return this.database.transactionImmediate(work);
+  }
+
+  hasNonterminalModification(orderId: string): boolean {
+    return hasNonterminalOrderModification(this.database, orderId);
   }
 
   findOrder(orderId: string): OperationsOrder | undefined {

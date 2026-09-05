@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { DatabaseAdapter } from "../../../shared/database/database-adapter.js";
 import { createId } from "../../../shared/utils/ids.js";
 import type { OperationsOrder, OrderItem, OrderStatus, PaymentMethod, PaymentStatus, PosOrderItemInput, ProductionStatus } from "../domain/types.js";
+import { hasNonterminalOrderModification } from "./order-modification-lock.js";
 
 type EventRow = { event_id: string; event_code: string; date: string; start_time: string; end_time: string; status: string };
 type EventProductRow = {
@@ -54,6 +55,8 @@ export class OrderRepository {
   constructor(private readonly database: DatabaseAdapter) {}
 
   transactionImmediate<T>(work: () => T): T { return this.database.transactionImmediate(work); }
+
+  hasNonterminalModification(orderId: string): boolean { return hasNonterminalOrderModification(this.database, orderId); }
 
   findIdempotency(eventId: string, source: string, idempotencyKey: string): IdempotencyRow | undefined {
     return this.database.queryOne<IdempotencyRow>("SELECT request_fingerprint, order_id FROM operations_order_idempotency WHERE event_id = ? AND source = ? AND idempotency_key = ?", [eventId, source, idempotencyKey]);
@@ -151,7 +154,9 @@ export class OrderRepository {
 
   listEventOrders(eventId: string): OperationsOrder[] {
     const rows = this.database.queryMany<OrderRow>(`SELECT order_id, order_number, event_id, source, order_status, payment_status, production_status, cancellation_reason, scheduled_pickup_at, customer_name, customer_phone_tail, payment_method, notes,
-      subtotal, discount_total, grand_total, paid_total, created_at, confirmed_at, served_at FROM operations_orders WHERE event_id = ? ORDER BY COALESCE(scheduled_pickup_at, created_at), order_number`, [eventId]);
+      subtotal, discount_total, grand_total, paid_total, created_at, confirmed_at, served_at FROM operations_orders
+      WHERE event_id = ? AND order_id NOT IN (SELECT superseded_order_id FROM operations_order_replacements)
+      ORDER BY COALESCE(scheduled_pickup_at, created_at), order_number`, [eventId]);
     return rows.map((row) => {
       const items = this.database.queryMany<OrderItemRow>(`SELECT order_item_id, product_id, product_version_id, display_name_snapshot, pos_name_snapshot, display_category_name_snapshot,
         unit_list_price, unit_selling_price, quantity, line_discount, line_total, notes, cost_status FROM operations_order_items WHERE order_id = ? ORDER BY rowid`, [row.order_id]).map(mapItem);

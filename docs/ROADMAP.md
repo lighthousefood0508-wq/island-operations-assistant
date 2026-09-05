@@ -1,9 +1,27 @@
 # Roadmap
 
-Last synchronized: 2026-08-14 (Asia/Taipei).
+Last synchronized: 2026-09-05 (Asia/Taipei).
 
 Roadmap entries describe planning and verified completion state. They do not
 grant implementation, Git, release, deployment, or cleanup authority.
+
+## Planned Operations correction program — gated
+
+DECISIONS #096 records the Owner-approved architecture-documentation phase for
+paid/started Order replacement. The planned dependency sequence is:
+
+1. PR-OPERATIONS-004 — lazy-root replacement and pending-intent/reservation/lock
+   foundation plus its additive migration.
+2. PR-OPERATIONS-005 — supplement/refund evidence, cross-device recovery,
+   finished-item disposition, and closeout/report correctness.
+3. PR-OPERATIONS-006 — POS/Kitchen Owner workflow, stable pickup identity,
+   voice/reminder behavior, and responsive E2E.
+
+Independent Architecture Review passed and DECISIONS #097 authorizes only
+PR-OPERATIONS-004 implementation and local candidate validation. PR 005/006,
+commit, push, PR, merge, and deployment remain gated. No historical backfill,
+Waste Domain, provider integration, UAT/database change, or deployment is part
+of the current Gate.
 
 ## Completed and contained milestones
 

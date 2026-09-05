@@ -45,6 +45,7 @@ export class PaymentService {
 
       const order = this.repository.findOrder(orderId);
       if (!order) throw new HttpError(404, "ORDER_NOT_FOUND", "Order was not found.");
+      if (this.repository.hasNonterminalModification(orderId)) throw new HttpError(409, "ORDER_MODIFICATION_PENDING", "此訂單正在修改，款項與訂單內容尚未完成核對。");
       if (order.orderStatus === "completed" || order.paymentStatus === "paid") throw new HttpError(409, "PAYMENT_ALREADY_CONFIRMED", "Payment has already been confirmed.");
       if (order.orderStatus === "cancelled" || order.cancellationReason === "no_show") throw new HttpError(409, "ORDER_NOT_PAYABLE", "Cancelled and no-show Orders cannot accept payment.");
       if (order.orderStatus !== "confirmed") throw new HttpError(409, "INVALID_ORDER_STATE", "Only confirmed Orders can accept payment.");

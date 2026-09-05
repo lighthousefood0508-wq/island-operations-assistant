@@ -1,5 +1,164 @@
 # Decisions
 
+## DECISIONS #097 — PR-OPERATIONS-004 Implementation Gate
+
+- **Status**: APPROVED by Owner on 2026-09-05 through the explicit instruction
+  `確認開始 PR-OPERATIONS-004`.
+- **Authorized scope**: implement and validate only the PR-OPERATIONS-004
+  additive pending-modification foundation defined by DECISIONS #096 and its
+  independently passed Architecture Review and Task Card.
+- **Containment**: no public route or Owner UI, no external payment execution,
+  no provider integration, no Waste Domain, no historical backfill, and no
+  modification of Catalog, Cost, Recipe, Windows UAT, the live SQLite file,
+  Cloudflare, Scheduled Task, Docker/n8n, WSL, or Legacy.
+- **Git/release gate**: this authorization starts implementation and local
+  candidate validation. Commit, push, PR creation, merge, release, and
+  deployment require their later explicit gates.
+
+## DECISIONS #096 — POS Order Replacement, Payment Adjustment, and Finished-Item Disposition Boundary
+
+- **Status**: APPROVED by Owner on 2026-09-05 for architecture documentation,
+  state-machine design, migration planning, Task Cards, and Independent
+  Architecture Review only. PR-OPERATIONS-004 implementation, a migration
+  file, migration execution, commit, push, PR, merge, release, and deployment
+  remain unauthorized until a later explicit Owner instruction.
+- **Single responsibility**: Allow an authorized POS/Admin operator to correct
+  the effective contents of an onsite or scheduled Operations Order while
+  preserving immutable history, exact sellable-quantity effects, actual
+  supplement/refund evidence, Kitchen safety, and closeout correctness. A
+  correction creates a new internal replacement Order; it never silently
+  overwrites a paid, produced, or historical Order.
+- **Relationship to existing authority**: ADR-014 through ADR-018 and
+  DECISIONS #004, #007, #010, #012, #013, #087, #088, #089, and #095 remain
+  valid. This Decision supersedes only the #095 limitation that item changes
+  are unavailable after production starts. Such a change is now permitted only
+  through this replacement workflow, its production lock, payment-adjustment
+  protocol, and explicit finished-item disposition. The #095 scheduled-Order
+  projection, search, review, and metadata-correction behavior remains intact.
+- **Order identity and lazy root**:
+  - Every replacement receives a new immutable `orderId` and new internal
+    Event order number. The operator-facing pickup number is derived from the
+    chain root and remains stable, with an explicit `已修改` indication.
+  - Existing Orders require no backfill. When no replacement-chain record
+    exists, the Order's own identity is its lazy root. The first confirmed
+    replacement creates the first chain edge. Reads count only the effective
+    terminal member and must not double-count superseded Orders.
+  - Removing every item is whole-Order cancellation, not an empty replacement.
+    Cancelled/completed Orders cannot enter this workflow; a served Order must
+    first use the existing eligible completion-reversal path. Whole-Order
+    cancellation confirms through the same payment/disposition intent but
+    creates no empty replacement Order.
+- **Modification intent and frozen proposal**:
+  - A durable Operations-owned intent freezes the effective Order revision,
+    before/after item and note snapshots, authoritative old/new totals,
+    adjustment direction and amount, payment method, positive inventory
+    reservations, removed-item disposition proposal, actor, device, and one
+    canonical request fingerprint. A prepared proposal is not editable; an
+    operator must cancel it and prepare a new one.
+  - Intent states are `prepared`, `external_in_progress`, `confirmed`,
+    `cancelled`, `expired`, and `reconciliation_required`. The names are always
+    qualified as intent states and must not be confused with
+    `orderStatus = confirmed`.
+  - Any nonterminal intent (`prepared`, `external_in_progress`, or
+    `reconciliation_required`) locks the replacement chain. It blocks every
+    Order mutation, a second modification/cancellation, and every Kitchen
+    production transition including start, ready, served, completion reversal,
+    and completion. It also blocks saving Event closeout, Event Close, and
+    Daily Report freeze.
+- **Prepared reservation and timeout**:
+  - Preparing an intent atomically validates the expected effective revision,
+    reserves only new/increased quantities, and does not release any removed
+    quantity. This prevents another POS from selling stock after a supplement
+    is quoted but before it is confirmed.
+  - `prepared` begins with a ten-minute lease. An active recovery/edit screen
+    may renew the lease at most once every 30 seconds; a successful renewal
+    advances the intent CAS revision and extends expiry by ten minutes. Only a
+    still-`prepared` intent may expire automatically. Cancellation or expiry
+    atomically releases its exact reservation rows and unlocks the chain.
+  - `external_in_progress` and `reconciliation_required` never auto-expire.
+    Their reservations and locks remain until an authorized audited recovery.
+- **Two-phase payment adjustment**:
+  - No price difference, or an Order with no already-collected money, may be
+    confirmed in one SQLite transaction when no external collection/refund is
+    required.
+  - An unpaid Order remains unpaid after correction and creates no supplement
+    merely because its total is positive. For a fully paid Order, the server
+    compares the new total with immutable net collected evidence. Refund uses
+    the original method; supplement may use a frozen supported Cash/LINE Pay
+    method. Mixed tender and ambiguous payment states fail closed.
+  - When money must be supplemented or refunded, Phase A prepares and reserves
+    the frozen intent; before performing Cash or LINE Pay action the operator
+    explicitly advances it to `external_in_progress`. Phase B records the
+    actual immutable adjustment evidence and atomically creates the replacement,
+    supersedes the prior effective Order, commits reservation/inventory and
+    disposition facts, and confirms the intent.
+  - An external Cash or LINE Pay action cannot be rolled back by SQLite. If the
+    external action may have occurred but Phase B does not complete, the intent
+    becomes `reconciliation_required`; the old Order must not resume normal
+    service. Retrying uses the same intent ID and idempotency key and must never
+    collect or refund twice.
+  - Amount, direction, and payment method are server-authoritative and frozen.
+    A LINE Pay external reference is unique to one confirmed adjustment and
+    cannot confirm another intent.
+- **Cross-device recovery**:
+  - Recovery is server-side and is not tied to the original browser, device,
+    or session. Any authorized POS/Admin reopening an unfinished intent receives
+    the same recovery view: pickup number, change summary, original payment,
+    new total, supplement/refund amount, method, original operator, creation
+    time, and held quantities.
+  - If money did not move, Cash requires explicit actor attestation and LINE Pay
+    requires external-status verification before audited cancellation and
+    reservation release. If money moved, the original intent/idempotency key
+    records evidence and resumes Phase B. If the result cannot be established,
+    the intent becomes `reconciliation_required` and displays: `款項狀態尚待核對，請勿再次收款或退款。`
+  - A reconciliation may leave `reconciliation_required` only as `confirmed`
+    after evidence proves the money moved, or as `cancelled` after evidence
+    proves it did not. Both exits require authorized actor, reason, time, and
+    append-only audit evidence.
+- **Inventory and finished-item disposition**:
+  - Existing/unchanged/decreased lines retain the Event-frozen Product/price
+    snapshot. New/increased lines must pass current Event sellability and
+    quantity checks; the server calculates authoritative totals.
+  - Removed quantities are released only when the replacement confirms and only
+    according to explicit operator disposition. A returned-to-sellable quantity
+    increases availability; a not-returned quantity never does.
+  - Not-returned prepared food creates immutable Operations disposition evidence
+    with source chain/order, Product/price snapshot, removed/returned/not-returned
+    quantities, reason, actor, device, time, and unique identity. This Decision
+    creates no Waste Domain, valuation, mutable waste-consumption status, or Cost
+    write. A future separately approved Waste record may reference one disposition
+    identity once without mutating it.
+- **Production notes, voice, and reminders**:
+  - The current Order note reaches Kitchen and is therefore production content.
+    Changing it or any item content on an effective `ready` Order makes the
+    replacement start at `preparing`; customer/internal notes may remain
+    non-production only after a future explicit model separates them.
+  - New-order and modified-order announcements use deterministic identities
+    `root + effective revision + event type`. A confirmed modification announces
+    `訂單 001 已修改` once, not a complete new-order recital. Replay and SSE
+    reconnect do not repeat it. No modification-complete event is emitted before
+    intent confirmation. A pickup-time change cancels the prior reminder and
+    schedules one for the new time.
+- **Rollback and deployment safety**:
+  - The planned migration is additive and forward-only and does not rewrite
+    existing Order, item, or Payment rows. Old code may ignore empty new tables,
+    but it is unsafe after any intent/replacement/adjustment/disposition fact
+    exists because it would bypass locks and effective-chain reads.
+  - Deployment requires zero nonterminal intents. Runtime/database rollback is
+    forbidden while any nonterminal intent exists. After external money or new
+    financial/replacement evidence is written, restoring a pre-deployment
+    database backup is forbidden; recovery is forward repair plus financial
+    reconciliation.
+  - Closeout expected Cash/LINE Pay receipts add confirmed supplements and
+    subtract confirmed refunds by method without rewriting original Payment
+    rows; the Daily Report pins those net method totals.
+- **Protected boundary**: Operations remains the sole owner. This architecture
+  creates no Inventory domain, Waste domain, Customer aggregate, second Order or
+  Payment authority, provider settlement integration, tax/accounting behavior,
+  Catalog/Cost/Recipe write, browser truth, or direct SQLite operator procedure.
+  Windows UAT, its SQLite file, Cloudflare, Scheduled Task, Docker, n8n, and
+  Legacy remain unchanged during this documentation Gate.
+
 ## DECISIONS #095 — POS Reservation Review and Correction Boundary
 
 - **Status**: APPROVED by Owner on 2026-09-04 for implementation, verification, PR publication/review, merge, integration closeout, and deployment to the existing Windows UAT runtime while this exact responsibility remains unchanged.

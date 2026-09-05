@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-09-05 - PR-OPERATIONS-004 implementation authorized
+
+- Recorded DECISIONS #097 from the Owner instruction
+  `確認開始 PR-OPERATIONS-004`.
+- Began the contained Operations-only pending-modification foundation and its
+  isolated migration/application/persistence/concurrency validation.
+- Commit, push, PR, merge, deployment, Windows UAT, live SQLite, Cloudflare,
+  Scheduled Task, Docker/n8n, WSL, and Legacy remain unchanged and gated.
+
+## 2026-09-05 - POS Order replacement architecture prepared
+
+- Recorded DECISIONS #096 for documentation and architecture review only.
+- Added the pending-intent state machine, lazy-root replacement model,
+  two-phase external payment adjustment, cross-device recovery, exact inventory
+  reservation, immutable finished-item disposition, closeout blocking, and
+  forward-only migration/rollback plan.
+- Added three dependent Task Cards for foundation, payment/recovery/disposition,
+  and POS/Kitchen workflow. Architecture Review later passed; subsequent
+  implementation authority is recorded separately in DECISIONS #097.
+- Documentation only: no source code, migration file or execution, database,
+  Windows UAT, Cloudflare, Scheduled Task, Docker/n8n, WSL, or Legacy change.
+
 ## 2026-08-11 - Canonical Ingredient management UI technical completion
 
 - PR #22 recorded the independently reviewed PR-INGREDIENT-003C Task Card as

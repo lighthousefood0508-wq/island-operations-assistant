@@ -1,6 +1,28 @@
 # Current Status
 
-Last synchronized: 2026-08-14 (Asia/Taipei)
+Last synchronized: 2026-09-05 (Asia/Taipei)
+
+## Current implementation Gate — PR-OPERATIONS-004 foundation
+
+- Fresh Git evidence at the start of this Gate established local and remote
+  `integration/architecture-development` at
+  `276583c0902d828da80ea0f88f0f5c4c107c8fc7`, the PR #62 merge, with a clean
+  working tree.
+- DECISIONS #096 completed the architecture document, pending-intent state
+  machine, forward-only migration/rollback plan, three dependent Task Cards,
+  and a passing Independent Architecture Review.
+- DECISIONS #097 now authorizes PR-OPERATIONS-004 implementation and local
+  candidate validation only. PR-OPERATIONS-005 and 006 remain unauthorized;
+  commit, push, PR, merge, deployment, and UAT execution remain separately
+  gated.
+- The design uses lazy Order roots with no historical backfill, freezes pending
+  content/amount/reservation/disposition, blocks all Order/Kitchen/closeout
+  transitions while an intent is unfinished, and treats external Cash/LINE Pay
+  action as non-rollbackable by SQLite.
+- Windows UAT, its SQLite file, Cloudflare URL/target, Scheduled Task,
+  Docker/n8n, WSL, and Legacy remain untouched by this implementation Gate. The
+  repository integration SHA is not a claim about the currently deployed UAT
+  runtime.
 
 ## Current architecture and live-state policy
 

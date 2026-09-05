@@ -476,7 +476,7 @@ test("Reference Impact survives database close and reopen without schema changes
     database.queryOne<{ count: number }>(
       "SELECT COUNT(*) AS count FROM schema_migrations"
     )?.count,
-    23 // AuthenticationRoleBoundary: Migration 023 is part of every reopened repository.
+    24 // OrderModificationPendingFoundationBoundary: Migration 024 is part of every reopened repository.
   );
 });
 

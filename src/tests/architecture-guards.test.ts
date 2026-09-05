@@ -3686,3 +3686,56 @@ test("POS Reservation Review and Correction stays inside Operations and preserve
   assert.doesNotMatch(service + repository, /domains\/(catalog|cost|recipe)/i);
   assert.doesNotMatch(page, /localStorage.*(?:order|reservation)|indexedDB/i);
 });
+
+test("PR-OPERATIONS-004 keeps pending modification foundation inside its exact Operations-only boundary", () => {
+  const approvedPaths = new Set([
+    "migrations/024_operations_order_modification_foundation.sql",
+    "src/domains/operations/domain/order-modification.ts",
+    "src/domains/operations/application/order-modification-service.ts",
+    "src/domains/operations/infrastructure/order-modification-repository.ts",
+    "src/domains/operations/infrastructure/order-modification-lock.ts",
+    "src/domains/operations/infrastructure/order-repository.ts",
+    "src/domains/operations/infrastructure/lifecycle-repository.ts",
+    "src/domains/operations/infrastructure/payment-repository.ts",
+    "src/domains/operations/application/order-service.ts",
+    "src/domains/operations/application/lifecycle-service.ts",
+    "src/domains/operations/application/payment-service.ts",
+    "src/domains/operations/index.ts",
+    "src/tests/order-modification-foundation.integration.test.ts",
+    "src/tests/order-core.test.ts",
+    "src/tests/lifecycle-api.integration.test.ts",
+    "src/tests/architecture-guards.test.ts",
+    "src/tests/recipe-migration-017.integration.test.ts",
+    "src/tests/recipe-migration-018.integration.test.ts",
+    "src/tests/canonical-ingredient-reference-impact-persistence.integration.test.ts"
+  ]);
+  assert.equal(approvedPaths.size, 19);
+  const isResponsibility = (source: string): boolean =>
+    /OrderModificationPendingFoundationBoundary|OrderModification|ORDER_MODIFICATION|order_modification|operations_order_replacements|024_operations_order_modification_foundation/.test(source);
+  assert.equal(isResponsibility("export class OrderModificationPendingFoundationBoundaryShadowService {}"), true);
+  const candidateFiles = [
+    ...filesUnder(sourceRoot, [".ts", ".tsx"]),
+    ...filesUnder(path.join(projectRoot, "migrations"), [".sql"])
+  ];
+  const responsibilityFiles = candidateFiles
+    .filter((filename) => isResponsibility(readFileSync(filename, "utf8")))
+    .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .sort();
+  const approvedResponsibilityFiles = [...approvedPaths]
+    .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => isResponsibility(readFileSync(path.join(projectRoot, ...relative.split("/")), "utf8")))
+    .sort();
+  assert.deepEqual(responsibilityFiles, approvedResponsibilityFiles);
+  assert.equal(approvedPaths.has("src/server/app/order-modification-routes.ts"), false);
+
+  const migration = readFileSync(path.join(projectRoot, "migrations", "024_operations_order_modification_foundation.sql"), "utf8");
+  const routes = readFileSync(path.join(sourceRoot, "server", "app", "routes.ts"), "utf8");
+  const service = readFileSync(path.join(sourceRoot, "domains", "operations", "application", "order-modification-service.ts"), "utf8");
+  assert.match(migration, /WHERE state IN \('prepared', 'external_in_progress', 'reconciliation_required'\)/);
+  assert.doesNotMatch(migration, /\b(?:UPDATE|DELETE)\s+operations_orders\b/i);
+  assert.doesNotMatch(routes, /order-modification|modification-intent/i);
+  assert.match(service, /transactionImmediate/);
+  assert.match(service, /PREPARED_LEASE_MS = 10 \* 60_000/);
+  assert.doesNotMatch(service, /domains\/(?:catalog|cost|recipe)|web\//i);
+});

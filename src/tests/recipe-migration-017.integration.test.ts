@@ -54,7 +54,8 @@ test("Migration 017 deterministically backfills Family and shared Draft/Version 
     "020_cost_purchases.sql",
     "021_accepted_purchase_evidence.sql",
     "022_cost_recipe_snapshots.sql",
-    "023_platform_authentication.sql"
+    "023_platform_authentication.sql",
+    "024_operations_order_modification_foundation.sql"
   ]);
   const draftLine = database.queryOne<{ recipe_line_id: string }>("SELECT recipe_line_id FROM recipe_draft_lines WHERE draft_id = ?", [draftId])!;
   const versionLine = database.queryOne<{ recipe_line_id: string }>("SELECT recipe_line_id FROM recipe_version_lines WHERE recipe_version_id = ?", [versionId])!;

@@ -9,6 +9,7 @@ import {
   DailyReportReadValidationFailure,
   LifecycleService,
   OperationsService,
+  OrderModificationService,
   OrderService,
   PaymentService
 } from "../../domains/operations/index.js";
@@ -60,6 +61,7 @@ type Services = Readonly<{
   operations: OperationsService;
   orders: OrderService;
   payments: PaymentService;
+  orderModifications: OrderModificationService;
   lifecycle: LifecycleService;
   dailyReports: DailyReportReadService;
   canonicalIngredients: CanonicalIngredientManagementService;
@@ -552,6 +554,60 @@ async function route(request: IncomingMessage, response: ServerResponse, service
     if (request.method === "GET" && orderMatch?.[1]) return success(response, 200, services.orders.getOrder(decodeURIComponent(orderMatch[1])));
     const reservationEditMatch = pathname.match(/^\/api\/orders\/([^/]+)\/reservation$/);
     if (request.method === "PATCH" && reservationEditMatch?.[1]) { const order = services.orders.updateScheduledOrder(decodeURIComponent(reservationEditMatch[1]), await readCommand("operator")); events.publish("order.updated", order.eventId); events.publish("inventory.changed", order.eventId); return success(response, 200, order); }
+    const modificationPrepareMatch = pathname.match(/^\/api\/orders\/([^/]+)\/modifications$/);
+    if (request.method === "POST" && modificationPrepareMatch?.[1]) {
+      const orderId = decodeURIComponent(modificationPrepareMatch[1]);
+      const command = { ...(await readCommand("actor")), orderId };
+      const result = services.orderModifications.prepare(command);
+      if (!result.replayed) {
+        events.publish("order.updated", result.intent.eventId);
+        events.publish("inventory.changed", result.intent.eventId);
+      }
+      return success(response, result.replayed ? 200 : 201, result);
+    }
+    const activeModificationMatch = pathname.match(/^\/api\/orders\/([^/]+)\/modifications\/active$/);
+    if (request.method === "GET" && activeModificationMatch?.[1]) {
+      return success(response, 200, services.orderModifications.getRecoveryForOrder(decodeURIComponent(activeModificationMatch[1])));
+    }
+    const modificationMatch = pathname.match(/^\/api\/order-modifications\/([^/]+)$/);
+    if (request.method === "GET" && modificationMatch?.[1]) {
+      return success(response, 200, services.orderModifications.getRecovery(decodeURIComponent(modificationMatch[1])));
+    }
+    const modificationActionMatch = pathname.match(/^\/api\/order-modifications\/([^/]+)\/(renew|cancel|begin-external|require-reconciliation|verify-no-money|confirm)$/);
+    if (request.method === "POST" && modificationActionMatch?.[1] && modificationActionMatch[2]) {
+      const intentId = decodeURIComponent(modificationActionMatch[1]);
+      const command = await readCommand("actor");
+      const action = modificationActionMatch[2];
+      if (action === "renew") return success(response, 200, services.orderModifications.renewFromCommand(intentId, command));
+      if (action === "cancel") {
+        const intent = services.orderModifications.cancelPreparedFromCommand(intentId, command);
+        events.publish("order.updated", intent.eventId);
+        events.publish("inventory.changed", intent.eventId);
+        return success(response, 200, intent);
+      }
+      if (action === "begin-external") {
+        const intent = services.orderModifications.beginExternalActionFromCommand(intentId, command);
+        events.publish("order.updated", intent.eventId);
+        return success(response, 200, intent);
+      }
+      if (action === "require-reconciliation") {
+        const intent = services.orderModifications.requireReconciliationFromCommand(intentId, command);
+        events.publish("order.updated", intent.eventId);
+        return success(response, 200, intent);
+      }
+      if (action === "verify-no-money") {
+        const intent = services.orderModifications.cancelAfterVerifiedNoMoney(intentId, command);
+        events.publish("order.updated", intent.eventId);
+        events.publish("inventory.changed", intent.eventId);
+        return success(response, 200, intent);
+      }
+      const result = services.orderModifications.confirm(intentId, command);
+      if (!result.replayed) {
+        events.publish("order.updated", result.intent.eventId);
+        events.publish("inventory.changed", result.intent.eventId);
+      }
+      return success(response, 200, result);
+    }
     const paymentConfirmMatch = pathname.match(/^\/api\/orders\/([^/]+)\/payment\/confirm$/);
     if (request.method === "POST" && paymentConfirmMatch?.[1]) {
       const result = services.payments.confirmPayment(decodeURIComponent(paymentConfirmMatch[1]), await readCommand("operator"));

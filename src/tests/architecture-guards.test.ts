@@ -3717,10 +3717,17 @@ test("PR-OPERATIONS-004 keeps pending modification foundation inside its exact O
     ...filesUnder(sourceRoot, [".ts", ".tsx"]),
     ...filesUnder(path.join(projectRoot, "migrations"), [".sql"])
   ];
+  const successorPaths = new Set([
+    "src/server/app/routes.ts",
+    "src/server/index.ts",
+    "src/tests/order-modification-api.integration.test.ts",
+    "src/tests/order-modification-payment-recovery.integration.test.ts"
+  ]);
   const responsibilityFiles = candidateFiles
     .filter((filename) => isResponsibility(readFileSync(filename, "utf8")))
     .map((filename) => path.relative(projectRoot, filename).replaceAll("\\", "/"))
     .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
+    .filter((relative) => !successorPaths.has(relative))
     .sort();
   const approvedResponsibilityFiles = [...approvedPaths]
     .filter((relative) => relative !== "src/tests/architecture-guards.test.ts")
@@ -3734,8 +3741,46 @@ test("PR-OPERATIONS-004 keeps pending modification foundation inside its exact O
   const service = readFileSync(path.join(sourceRoot, "domains", "operations", "application", "order-modification-service.ts"), "utf8");
   assert.match(migration, /WHERE state IN \('prepared', 'external_in_progress', 'reconciliation_required'\)/);
   assert.doesNotMatch(migration, /\b(?:UPDATE|DELETE)\s+operations_orders\b/i);
-  assert.doesNotMatch(routes, /order-modification|modification-intent/i);
+  assert.match(routes, /order-modifications/);
   assert.match(service, /transactionImmediate/);
   assert.match(service, /PREPARED_LEASE_MS = 10 \* 60_000/);
   assert.doesNotMatch(service, /domains\/(?:catalog|cost|recipe)|web\//i);
+});
+
+test("PR-OPERATIONS-005 keeps payment recovery and disposition inside its frozen Operations boundary", () => {
+  const approvedPaths = new Set([
+    "src/domains/operations/domain/order-modification.ts",
+    "src/domains/operations/application/order-modification-service.ts",
+    "src/domains/operations/infrastructure/order-modification-repository.ts",
+    "src/domains/operations/infrastructure/lifecycle-repository.ts",
+    "src/domains/operations/index.ts",
+    "src/server/app/access-control.ts",
+    "src/server/app/routes.ts",
+    "src/server/index.ts",
+    "src/tests/order-modification-payment-recovery.integration.test.ts",
+    "src/tests/order-modification-api.integration.test.ts",
+    "src/tests/architecture-guards.test.ts"
+  ]);
+  assert.equal(approvedPaths.size, 11);
+  assert.equal(approvedPaths.has("src/web/pages/pos-page.ts"), false);
+  assert.equal(approvedPaths.has("migrations/025_order_modification_payment.sql"), false);
+
+  const service = readFileSync(path.join(sourceRoot, "domains", "operations", "application", "order-modification-service.ts"), "utf8");
+  const repository = readFileSync(path.join(sourceRoot, "domains", "operations", "infrastructure", "order-modification-repository.ts"), "utf8");
+  const lifecycle = readFileSync(path.join(sourceRoot, "domains", "operations", "infrastructure", "lifecycle-repository.ts"), "utf8");
+  const routes = readFileSync(path.join(sourceRoot, "server", "app", "routes.ts"), "utf8");
+  const access = readFileSync(path.join(sourceRoot, "server", "app", "access-control.ts"), "utf8");
+  const migration = readFileSync(path.join(projectRoot, "migrations", "024_operations_order_modification_foundation.sql"), "utf8");
+
+  assert.match(service, /reconciliation_required/);
+  assert.match(service, /ORDER_MODIFICATION_EXTERNAL_REFERENCE_REUSED/);
+  assert.match(service, /returnToSellable/);
+  assert.match(repository, /operations_payment_adjustments/);
+  assert.match(repository, /operations_order_item_dispositions/);
+  assert.match(lifecycle, /WHEN 'supplement' THEN a\.amount ELSE -a\.amount/);
+  assert.match(routes, /verify-no-money\|confirm/);
+  assert.match(access, /order-modifications/);
+  assert.match(migration, /UNIQUE \(intent_id, source_order_item_id\)/);
+  assert.doesNotMatch(service + repository, /domains\/(?:catalog|cost|recipe)|(?:waste|valuation)/i);
+  assert.doesNotMatch(routes, /order-modification\.completed|order\.modified/);
 });

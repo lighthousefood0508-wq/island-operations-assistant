@@ -132,7 +132,18 @@ export class LifecycleRepository implements DailyReportReadPort {
       COALESCE(SUM(CASE WHEN p.payment_method = 'LINE_PAY' AND p.payment_status = 'paid' THEN p.amount ELSE 0 END), 0) AS line_pay,
       COALESCE(SUM(CASE WHEN p.payment_status = 'paid' THEN p.amount ELSE 0 END), 0) AS total
       FROM operations_payments p JOIN operations_orders o ON o.order_id = p.order_id WHERE o.event_id = ?`, [eventId]) ?? { cash: 0, line_pay: 0, total: 0 };
-    return { cash: row.cash, linePay: row.line_pay, total: row.total };
+    const adjustments = this.database.queryOne<{ cash: number; line_pay: number; total: number }>(`SELECT
+      COALESCE(SUM(CASE WHEN a.payment_method = 'CASH' THEN CASE a.direction WHEN 'supplement' THEN a.amount ELSE -a.amount END ELSE 0 END), 0) AS cash,
+      COALESCE(SUM(CASE WHEN a.payment_method = 'LINE_PAY' THEN CASE a.direction WHEN 'supplement' THEN a.amount ELSE -a.amount END ELSE 0 END), 0) AS line_pay,
+      COALESCE(SUM(CASE a.direction WHEN 'supplement' THEN a.amount ELSE -a.amount END), 0) AS total
+      FROM operations_payment_adjustments a
+      JOIN operations_order_modification_intents i ON i.intent_id = a.intent_id
+      WHERE i.event_id = ?`, [eventId]) ?? { cash: 0, line_pay: 0, total: 0 };
+    return {
+      cash: row.cash + adjustments.cash,
+      linePay: row.line_pay + adjustments.line_pay,
+      total: row.total + adjustments.total
+    };
   }
   getPaymentCloseoutReconciliation(eventId: string): PaymentCloseoutReconciliationCandidate | undefined {
     const closeout = this.database.queryOne<CloseoutRow>("SELECT cash_received, line_pay_received, other_received, waste_amount, notes, updated_at FROM operations_event_closeouts WHERE event_id = ?", [eventId]);

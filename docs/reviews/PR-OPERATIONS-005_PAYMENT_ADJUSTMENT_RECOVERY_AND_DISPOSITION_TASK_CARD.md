@@ -8,8 +8,9 @@
   merged PR-OPERATIONS-004 foundation.
 - **Compatibility result**: PASS as a proposed Operations Payment and lifecycle
   increment. It does not create provider settlement, Waste, or Cost authority.
-- **Status**: NOT AUTHORIZED FOR IMPLEMENTATION. It depends on a separately
-  authorized, reviewed, and merged PR-OPERATIONS-004.
+- **Status**: AUTHORIZED FOR IMPLEMENTATION AND LOCAL CANDIDATE VALIDATION by
+  DECISIONS #098 after PR-OPERATIONS-004 was independently reviewed and merged
+  as PR #63. Commit, push, PR, merge, release, and deployment remain gated.
 
 ## Single responsibility
 
@@ -52,10 +53,22 @@ fail-closed reconciliation recovery.
 
 ## Scope to freeze before implementation
 
-The exact allowlist may include only necessary Operations types/services/ports,
-SQLite adapter/repositories, existing lifecycle/payment/closeout composition and
-routes, safe recovery/read endpoints, focused tests, and Architecture Guards.
-No Owner-facing modification page belongs in this PR.
+The implementation allowlist is frozen to these eleven paths:
+
+1. `src/domains/operations/domain/order-modification.ts`
+2. `src/domains/operations/application/order-modification-service.ts`
+3. `src/domains/operations/infrastructure/order-modification-repository.ts`
+4. `src/domains/operations/infrastructure/lifecycle-repository.ts`
+5. `src/domains/operations/index.ts`
+6. `src/server/app/access-control.ts`
+7. `src/server/app/routes.ts`
+8. `src/server/index.ts`
+9. `src/tests/order-modification-payment-recovery.integration.test.ts`
+10. `src/tests/order-modification-api.integration.test.ts`
+11. `src/tests/architecture-guards.test.ts`
+
+Governance synchronization files are not implementation paths. No twelfth
+implementation path and no Owner-facing modification page belongs in this PR.
 
 ## Acceptance criteria
 

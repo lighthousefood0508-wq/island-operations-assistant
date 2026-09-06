@@ -5,7 +5,7 @@ import { loadConfig, type RosConfig } from "../config/runtime.js";
 import { createDatabase } from "../shared/database/database-provider.js";
 import { runMigrations, verifyMigrationsCurrent } from "../shared/database/migrate.js";
 import { CatalogRepository, CatalogService } from "../domains/catalog/index.js";
-import { DailyReportReadService, LifecycleRepository, LifecycleService, OperationsRepository, OperationsService, OrderRepository, OrderService, PaymentRepository, PaymentService } from "../domains/operations/index.js";
+import { DailyReportReadService, LifecycleRepository, LifecycleService, OperationsRepository, OperationsService, OrderModificationRepository, OrderModificationService, OrderRepository, OrderService, PaymentRepository, PaymentService } from "../domains/operations/index.js";
 import {
   CanonicalIngredientCreationService,
   CanonicalIngredientLifecycleService,
@@ -67,6 +67,9 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
   const paymentRepository = new PaymentRepository(database);
   const orders = new OrderService(new OrderRepository(database), paymentRepository);
   const payments = new PaymentService(paymentRepository);
+  const orderModifications = new OrderModificationService(
+    new OrderModificationRepository(database)
+  );
   const lifecycleRepository = new LifecycleRepository(database);
   const lifecycle = new LifecycleService(lifecycleRepository);
   const dailyReports = new DailyReportReadService(lifecycleRepository);
@@ -162,6 +165,7 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
     operations,
     orders,
     payments,
+    orderModifications,
     lifecycle,
     dailyReports,
     canonicalIngredients,

@@ -1,5 +1,26 @@
 # Decisions
 
+## DECISIONS #098 — PR-OPERATIONS-005 Implementation Gate
+
+- **Status**: APPROVED by Owner on 2026-09-05 through the explicit instruction
+  `確認開始 PR-OPERATIONS-005`.
+- **Authorized scope**: implement and locally validate only the
+  PR-OPERATIONS-005 Payment Adjustment, cross-device recovery,
+  reconciliation, confirmed replacement, finished-item disposition, and
+  effective closeout/report behavior defined by DECISIONS #096 and its
+  independently reviewed architecture, migration plan, and Task Card.
+- **Dependency evidence**: PR-OPERATIONS-004 was independently reviewed and
+  merged as PR #63; remote `integration/architecture-development` is
+  `3808a08433a09acfe1923ec4e4294ca3eac562d0` and contains candidate
+  `d8b6f089c1921166181f62e415eaab953f1cbe28`.
+- **Containment**: no Owner-facing modification page, provider API settlement,
+  second Order/Payment authority, mutable Waste state, Cost/Catalog/Recipe
+  write, historical backfill, or modification of Windows UAT, the live SQLite
+  file, Cloudflare, Scheduled Task, Docker/n8n, WSL, or Legacy.
+- **Git/release gate**: this authorization starts implementation and local
+  candidate validation. Commit, push, PR creation, merge, release, and
+  deployment require their later explicit gates.
+
 ## DECISIONS #097 — PR-OPERATIONS-004 Implementation Gate
 
 - **Status**: APPROVED by Owner on 2026-09-05 through the explicit instruction

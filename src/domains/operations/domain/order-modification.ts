@@ -123,3 +123,72 @@ export type OrderModificationPrepareResult = Readonly<{
   intent: OrderModificationIntent;
   replayed: boolean;
 }>;
+
+export type OrderModificationHeldReservation = Readonly<{
+  reservationId: string;
+  productId: string;
+  productVersionId: string;
+  quantity: number;
+}>;
+
+export type OrderModificationRecovery = Readonly<{
+  intent: OrderModificationIntent;
+  pickupNumber: string;
+  heldReservations: readonly OrderModificationHeldReservation[];
+}>;
+
+export type OrderReplacementEvidence = Readonly<{
+  replacementId: string;
+  intentId: string;
+  rootOrderId: string;
+  supersededOrderId: string;
+  replacementOrderId: string;
+  effectiveRevision: number;
+  createdAt: string;
+}>;
+
+export type PaymentAdjustmentEvidence = Readonly<{
+  paymentAdjustmentId: string;
+  intentId: string;
+  rootOrderId: string;
+  effectiveOrderId: string;
+  replacementOrderId: string | null;
+  direction: "supplement" | "refund";
+  paymentMethod: PaymentMethod;
+  amount: number;
+  externalReference: string | null;
+  idempotencyKey: string;
+  requestFingerprint: string;
+  confirmedBy: string;
+  deviceId: string;
+  occurredAt: string;
+}>;
+
+export type OrderItemDispositionEvidence = Readonly<{
+  dispositionId: string;
+  intentId: string;
+  replacementId: string | null;
+  sourceOrderId: string;
+  sourceOrderItemId: string;
+  productId: string;
+  productVersionId: string;
+  displayNameSnapshot: string;
+  posNameSnapshot: string;
+  unitSellingPrice: number;
+  removedQuantity: number;
+  returnedToSellableQuantity: number;
+  notReturnedQuantity: number;
+  reason: string;
+  recordedBy: string;
+  deviceId: string;
+  occurredAt: string;
+}>;
+
+export type OrderModificationConfirmation = Readonly<{
+  intent: OrderModificationIntent;
+  effectiveOrder: OperationsOrder;
+  replacement: OrderReplacementEvidence | null;
+  paymentAdjustment: PaymentAdjustmentEvidence | null;
+  dispositions: readonly OrderItemDispositionEvidence[];
+  replayed: boolean;
+}>;

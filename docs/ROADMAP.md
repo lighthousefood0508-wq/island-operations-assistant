@@ -17,8 +17,9 @@ paid/started Order replacement. The planned dependency sequence is:
 3. PR-OPERATIONS-006 — POS/Kitchen Owner workflow, stable pickup identity,
    voice/reminder behavior, and responsive E2E.
 
-Independent Architecture Review passed and DECISIONS #097 authorizes only
-PR-OPERATIONS-004 implementation and local candidate validation. PR 005/006,
+Independent Architecture Review passed. PR-OPERATIONS-004 was independently
+reviewed and merged as PR #63. DECISIONS #098 authorizes only
+PR-OPERATIONS-005 implementation and local candidate validation. PR 006,
 commit, push, PR, merge, and deployment remain gated. No historical backfill,
 Waste Domain, provider integration, UAT/database change, or deployment is part
 of the current Gate.

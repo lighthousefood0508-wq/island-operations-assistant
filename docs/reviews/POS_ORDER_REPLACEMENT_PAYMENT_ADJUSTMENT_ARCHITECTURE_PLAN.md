@@ -349,11 +349,13 @@ reservation/lock/state machine, migration and application contracts
           v
 PR-OPERATIONS-005
 Payment adjustment evidence, recovery/reconciliation, closeout/report gates,
-finished-item disposition
+finished-item disposition, prepared-lease runtime expiry and the stable
+root-pickup presentation projection/rendering required by PR #64 remediation
           |
           v
 PR-OPERATIONS-006
-POS/Kitchen workflow, voice/reminders, responsive UX and complete E2E
+Public POS/Kitchen modification/payment workflow, voice/reminders, responsive
+UX and complete E2E
 ```
 
 Each PR must keep integration buildable and testable. PR 2 cannot start until

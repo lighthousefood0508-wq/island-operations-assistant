@@ -450,3 +450,88 @@ test("two POS browser contexts race for the final portion and only one creates a
     ]);
   }
 });
+
+test("replacement keeps the root pickup number across POS, Kitchen, SSE refresh, reload and another device", async ({ browser, page }) => {
+  const { eventId, contracts } = await setupOpenEvent(page, "PICKUP", [{ name: "Dongpo bowl", posName: "Dongpo", price: 100, quantity: 10 }]);
+  const product = contracts[0]!;
+  const kitchenContext = await browser.newContext();
+  const secondPosContext = await browser.newContext();
+  const kitchen = await kitchenContext.newPage();
+  const secondPos = await secondPosContext.newPage();
+  let testError: unknown;
+  try {
+    const created = await api(page, "/api/orders", "POST", {
+      source: "pos",
+      eventId,
+      idempotencyKey: "pickup-root-order",
+      items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 1, notes: null }],
+      scheduledPickupAt: null,
+      paymentCollected: false,
+      customerName: "Pickup Guest",
+      customerPhoneTail: "123",
+      paymentMethod: "CASH",
+      notes: null,
+      deviceId: "POS-A"
+    });
+    assertApiSuccess(created, "create pickup root order");
+    const root = created.body.data;
+    const prepared = await api(page, `/api/orders/${root.orderId}/modifications`, "POST", {
+      expectedRevision: root.revision,
+      idempotencyKey: "pickup-replacement",
+      items: [{ productId: product.productId, productVersionId: product.productVersionId, quantity: 2, notes: null }],
+      scheduledPickupAt: null,
+      customerName: root.customerName,
+      customerPhoneTail: root.customerPhoneTail,
+      paymentMethod: root.paymentMethod,
+      notes: null,
+      supplementMethod: null,
+      dispositions: [],
+      actor: "e2e",
+      deviceId: "POS-A"
+    });
+    assertApiSuccess(prepared, "prepare pickup replacement");
+    const confirmed = await api(page, `/api/order-modifications/${prepared.body.data.intent.intentId}/confirm`, "POST", {
+      expectedRevision: prepared.body.data.intent.intentRevision,
+      idempotencyKey: prepared.body.data.intent.idempotencyKey,
+      actor: "e2e",
+      deviceId: "POS-B",
+      evidence: null
+    });
+    assertApiSuccess(confirmed, "confirm pickup replacement");
+    expect(confirmed.body.data.effectiveOrder.orderNumber).not.toBe(root.orderNumber);
+    expect(confirmed.body.data.effectiveOrder.presentation).toEqual({ pickupNumber: root.orderNumber, modified: true, effectiveRevision: 2, modificationSequence: 1 });
+
+    await Promise.all([page.goto("/pos"), kitchen.goto("/kitchen")]);
+    await page.locator('button[data-tab="pending"]').click();
+    await expect(page.locator("#orders .order-number")).toContainText(`${root.orderNumber}（已修改）`);
+    await expect(kitchen.locator(".order-no")).toContainText(`${root.orderNumber}（已修改）`);
+
+    const status = await api(page, `/api/orders/${confirmed.body.data.effectiveOrder.orderId}/status`, "PATCH", { status: "preparing" });
+    assertApiSuccess(status, "trigger effective-order SSE refresh");
+    await expect(page.locator("#orders .order-number")).toContainText(`${root.orderNumber}（已修改）`);
+    await expect(kitchen.locator(".order-no")).toContainText(`${root.orderNumber}（已修改）`);
+
+    await Promise.all([page.reload(), kitchen.reload(), secondPos.goto("/pos")]);
+    await Promise.all([
+      page.locator('button[data-tab="pending"]').click(),
+      secondPos.locator('button[data-tab="pending"]').click()
+    ]);
+    await expect(page.locator("#orders .order-number")).toContainText(`${root.orderNumber}（已修改）`);
+    await expect(kitchen.locator(".order-no")).toContainText(`${root.orderNumber}（已修改）`);
+    await expect(secondPos.locator("#orders .order-number")).toContainText(`${root.orderNumber}（已修改）`);
+
+    const effective = await api(page, `/api/events/${eventId}/orders`);
+    assertApiSuccess(effective, "read effective pickup projection");
+    expect(effective.body.data).toHaveLength(1);
+    expect(effective.body.data[0].orderNumber).toBe(confirmed.body.data.effectiveOrder.orderNumber);
+    expect(effective.body.data[0].presentation.pickupNumber).toBe(root.orderNumber);
+  } catch (error) {
+    testError = error;
+    throw error;
+  } finally {
+    await completeCleanup(testError, [
+      async () => { await Promise.all([kitchenContext.close(), secondPosContext.close()]); },
+      () => closeEvent(page, eventId)
+    ]);
+  }
+});

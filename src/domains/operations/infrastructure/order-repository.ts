@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { DatabaseAdapter } from "../../../shared/database/database-adapter.js";
 import { createId } from "../../../shared/utils/ids.js";
 import type { OperationsOrder, OrderItem, OrderStatus, PaymentMethod, PaymentStatus, PosOrderItemInput, ProductionStatus } from "../domain/types.js";
-import { hasNonterminalOrderModification } from "./order-modification-lock.js";
+import { hasNonterminalOrderModification, resolveOrderPresentation } from "./order-modification-lock.js";
 
 type EventRow = { event_id: string; event_code: string; date: string; start_time: string; end_time: string; status: string };
 type EventProductRow = {
@@ -30,7 +30,7 @@ export type OrderProductSnapshot = Readonly<{
   sellingPrice: number;
 }>;
 
-function mapOrder(row: OrderRow, items: readonly OrderItem[]): OperationsOrder {
+function mapOrder(database: DatabaseAdapter, row: OrderRow, items: readonly OrderItem[]): OperationsOrder {
   const order = {
     orderId: row.order_id, orderNumber: row.order_number, eventId: row.event_id, source: row.source,
     orderStatus: row.order_status, paymentStatus: row.payment_status, productionStatus: row.production_status, cancellationReason: row.cancellation_reason,
@@ -38,7 +38,7 @@ function mapOrder(row: OrderRow, items: readonly OrderItem[]): OperationsOrder {
     grandTotal: row.grand_total, paidTotal: row.paid_total, createdAt: row.created_at, confirmedAt: row.confirmed_at, servedAt: row.served_at, items
   };
   const revision = createHash("sha256").update(JSON.stringify(order)).digest("hex");
-  return { ...order, revision };
+  return { ...order, presentation: resolveOrderPresentation(database, row.order_id, row.order_number), revision };
 }
 
 function mapItem(row: OrderItemRow): OrderItem {
@@ -149,7 +149,7 @@ export class OrderRepository {
     if (!order) return undefined;
     const items = this.database.queryMany<OrderItemRow>(`SELECT order_item_id, product_id, product_version_id, display_name_snapshot, pos_name_snapshot, display_category_name_snapshot,
       unit_list_price, unit_selling_price, quantity, line_discount, line_total, notes, cost_status FROM operations_order_items WHERE order_id = ? ORDER BY rowid`, [orderId]).map(mapItem);
-    return mapOrder(order, items);
+    return mapOrder(this.database, order, items);
   }
 
   listEventOrders(eventId: string): OperationsOrder[] {
@@ -160,7 +160,7 @@ export class OrderRepository {
     return rows.map((row) => {
       const items = this.database.queryMany<OrderItemRow>(`SELECT order_item_id, product_id, product_version_id, display_name_snapshot, pos_name_snapshot, display_category_name_snapshot,
         unit_list_price, unit_selling_price, quantity, line_discount, line_total, notes, cost_status FROM operations_order_items WHERE order_id = ? ORDER BY rowid`, [row.order_id]).map(mapItem);
-      return mapOrder(row, items);
+      return mapOrder(this.database, row, items);
     });
   }
 

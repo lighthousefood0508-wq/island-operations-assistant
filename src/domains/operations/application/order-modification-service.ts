@@ -4,15 +4,41 @@ import { createId } from "../../../shared/utils/ids.js";
 import type {
   FrozenOrderModificationDisposition,
   FrozenOrderModificationLine,
+  OrderItemDispositionEvidence,
+  OrderModificationConfirmation,
   OrderModificationIntent,
   OrderModificationItemInput,
   OrderModificationPrepareResult,
+  OrderModificationRecovery,
+  PaymentAdjustmentEvidence,
   PrepareOrderModificationCommand
 } from "../domain/order-modification.js";
 import type { OperationsOrder, PaymentMethod, ProductionStatus } from "../domain/types.js";
 import { OrderModificationRepository, type PreparedIntentInsert } from "../infrastructure/order-modification-repository.js";
 
 const PREPARED_LEASE_MS = 10 * 60_000;
+
+export type OrderModificationExpirySweepResult = Readonly<{
+  expired: number;
+  failures: number;
+}>;
+
+function object(value: unknown, field: string): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new HttpError(422, "ORDER_MODIFICATION_INVALID", `${field} must be an object.`, { field });
+  }
+  return value as Record<string, unknown>;
+}
+
+function exactKeys(value: Record<string, unknown>, allowed: readonly string[], field: string): void {
+  const unknown = Object.keys(value).filter((key) => !allowed.includes(key));
+  if (unknown.length) {
+    throw new HttpError(422, "ORDER_MODIFICATION_INVALID", `${field} contains unsupported fields.`, {
+      field,
+      unsupported: unknown.sort().join(",")
+    });
+  }
+}
 
 function text(value: unknown, field: string, maximum: number, nullable = false): string | null {
   if (value === null && nullable) return null;
@@ -71,13 +97,13 @@ function validateScheduledPickupAt(value: unknown, event: Readonly<{ date: strin
 }
 
 function parseCommand(input: unknown): PrepareOrderModificationCommand {
-  if (!input || typeof input !== "object" || Array.isArray(input)) throw new HttpError(422, "ORDER_MODIFICATION_INVALID", "Modification command must be an object.");
-  const value = input as Record<string, unknown>;
+  const value = object(input, "command");
+  exactKeys(value, ["orderId", "expectedRevision", "idempotencyKey", "items", "scheduledPickupAt", "customerName", "customerPhoneTail", "paymentMethod", "notes", "supplementMethod", "dispositions", "actor", "deviceId"], "command");
   if (!Array.isArray(value.items)) throw new HttpError(422, "ORDER_MODIFICATION_INVALID", "items must be an array.", { field: "items" });
   if (value.items.length > 100) throw new HttpError(422, "ORDER_MODIFICATION_INVALID", "items may contain at most 100 entries.", { field: "items" });
   const items = value.items.map((entry, index): OrderModificationItemInput => {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) throw new HttpError(422, "ORDER_MODIFICATION_INVALID", "Each item must be an object.", { field: `items[${index}]` });
-    const item = entry as Record<string, unknown>;
+    const item = object(entry, `items[${index}]`);
+    exactKeys(item, ["productId", "productVersionId", "quantity", "notes"], `items[${index}]`);
     return {
       productId: text(item.productId, `items[${index}].productId`, 200)!,
       productVersionId: text(item.productVersionId, `items[${index}].productVersionId`, 200)!,
@@ -89,8 +115,8 @@ function parseCommand(input: unknown): PrepareOrderModificationCommand {
   if (!Array.isArray(value.dispositions)) throw new HttpError(422, "ORDER_MODIFICATION_INVALID", "dispositions must be an array.", { field: "dispositions" });
   if (value.dispositions.length > 100) throw new HttpError(422, "ORDER_MODIFICATION_INVALID", "dispositions may contain at most 100 entries.", { field: "dispositions" });
   const dispositions = value.dispositions.map((entry, index) => {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) throw new HttpError(422, "ORDER_MODIFICATION_INVALID", "Each disposition must be an object.", { field: `dispositions[${index}]` });
-    const disposition = entry as Record<string, unknown>;
+    const disposition = object(entry, `dispositions[${index}]`);
+    exactKeys(disposition, ["orderItemId", "returnedToSellableQuantity", "notReturnedQuantity", "reason"], `dispositions[${index}]`);
     return {
       orderItemId: text(disposition.orderItemId, `dispositions[${index}].orderItemId`, 200)!,
       returnedToSellableQuantity: nonnegativeInteger(disposition.returnedToSellableQuantity, `dispositions[${index}].returnedToSellableQuantity`),
@@ -116,6 +142,96 @@ function parseCommand(input: unknown): PrepareOrderModificationCommand {
   };
 }
 
+function positiveRevision(value: unknown): number {
+  return positiveInteger(value, "expectedRevision");
+}
+
+type ConfirmationEvidence = Readonly<{
+  kind: "cash" | "line_pay";
+  direction: "supplement" | "refund";
+  paymentMethod: PaymentMethod;
+  amount: number;
+  externalReference: string | null;
+}>;
+
+type ConfirmCommand = Readonly<{
+  expectedRevision: number;
+  idempotencyKey: string;
+  actor: string;
+  deviceId: string;
+  evidence: ConfirmationEvidence | null;
+}>;
+
+function parseConfirmCommand(input: unknown): ConfirmCommand {
+  const value = object(input, "command");
+  exactKeys(value, ["expectedRevision", "idempotencyKey", "actor", "deviceId", "evidence"], "command");
+  let evidence: ConfirmationEvidence | null = null;
+  if (value.evidence !== null && value.evidence !== undefined) {
+    const raw = object(value.evidence, "evidence");
+    exactKeys(raw, ["kind", "direction", "paymentMethod", "amount", "attested", "externalReference"], "evidence");
+    if (raw.kind !== "cash" && raw.kind !== "line_pay") throw new HttpError(422, "ORDER_MODIFICATION_EVIDENCE_INVALID", "evidence.kind must be cash or line_pay.", { field: "evidence.kind" });
+    if (raw.direction !== "supplement" && raw.direction !== "refund") throw new HttpError(422, "ORDER_MODIFICATION_EVIDENCE_INVALID", "evidence.direction must be supplement or refund.", { field: "evidence.direction" });
+    const method = paymentMethod(raw.paymentMethod, "evidence.paymentMethod", false)!;
+    const expectedMethod: PaymentMethod = raw.kind === "cash" ? "CASH" : "LINE_PAY";
+    if (method !== expectedMethod) throw new HttpError(422, "ORDER_MODIFICATION_EVIDENCE_INVALID", "Evidence kind and payment method do not agree.", { field: "evidence.paymentMethod" });
+    const externalReference = raw.kind === "line_pay" ? text(raw.externalReference, "evidence.externalReference", 200)! : null;
+    if (raw.kind === "cash" && raw.attested !== true) throw new HttpError(422, "ORDER_MODIFICATION_EVIDENCE_INVALID", "Cash evidence requires attested=true.", { field: "evidence.attested" });
+    if (raw.kind === "line_pay" && raw.attested !== undefined) throw new HttpError(422, "ORDER_MODIFICATION_EVIDENCE_INVALID", "LINE Pay evidence does not accept Cash attestation.", { field: "evidence.attested" });
+    if (raw.kind === "cash" && raw.externalReference !== undefined && raw.externalReference !== null) throw new HttpError(422, "ORDER_MODIFICATION_EVIDENCE_INVALID", "Cash evidence does not accept an external reference.", { field: "evidence.externalReference" });
+    evidence = {
+      kind: raw.kind,
+      direction: raw.direction,
+      paymentMethod: method,
+      amount: positiveInteger(raw.amount, "evidence.amount"),
+      externalReference
+    };
+  }
+  return {
+    expectedRevision: positiveRevision(value.expectedRevision),
+    idempotencyKey: text(value.idempotencyKey, "idempotencyKey", 200)!,
+    actor: text(value.actor, "actor", 100)!,
+    deviceId: text(value.deviceId, "deviceId", 100)!,
+    evidence
+  };
+}
+
+type NoMoneyVerification = Readonly<{
+  kind: "cash" | "line_pay";
+  externalReference: string | null;
+}>;
+
+function parseNoMoneyCommand(input: unknown): Readonly<{
+  expectedRevision: number;
+  idempotencyKey: string;
+  actor: string;
+  deviceId: string;
+  reason: string;
+  verification: NoMoneyVerification;
+}> {
+  const value = object(input, "command");
+  exactKeys(value, ["expectedRevision", "idempotencyKey", "actor", "deviceId", "reason", "verification"], "command");
+  const raw = object(value.verification, "verification");
+  exactKeys(raw, ["kind", "confirmedNoMoney", "verified", "externalStatus", "externalReference"], "verification");
+  if (raw.kind !== "cash" && raw.kind !== "line_pay") throw new HttpError(422, "ORDER_MODIFICATION_NO_MONEY_EVIDENCE_INVALID", "verification.kind must be cash or line_pay.", { field: "verification.kind" });
+  let externalReference: string | null = null;
+  if (raw.kind === "cash") {
+    if (raw.confirmedNoMoney !== true) throw new HttpError(422, "ORDER_MODIFICATION_NO_MONEY_EVIDENCE_INVALID", "Cash cancellation requires confirmedNoMoney=true.", { field: "verification.confirmedNoMoney" });
+    if (raw.verified !== undefined || raw.externalStatus !== undefined || raw.externalReference !== undefined) throw new HttpError(422, "ORDER_MODIFICATION_NO_MONEY_EVIDENCE_INVALID", "Cash verification contains LINE Pay fields.", { field: "verification" });
+  } else {
+    if (raw.verified !== true || raw.externalStatus !== "not_completed") throw new HttpError(422, "ORDER_MODIFICATION_NO_MONEY_EVIDENCE_INVALID", "LINE Pay status must be verified as not_completed.", { field: "verification.externalStatus" });
+    externalReference = text(raw.externalReference, "verification.externalReference", 200)!;
+    if (raw.confirmedNoMoney !== undefined) throw new HttpError(422, "ORDER_MODIFICATION_NO_MONEY_EVIDENCE_INVALID", "LINE Pay verification does not accept Cash attestation.", { field: "verification.confirmedNoMoney" });
+  }
+  return {
+    expectedRevision: positiveRevision(value.expectedRevision),
+    idempotencyKey: text(value.idempotencyKey, "idempotencyKey", 200)!,
+    actor: text(value.actor, "actor", 100)!,
+    deviceId: text(value.deviceId, "deviceId", 100)!,
+    reason: text(value.reason, "reason", 500)!,
+    verification: { kind: raw.kind, externalReference }
+  };
+}
+
 function canonicalFingerprint(command: PrepareOrderModificationCommand): string {
   return createHash("sha256").update(JSON.stringify(command)).digest("hex");
 }
@@ -127,6 +243,17 @@ function itemFacts(items: readonly FrozenOrderModificationLine[]): readonly Read
 function sameItems(before: OperationsOrder, after: readonly FrozenOrderModificationLine[]): boolean {
   const left = before.items.map(({ productId, productVersionId, quantity, notes }) => ({ productId, productVersionId, quantity, notes })).sort((a, b) => a.productId.localeCompare(b.productId));
   return JSON.stringify(left) === JSON.stringify(itemFacts(after));
+}
+
+function confirmationFingerprint(intent: OrderModificationIntent, evidence: ConfirmationEvidence): string {
+  return createHash("sha256").update(JSON.stringify({
+    intentId: intent.intentId,
+    idempotencyKey: intent.idempotencyKey,
+    direction: evidence.direction,
+    paymentMethod: evidence.paymentMethod,
+    amount: evidence.amount,
+    externalReference: evidence.externalReference
+  })).digest("hex");
 }
 
 export class OrderModificationService {
@@ -310,6 +437,130 @@ export class OrderModificationService {
     return intent;
   }
 
+  getRecoveryForOrder(orderId: string): OrderModificationRecovery {
+    const normalizedOrderId = text(orderId, "orderId", 200)!;
+    const intent = this.repository.findActiveIntentForOrder(normalizedOrderId);
+    if (!intent) throw new HttpError(404, "ORDER_MODIFICATION_INTENT_NOT_FOUND", "此訂單目前沒有等待恢復的修改。");
+    return this.recovery(intent);
+  }
+
+  getRecovery(intentId: string): OrderModificationRecovery {
+    const intent = this.getIntent(text(intentId, "intentId", 200)!);
+    if (!["prepared", "external_in_progress", "reconciliation_required"].includes(intent.state)) {
+      throw new HttpError(409, "ORDER_MODIFICATION_NOT_RECOVERABLE", "這筆訂單修改已經結束。");
+    }
+    return this.recovery(intent);
+  }
+
+  renewFromCommand(intentId: string, input: unknown): OrderModificationIntent {
+    const value = object(input, "command");
+    exactKeys(value, ["expectedRevision", "actor"], "command");
+    return this.renew(intentId, positiveRevision(value.expectedRevision), text(value.actor, "actor", 100)!);
+  }
+
+  cancelPreparedFromCommand(intentId: string, input: unknown): OrderModificationIntent {
+    const value = object(input, "command");
+    exactKeys(value, ["expectedRevision", "actor", "reason"], "command");
+    return this.cancelPrepared(
+      intentId,
+      positiveRevision(value.expectedRevision),
+      text(value.actor, "actor", 100)!,
+      text(value.reason, "reason", 500)!
+    );
+  }
+
+  beginExternalActionFromCommand(intentId: string, input: unknown): OrderModificationIntent {
+    const value = object(input, "command");
+    exactKeys(value, ["expectedRevision", "actor"], "command");
+    return this.beginExternalAction(intentId, positiveRevision(value.expectedRevision), text(value.actor, "actor", 100)!);
+  }
+
+  requireReconciliationFromCommand(intentId: string, input: unknown): OrderModificationIntent {
+    const value = object(input, "command");
+    exactKeys(value, ["expectedRevision", "actor", "reason"], "command");
+    return this.requireReconciliation(
+      intentId,
+      positiveRevision(value.expectedRevision),
+      text(value.actor, "actor", 100)!,
+      text(value.reason, "reason", 500)!
+    );
+  }
+
+  cancelAfterVerifiedNoMoney(intentId: string, input: unknown): OrderModificationIntent {
+    const command = parseNoMoneyCommand(input);
+    const timestamp = this.clock().toISOString();
+    return this.repository.transactionImmediate(() => {
+      const before = this.getIntent(text(intentId, "intentId", 200)!);
+      if (before.state !== "external_in_progress" && before.state !== "reconciliation_required") {
+        throw new HttpError(409, "ORDER_MODIFICATION_NO_MONEY_RECOVERY_CONFLICT", "只有等待外部款項或款項核對中的修改可以使用此恢復操作。");
+      }
+      if (before.intentRevision !== command.expectedRevision) throw new HttpError(409, "ORDER_MODIFICATION_CONCURRENTLY_CHANGED", "修改已被其他裝置更新，請重新載入。");
+      if (before.idempotencyKey !== command.idempotencyKey) throw new HttpError(409, "ORDER_MODIFICATION_IDEMPOTENCY_CONFLICT", "恢復操作必須使用原修改的 idempotency key。");
+      const expectedKind = before.adjustmentMethod === "CASH" ? "cash" : "line_pay";
+      if (command.verification.kind !== expectedKind) throw new HttpError(422, "ORDER_MODIFICATION_NO_MONEY_EVIDENCE_MISMATCH", "款項核對方式與原修改不一致。");
+      if (!this.repository.transitionExternalOrReconciliationToCancelled(before.intentId, command.expectedRevision, command.actor, command.reason, timestamp)) {
+        throw new HttpError(409, "ORDER_MODIFICATION_NO_MONEY_RECOVERY_CONFLICT", "修改狀態已變更，請重新載入。");
+      }
+      this.releaseReservations(before.intentId, command.actor, timestamp);
+      const after = this.getIntent(before.intentId);
+      this.repository.insertAudit({
+        auditLogId: createId("audit_"),
+        entityId: before.intentId,
+        action: "order.modification_external_not_completed",
+        actor: command.actor,
+        deviceId: command.deviceId,
+        before,
+        after: { intent: after, verification: command.verification, reason: command.reason },
+        occurredAt: timestamp
+      });
+      return after;
+    });
+  }
+
+  confirm(intentId: string, input: unknown): OrderModificationConfirmation {
+    const command = parseConfirmCommand(input);
+    const normalizedIntentId = text(intentId, "intentId", 200)!;
+    const initial = this.getIntent(normalizedIntentId);
+    if (initial.idempotencyKey !== command.idempotencyKey) throw new HttpError(409, "ORDER_MODIFICATION_IDEMPOTENCY_CONFLICT", "確認必須使用原修改的 idempotency key。");
+    if (initial.state === "confirmed") return this.confirmation(initial, command.evidence, true);
+    if (initial.intentRevision !== command.expectedRevision) throw new HttpError(409, "ORDER_MODIFICATION_CONCURRENTLY_CHANGED", "修改已被其他裝置更新，請重新載入。");
+
+    const external = initial.adjustmentAmount > 0;
+    if (!external) {
+      if (initial.state !== "prepared") throw new HttpError(409, "ORDER_MODIFICATION_CONFIRM_CONFLICT", "不需要外部款項的修改只能由 prepared 狀態確認。");
+      if (command.evidence) throw new HttpError(422, "ORDER_MODIFICATION_EVIDENCE_NOT_REQUIRED", "此修改沒有補收或退款，不接受外部款項證據。");
+    } else {
+      if (initial.state !== "external_in_progress" && initial.state !== "reconciliation_required") {
+        throw new HttpError(409, "ORDER_MODIFICATION_EXTERNAL_ACTION_REQUIRED", "請先進入外部收退款步驟，再確認訂單修改。");
+      }
+      if (!command.evidence) throw new HttpError(422, "ORDER_MODIFICATION_EVIDENCE_REQUIRED", "完成補收或退款後必須提供款項證據。");
+      const evidenceMatches = command.evidence.direction === initial.adjustmentDirection
+        && command.evidence.paymentMethod === initial.adjustmentMethod
+        && command.evidence.amount === initial.adjustmentAmount;
+      if (!evidenceMatches) {
+        this.reconciliationAfterFailedConfirmation(initial, command.actor, "external_evidence_mismatch");
+        throw new HttpError(409, "ORDER_MODIFICATION_RECONCILIATION_REQUIRED", "款項證據與凍結的修改金額不一致，已保留訂單與庫存等待核對。");
+      }
+      if (command.evidence.externalReference) {
+        const existing = this.repository.findAdjustmentByExternalReference(command.evidence.externalReference);
+        if (existing && existing.intentId !== initial.intentId) {
+          this.reconciliationAfterFailedConfirmation(initial, command.actor, "external_reference_reused");
+          throw new HttpError(409, "ORDER_MODIFICATION_EXTERNAL_REFERENCE_REUSED", "此 LINE Pay 交易參考已被另一筆修改使用，已保留目前修改等待核對。");
+        }
+      }
+    }
+
+    try {
+      return this.repository.transactionImmediate(() => this.confirmTransaction(initial, command));
+    } catch (error) {
+      if (external) {
+        this.reconciliationAfterFailedConfirmation(initial, command.actor, "phase_b_failed");
+        throw new HttpError(409, "ORDER_MODIFICATION_RECONCILIATION_REQUIRED", "款項可能已處理，但訂單修改尚未完成；請勿再次收款或退款，請從同一筆修改繼續核對。");
+      }
+      throw error;
+    }
+  }
+
   renew(intentId: string, expectedRevision: number, actor: string): OrderModificationIntent {
     const timestamp = this.clock().toISOString();
     const expiresAt = new Date(Date.parse(timestamp) + PREPARED_LEASE_MS).toISOString();
@@ -358,21 +609,226 @@ export class OrderModificationService {
     });
   }
 
-  expirePrepared(): number {
+  sweepExpiredPrepared(): OrderModificationExpirySweepResult {
     const timestamp = this.clock().toISOString();
     let expired = 0;
+    let failures = 0;
     for (const candidate of this.repository.listExpiredPrepared(timestamp)) {
-      const changed = this.repository.transactionImmediate(() => {
-        const before = this.repository.findIntent(candidate.intentId);
-        if (!before || !this.repository.transitionPreparedToExpired(candidate.intentId, candidate.intentRevision, timestamp)) return false;
-        this.releaseReservations(candidate.intentId, "system", timestamp);
-        const after = this.getIntent(candidate.intentId);
-        this.repository.insertAudit({ auditLogId: createId("audit_"), entityId: candidate.intentId, action: "order.modification_expired", actor: "system", deviceId: before.deviceId, before, after, occurredAt: timestamp });
-        return true;
-      });
-      if (changed) expired += 1;
+      try {
+        const changed = this.repository.transactionImmediate(() => {
+          const before = this.repository.findIntent(candidate.intentId);
+          if (!before || !this.repository.transitionPreparedToExpired(candidate.intentId, candidate.intentRevision, timestamp)) return false;
+          this.releaseReservations(candidate.intentId, "system", timestamp);
+          const after = this.getIntent(candidate.intentId);
+          this.repository.insertAudit({ auditLogId: createId("audit_"), entityId: candidate.intentId, action: "order.modification_expired", actor: "system", deviceId: before.deviceId, before, after, occurredAt: timestamp });
+          return true;
+        });
+        if (changed) expired += 1;
+      } catch {
+        failures += 1;
+      }
     }
-    return expired;
+    return { expired, failures };
+  }
+
+  expirePrepared(): number {
+    return this.sweepExpiredPrepared().expired;
+  }
+
+  private recovery(intent: OrderModificationIntent): OrderModificationRecovery {
+    const pickupNumber = this.repository.findOrderNumber(intent.rootOrderId);
+    if (!pickupNumber) throw new HttpError(500, "ORDER_MODIFICATION_RECOVERY_FAILED", "訂單修改恢復資料無法安全讀取。");
+    return {
+      intent,
+      pickupNumber,
+      heldReservations: this.repository.listRecoveryReservations(intent.intentId)
+    };
+  }
+
+  private confirmation(intent: OrderModificationIntent, evidence: ConfirmationEvidence | null, replayed: boolean): OrderModificationConfirmation {
+    const replacement = this.repository.findReplacementByIntent(intent.intentId) ?? null;
+    const paymentAdjustment = this.repository.findPaymentAdjustmentByIntent(intent.intentId) ?? null;
+    if (paymentAdjustment) {
+      if (!evidence || paymentAdjustment.requestFingerprint !== confirmationFingerprint(intent, evidence)) {
+        throw new HttpError(409, "ORDER_MODIFICATION_CONFIRMATION_REPLAY_CONFLICT", "這筆修改已使用不同的款項證據完成。");
+      }
+    } else if (evidence) {
+      throw new HttpError(409, "ORDER_MODIFICATION_CONFIRMATION_REPLAY_CONFLICT", "這筆修改完成時沒有外部款項證據。");
+    }
+    const effectiveOrderId = replacement?.replacementOrderId ?? intent.effectiveOrderId;
+    const effectiveOrder = this.repository.findOrder(effectiveOrderId);
+    if (!effectiveOrder) throw new HttpError(500, "ORDER_MODIFICATION_CONFIRMATION_FAILED", "已完成的訂單修改無法安全讀取。");
+    return {
+      intent,
+      effectiveOrder,
+      replacement,
+      paymentAdjustment,
+      dispositions: this.repository.listDispositions(intent.intentId),
+      replayed
+    };
+  }
+
+  private confirmTransaction(initial: OrderModificationIntent, command: ConfirmCommand): OrderModificationConfirmation {
+    const before = this.getIntent(initial.intentId);
+    if (before.state === "confirmed") return this.confirmation(before, command.evidence, true);
+    if (before.intentRevision !== command.expectedRevision || before.state !== initial.state) {
+      throw new HttpError(409, "ORDER_MODIFICATION_CONCURRENTLY_CHANGED", "修改已被其他裝置更新，請重新載入。");
+    }
+    if (this.repository.resolveEffectiveOrderId(before.rootOrderId) !== before.effectiveOrderId) {
+      throw new HttpError(409, "ORDER_MODIFICATION_EFFECTIVE_ORDER_CHANGED", "有效訂單已變更，不能套用舊修改。");
+    }
+    const current = this.repository.findOrder(before.effectiveOrderId);
+    if (!current || current.revision !== before.expectedEffectiveRevision) {
+      throw new HttpError(409, "ORDER_MODIFICATION_EFFECTIVE_ORDER_CHANGED", "有效訂單已變更，不能套用舊修改。");
+    }
+    const event = this.repository.findEvent(before.eventId);
+    if (!event || (event.status !== "open" && event.status !== "paused")) {
+      throw new HttpError(409, "EVENT_NOT_OPERATIONAL", "只有 OPEN 或 PAUSED 場次可以完成訂單修改。");
+    }
+
+    const timestamp = this.clock().toISOString();
+    let replacementId: string | null = null;
+    let replacementOrderId: string | null = null;
+    if (before.outcomeKind === "replacement") {
+      replacementId = createId("replacement_");
+      replacementOrderId = createId("order_");
+      const orderNumber = this.repository.allocateOrderNumber(before.eventId, timestamp);
+      this.repository.insertReplacementOrder({
+        orderId: replacementOrderId,
+        orderNumber,
+        intent: before,
+        paymentStatus: before.paymentBasisStatus,
+        paidTotal: before.paymentBasisStatus === "paid" ? before.newTotal : 0,
+        timestamp
+      });
+      for (const line of before.after.items) {
+        this.repository.insertReplacementOrderItem({ orderItemId: createId("order_item_"), orderId: replacementOrderId, line, timestamp });
+      }
+      this.repository.insertReplacement({
+        replacementId,
+        intent: before,
+        replacementOrderId,
+        effectiveRevision: this.repository.nextReplacementRevision(before.rootOrderId),
+        reason: "order_modification_confirmed",
+        actor: command.actor,
+        deviceId: command.deviceId,
+        timestamp
+      });
+    } else if (!this.repository.cancelEffectiveOrder({
+      orderId: before.effectiveOrderId,
+      expectedRevision: before.expectedEffectiveRevision,
+      paymentStatus: before.paymentBasisStatus === "paid" ? "refunded" : "unpaid",
+      timestamp
+    })) {
+      throw new HttpError(409, "ORDER_MODIFICATION_EFFECTIVE_ORDER_CHANGED", "有效訂單已變更，不能取消。");
+    }
+
+    for (const reservation of this.repository.listHeldReservations(before.intentId)) {
+      if (!this.repository.commitHeldReservation({ ...reservation, actor: command.actor, timestamp })) {
+        throw new HttpError(409, "ORDER_MODIFICATION_RESERVATION_COMMIT_FAILED", "修改保留數量無法安全轉為已售。");
+      }
+    }
+
+    const dispositionEvidence: OrderItemDispositionEvidence[] = [];
+    for (const disposition of before.difference.dispositions) {
+      const source = before.before.items.find((item) => item.orderItemId === disposition.sourceOrderItemId);
+      if (!source) throw new HttpError(409, "ORDER_MODIFICATION_DISPOSITION_SOURCE_MISSING", "刪減餐點的原始證據無法安全讀取。");
+      if (!this.repository.returnToSellable({
+        eventId: before.eventId,
+        productId: disposition.productId,
+        productVersionId: disposition.productVersionId,
+        quantity: disposition.returnedToSellableQuantity,
+        timestamp
+      })) throw new HttpError(409, "ORDER_MODIFICATION_DISPOSITION_INVENTORY_FAILED", "回到可售的餐點數量無法安全更新。");
+      const evidence: OrderItemDispositionEvidence = {
+        dispositionId: createId("disposition_"),
+        intentId: before.intentId,
+        replacementId,
+        sourceOrderId: before.effectiveOrderId,
+        sourceOrderItemId: source.orderItemId,
+        productId: source.productId,
+        productVersionId: source.productVersionId,
+        displayNameSnapshot: source.displayNameSnapshot,
+        posNameSnapshot: source.posNameSnapshot,
+        unitSellingPrice: source.unitSellingPrice,
+        removedQuantity: disposition.removedQuantity,
+        returnedToSellableQuantity: disposition.returnedToSellableQuantity,
+        notReturnedQuantity: disposition.notReturnedQuantity,
+        reason: disposition.reason,
+        recordedBy: command.actor,
+        deviceId: command.deviceId,
+        occurredAt: timestamp
+      };
+      this.repository.insertDisposition(evidence);
+      dispositionEvidence.push(evidence);
+    }
+
+    let adjustment: PaymentAdjustmentEvidence | null = null;
+    if (command.evidence) {
+      adjustment = {
+        paymentAdjustmentId: createId("payment_adjustment_"),
+        intentId: before.intentId,
+        rootOrderId: before.rootOrderId,
+        effectiveOrderId: before.effectiveOrderId,
+        replacementOrderId,
+        direction: command.evidence.direction,
+        paymentMethod: command.evidence.paymentMethod,
+        amount: command.evidence.amount,
+        externalReference: command.evidence.externalReference,
+        idempotencyKey: before.idempotencyKey,
+        requestFingerprint: confirmationFingerprint(before, command.evidence),
+        confirmedBy: command.actor,
+        deviceId: command.deviceId,
+        occurredAt: timestamp
+      };
+      this.repository.insertPaymentAdjustment(adjustment);
+    }
+
+    const transitionReason = command.evidence ? "external_payment_confirmed" : "no_external_payment_required";
+    if (!this.repository.transitionToConfirmed(before.intentId, before.intentRevision, command.actor, transitionReason, timestamp)) {
+      throw new HttpError(409, "ORDER_MODIFICATION_CONFIRM_CONFLICT", "修改狀態已變更，請重新載入。");
+    }
+    const confirmed = this.getIntent(before.intentId);
+    const effectiveOrder = this.repository.findOrder(replacementOrderId ?? before.effectiveOrderId);
+    if (!effectiveOrder) throw new Error("Confirmed effective Order could not be reloaded.");
+    this.repository.insertAudit({
+      auditLogId: createId("audit_"),
+      entityId: before.intentId,
+      action: "order.modification_confirmed",
+      actor: command.actor,
+      deviceId: command.deviceId,
+      before,
+      after: { intent: confirmed, effectiveOrder, replacementId, dispositionCount: dispositionEvidence.length, paymentAdjustmentId: adjustment?.paymentAdjustmentId ?? null },
+      occurredAt: timestamp
+    });
+    return {
+      intent: confirmed,
+      effectiveOrder,
+      replacement: replacementId ? this.repository.findReplacementByIntent(before.intentId) ?? null : null,
+      paymentAdjustment: adjustment,
+      dispositions: dispositionEvidence,
+      replayed: false
+    };
+  }
+
+  private reconciliationAfterFailedConfirmation(intent: OrderModificationIntent, actor: string, reason: string): void {
+    const timestamp = this.clock().toISOString();
+    this.repository.transactionImmediate(() => {
+      const current = this.repository.findIntent(intent.intentId);
+      if (!current || current.state === "confirmed" || current.state === "cancelled") return;
+      if (!this.repository.markReconciliationAfterFailure(current.intentId, actor, reason, timestamp)) return;
+      const after = this.getIntent(current.intentId);
+      this.repository.insertAudit({
+        auditLogId: createId("audit_"),
+        entityId: current.intentId,
+        action: "order.modification_reconciliation_required",
+        actor,
+        deviceId: current.deviceId,
+        before: current,
+        after,
+        occurredAt: timestamp
+      });
+    });
   }
 
   private releaseReservations(intentId: string, actor: string, timestamp: string): void {

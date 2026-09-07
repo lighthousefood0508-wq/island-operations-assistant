@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-07 - PR #64 blocking remediation authorized
+
+- Recorded DECISIONS #099 for the existing PR-OPERATIONS-005 branch and PR #64.
+- Added the authorized runtime prepared-lease expiry job boundary and effective
+  Order root-pickup presentation remediation, with focused race/restart/shutdown
+  and projection regression coverage.
+- No schema/migration, UAT SQLite, Windows runtime, Cloudflare, Scheduled Task,
+  Docker/n8n, Legacy, deployment, or restart change is included.
+
 ## 2026-09-05 - PR-OPERATIONS-004 implementation authorized
 
 - Recorded DECISIONS #097 from the Owner instruction

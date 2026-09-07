@@ -74,6 +74,13 @@ export type OrderItem = Readonly<{
   costStatus: "unavailable";
 }>;
 
+export type OrderPresentation = Readonly<{
+  pickupNumber: string;
+  modified: boolean;
+  effectiveRevision: number;
+  modificationSequence: number;
+}>;
+
 export type OperationsOrder = Readonly<{
   orderId: string;
   orderNumber: string;
@@ -95,6 +102,7 @@ export type OperationsOrder = Readonly<{
   createdAt: string;
   confirmedAt: string;
   servedAt: string | null;
+  presentation: OrderPresentation;
   revision: string;
   items: readonly OrderItem[];
 }>;

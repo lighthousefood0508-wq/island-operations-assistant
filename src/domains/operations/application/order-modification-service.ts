@@ -18,6 +18,11 @@ import { OrderModificationRepository, type PreparedIntentInsert } from "../infra
 
 const PREPARED_LEASE_MS = 10 * 60_000;
 
+export type OrderModificationExpirySweepResult = Readonly<{
+  expired: number;
+  failures: number;
+}>;
+
 function object(value: unknown, field: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new HttpError(422, "ORDER_MODIFICATION_INVALID", `${field} must be an object.`, { field });
@@ -604,21 +609,30 @@ export class OrderModificationService {
     });
   }
 
-  expirePrepared(): number {
+  sweepExpiredPrepared(): OrderModificationExpirySweepResult {
     const timestamp = this.clock().toISOString();
     let expired = 0;
+    let failures = 0;
     for (const candidate of this.repository.listExpiredPrepared(timestamp)) {
-      const changed = this.repository.transactionImmediate(() => {
-        const before = this.repository.findIntent(candidate.intentId);
-        if (!before || !this.repository.transitionPreparedToExpired(candidate.intentId, candidate.intentRevision, timestamp)) return false;
-        this.releaseReservations(candidate.intentId, "system", timestamp);
-        const after = this.getIntent(candidate.intentId);
-        this.repository.insertAudit({ auditLogId: createId("audit_"), entityId: candidate.intentId, action: "order.modification_expired", actor: "system", deviceId: before.deviceId, before, after, occurredAt: timestamp });
-        return true;
-      });
-      if (changed) expired += 1;
+      try {
+        const changed = this.repository.transactionImmediate(() => {
+          const before = this.repository.findIntent(candidate.intentId);
+          if (!before || !this.repository.transitionPreparedToExpired(candidate.intentId, candidate.intentRevision, timestamp)) return false;
+          this.releaseReservations(candidate.intentId, "system", timestamp);
+          const after = this.getIntent(candidate.intentId);
+          this.repository.insertAudit({ auditLogId: createId("audit_"), entityId: candidate.intentId, action: "order.modification_expired", actor: "system", deviceId: before.deviceId, before, after, occurredAt: timestamp });
+          return true;
+        });
+        if (changed) expired += 1;
+      } catch {
+        failures += 1;
+      }
     }
-    return expired;
+    return { expired, failures };
+  }
+
+  expirePrepared(): number {
+    return this.sweepExpiredPrepared().expired;
   }
 
   private recovery(intent: OrderModificationIntent): OrderModificationRecovery {

@@ -8,9 +8,9 @@
   merged PR-OPERATIONS-004 foundation.
 - **Compatibility result**: PASS as a proposed Operations Payment and lifecycle
   increment. It does not create provider settlement, Waste, or Cost authority.
-- **Status**: AUTHORIZED FOR IMPLEMENTATION AND LOCAL CANDIDATE VALIDATION by
-  DECISIONS #098 after PR-OPERATIONS-004 was independently reviewed and merged
-  as PR #63. Commit, push, PR, merge, release, and deployment remain gated.
+- **Status**: PR #64 remediation authorized by DECISIONS #099. The existing
+  branch/PR may be committed and pushed after complete validation, followed by
+  Independent PR Review. Merge, release, and deployment remain gated.
 
 ## Single responsibility
 
@@ -50,25 +50,44 @@ fail-closed reconciliation recovery.
   Event Close, and Daily Report freeze for every nonterminal intent.
 - Removing the final line confirms as whole-Order cancellation with any required
   refund/disposition, and creates neither an empty Order nor a replacement edge.
+- Run one startup and one bounded, non-overlapping periodic expiry sweep through
+  `server/jobs -> OrderModificationService`. Only elapsed `prepared` leases may
+  CAS-expire; state transition, hold release, unlock, audit and time evidence are
+  one transaction. Stop the timer during graceful shutdown. Never auto-expire
+  `external_in_progress` or `reconciliation_required`.
+- Preserve unique replacement internal identity/number while projecting root
+  pickup number, modified state, effective revision and modification sequence
+  on every effective Order read. POS and Kitchen render that projection across
+  reload/reconnect/device boundaries; no Order row is rewritten or backfilled.
 
 ## Scope to freeze before implementation
 
-The implementation allowlist is frozen to these eleven paths:
+DECISIONS #099 expands the implementation allowlist only for the two confirmed
+blocking findings. It is frozen to these nineteen paths:
 
-1. `src/domains/operations/domain/order-modification.ts`
-2. `src/domains/operations/application/order-modification-service.ts`
-3. `src/domains/operations/infrastructure/order-modification-repository.ts`
-4. `src/domains/operations/infrastructure/lifecycle-repository.ts`
-5. `src/domains/operations/index.ts`
-6. `src/server/app/access-control.ts`
-7. `src/server/app/routes.ts`
-8. `src/server/index.ts`
-9. `src/tests/order-modification-payment-recovery.integration.test.ts`
-10. `src/tests/order-modification-api.integration.test.ts`
-11. `src/tests/architecture-guards.test.ts`
+1. `src/domains/operations/domain/types.ts`
+2. `src/domains/operations/domain/order-modification.ts`
+3. `src/domains/operations/application/order-modification-service.ts`
+4. `src/domains/operations/infrastructure/order-modification-repository.ts`
+5. `src/domains/operations/infrastructure/order-modification-lock.ts`
+6. `src/domains/operations/infrastructure/order-repository.ts`
+7. `src/domains/operations/infrastructure/lifecycle-repository.ts`
+8. `src/domains/operations/index.ts`
+9. `src/server/app/access-control.ts`
+10. `src/server/app/routes.ts`
+11. `src/server/index.ts`
+12. `src/server/jobs/order-modification-expiry-runner.ts`
+13. `src/web/pos/page.ts`
+14. `src/web/kitchen/page.ts`
+15. `src/tests/order-modification-payment-recovery.integration.test.ts`
+16. `src/tests/order-modification-api.integration.test.ts`
+17. `src/tests/order-modification-expiry-runtime.integration.test.ts`
+18. `src/tests/architecture-guards.test.ts`
+19. `tests/e2e/pos-ordering.spec.ts`
 
-Governance synchronization files are not implementation paths. No twelfth
-implementation path and no Owner-facing modification page belongs in this PR.
+Governance synchronization files are not implementation paths. No twentieth
+implementation path and no Owner-facing modification/payment workflow belongs
+in this PR. The POS/Kitchen changes are limited to stable pickup presentation.
 
 ## Acceptance criteria
 
@@ -88,6 +107,12 @@ implementation path and no Owner-facing modification page belongs in this PR.
   Sales Contract for the same business sale chain.
 - Event closeout save/close/report freeze cannot bypass unfinished intents or
   use a reconciliation exception to override them.
+- Startup, periodic, restart and shutdown runtime regressions prove expired
+  prepared cleanup, non-expiry of external/reconciliation states, race-safe
+  one-time release, failure isolation and zero residual timer/listener.
+- Effective list/detail/POS/Kitchen projection keeps the root pickup number and
+  modification sequence while internal IDs/numbers remain unique and reports
+  count only the effective Order once.
 
 ## Verification
 

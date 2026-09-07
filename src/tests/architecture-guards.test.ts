@@ -3720,7 +3720,9 @@ test("PR-OPERATIONS-004 keeps pending modification foundation inside its exact O
   const successorPaths = new Set([
     "src/server/app/routes.ts",
     "src/server/index.ts",
+    "src/server/jobs/order-modification-expiry-runner.ts",
     "src/tests/order-modification-api.integration.test.ts",
+    "src/tests/order-modification-expiry-runtime.integration.test.ts",
     "src/tests/order-modification-payment-recovery.integration.test.ts"
   ]);
   const responsibilityFiles = candidateFiles
@@ -3749,27 +3751,43 @@ test("PR-OPERATIONS-004 keeps pending modification foundation inside its exact O
 
 test("PR-OPERATIONS-005 keeps payment recovery and disposition inside its frozen Operations boundary", () => {
   const approvedPaths = new Set([
+    "src/domains/operations/domain/types.ts",
     "src/domains/operations/domain/order-modification.ts",
     "src/domains/operations/application/order-modification-service.ts",
     "src/domains/operations/infrastructure/order-modification-repository.ts",
+    "src/domains/operations/infrastructure/order-modification-lock.ts",
+    "src/domains/operations/infrastructure/order-repository.ts",
     "src/domains/operations/infrastructure/lifecycle-repository.ts",
     "src/domains/operations/index.ts",
     "src/server/app/access-control.ts",
     "src/server/app/routes.ts",
     "src/server/index.ts",
+    "src/server/jobs/order-modification-expiry-runner.ts",
+    "src/web/pos/page.ts",
+    "src/web/kitchen/page.ts",
     "src/tests/order-modification-payment-recovery.integration.test.ts",
     "src/tests/order-modification-api.integration.test.ts",
-    "src/tests/architecture-guards.test.ts"
+    "src/tests/order-modification-expiry-runtime.integration.test.ts",
+    "src/tests/architecture-guards.test.ts",
+    "tests/e2e/pos-ordering.spec.ts"
   ]);
-  assert.equal(approvedPaths.size, 11);
+  assert.equal(approvedPaths.size, 19);
   assert.equal(approvedPaths.has("src/web/pages/pos-page.ts"), false);
   assert.equal(approvedPaths.has("migrations/025_order_modification_payment.sql"), false);
 
   const service = readFileSync(path.join(sourceRoot, "domains", "operations", "application", "order-modification-service.ts"), "utf8");
   const repository = readFileSync(path.join(sourceRoot, "domains", "operations", "infrastructure", "order-modification-repository.ts"), "utf8");
+  const lock = readFileSync(path.join(sourceRoot, "domains", "operations", "infrastructure", "order-modification-lock.ts"), "utf8");
+  const orderRepository = readFileSync(path.join(sourceRoot, "domains", "operations", "infrastructure", "order-repository.ts"), "utf8");
   const lifecycle = readFileSync(path.join(sourceRoot, "domains", "operations", "infrastructure", "lifecycle-repository.ts"), "utf8");
   const routes = readFileSync(path.join(sourceRoot, "server", "app", "routes.ts"), "utf8");
   const access = readFileSync(path.join(sourceRoot, "server", "app", "access-control.ts"), "utf8");
+  const server = readFileSync(path.join(sourceRoot, "server", "index.ts"), "utf8");
+  const expiryRunner = readFileSync(path.join(sourceRoot, "server", "jobs", "order-modification-expiry-runner.ts"), "utf8");
+  const pos = readFileSync(path.join(sourceRoot, "web", "pos", "page.ts"), "utf8");
+  const kitchen = readFileSync(path.join(sourceRoot, "web", "kitchen", "page.ts"), "utf8");
+  const runtimeTest = readFileSync(path.join(sourceRoot, "tests", "order-modification-expiry-runtime.integration.test.ts"), "utf8");
+  const posE2e = readFileSync(path.join(projectRoot, "tests", "e2e", "pos-ordering.spec.ts"), "utf8");
   const migration = readFileSync(path.join(projectRoot, "migrations", "024_operations_order_modification_foundation.sql"), "utf8");
 
   assert.match(service, /reconciliation_required/);
@@ -3781,6 +3799,23 @@ test("PR-OPERATIONS-005 keeps payment recovery and disposition inside its frozen
   assert.match(routes, /verify-no-money\|confirm/);
   assert.match(access, /order-modifications/);
   assert.match(migration, /UNIQUE \(intent_id, source_order_item_id\)/);
+  assert.match(service, /sweepExpiredPrepared/);
+  assert.match(service, /transitionPreparedToExpired/);
+  assert.match(expiryRunner, /ORDER_MODIFICATION_EXPIRY_INTERVAL_MS = 60_000/);
+  assert.match(expiryRunner, /this\.sweeping/);
+  assert.match(server, /orderModificationExpiry\.start\(\)/);
+  assert.match(server, /resources\.stopJobs\(\)/);
+  assert.doesNotMatch(expiryRunner, /DatabaseAdapter|Repository|queryOne|queryMany|execute\(/);
+  assert.match(lock, /resolveOrderPresentation/);
+  assert.match(lock, /replacement\.replacement_order_id = \?/);
+  assert.match(orderRepository, /presentation: resolveOrderPresentation/);
+  assert.match(lifecycle, /presentation: resolveOrderPresentation/);
+  assert.match(pos, /order\.presentation\?\.pickupNumber\|\|order\.orderNumber/);
+  assert.match(kitchen, /order\.presentation\?\.pickupNumber\|\|order\.orderNumber/);
+  assert.match(runtimeTest, /restart startup sweep/);
+  assert.match(runtimeTest, /listenerCount\("close"\)/);
+  assert.match(posE2e, /replacement keeps the root pickup number across POS, Kitchen, SSE refresh, reload and another device/);
   assert.doesNotMatch(service + repository, /domains\/(?:catalog|cost|recipe)|(?:waste|valuation)/i);
   assert.doesNotMatch(routes, /order-modification\.completed|order\.modified/);
+  assert.doesNotMatch(migration, /UPDATE operations_orders|UPDATE operations_order_items|UPDATE operations_payments/i);
 });

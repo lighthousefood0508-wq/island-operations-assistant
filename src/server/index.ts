@@ -51,8 +51,23 @@ import {
   AuthenticationService,
   SqliteAuthenticationRepository
 } from "../system/authentication/index.js";
+import { OrderModificationExpiryRunner } from "./jobs/order-modification-expiry-runner.js";
 
-export function createRosServer(config: RosConfig = loadConfig()): Server {
+export type RosServerRuntimeOptions = Readonly<{
+  orderModificationClock?: () => Date;
+  orderModificationExpiryIntervalMs?: number;
+  onOrderModificationExpirySweep?: (result: Readonly<{ expired: number; failures: number }>) => void;
+  onOrderModificationExpiryFailure?: () => void;
+}>;
+
+type RuntimeResources = {
+  stopJobs(): void;
+  closeDatabase(): void;
+};
+
+const runtimeResources = new WeakMap<Server, RuntimeResources>();
+
+export function createRosServer(config: RosConfig = loadConfig(), runtimeOptions: RosServerRuntimeOptions = {}): Server {
   const database = createDatabase(config);
   try {
   if (config.runtime?.migrationMode === "verify") verifyMigrationsCurrent(database);
@@ -68,8 +83,14 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
   const orders = new OrderService(new OrderRepository(database), paymentRepository);
   const payments = new PaymentService(paymentRepository);
   const orderModifications = new OrderModificationService(
-    new OrderModificationRepository(database)
+    new OrderModificationRepository(database),
+    runtimeOptions.orderModificationClock
   );
+  const orderModificationExpiry = new OrderModificationExpiryRunner(orderModifications, {
+    intervalMs: runtimeOptions.orderModificationExpiryIntervalMs,
+    onSweep: runtimeOptions.onOrderModificationExpirySweep,
+    onFailure: runtimeOptions.onOrderModificationExpiryFailure ?? (() => console.error("Order modification expiry sweep failed; the next bounded sweep will retry."))
+  });
   const lifecycleRepository = new LifecycleRepository(database);
   const lifecycle = new LifecycleService(lifecycleRepository);
   const dailyReports = new DailyReportReadService(lifecycleRepository);
@@ -174,12 +195,21 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
     authentication
   }, events));
   let databaseClosed = false;
-  server.once("close", () => {
-    if (!databaseClosed) {
+  const resources: RuntimeResources = {
+    stopJobs: () => orderModificationExpiry.stop(),
+    closeDatabase: () => {
+      if (databaseClosed) return;
       databaseClosed = true;
       database.close();
     }
+  };
+  runtimeResources.set(server, resources);
+  server.once("close", () => {
+    resources.stopJobs();
+    resources.closeDatabase();
+    runtimeResources.delete(server);
   });
+  orderModificationExpiry.start();
   return server;
   } catch (error) {
     database.close();
@@ -190,8 +220,20 @@ export function createRosServer(config: RosConfig = loadConfig()): Server {
 /** ProductionRuntimeBoundary: stop accepting HTTP work and release SQLite exactly once. */
 export function closeRosServer(server: Server): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (!server.listening) return resolve();
-    server.close((error) => error ? reject(error) : resolve());
+    const resources = runtimeResources.get(server);
+    resources?.stopJobs();
+    if (!server.listening) {
+      resources?.closeDatabase();
+      runtimeResources.delete(server);
+      return resolve();
+    }
+    const closed = () => resolve();
+    server.once("close", closed);
+    server.close((error) => {
+      if (!error) return;
+      server.off("close", closed);
+      reject(error);
+    });
     server.closeIdleConnections();
   });
 }

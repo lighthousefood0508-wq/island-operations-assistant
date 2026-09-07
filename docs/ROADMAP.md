@@ -1,6 +1,6 @@
 # Roadmap
 
-Last synchronized: 2026-09-05 (Asia/Taipei).
+Last synchronized: 2026-09-07 (Asia/Taipei).
 
 Roadmap entries describe planning and verified completion state. They do not
 grant implementation, Git, release, deployment, or cleanup authority.
@@ -13,14 +13,16 @@ paid/started Order replacement. The planned dependency sequence is:
 1. PR-OPERATIONS-004 — lazy-root replacement and pending-intent/reservation/lock
    foundation plus its additive migration.
 2. PR-OPERATIONS-005 — supplement/refund evidence, cross-device recovery,
-   finished-item disposition, and closeout/report correctness.
+   finished-item disposition, closeout/report correctness, runtime prepared
+   expiry, and the stable root pickup presentation boundary required to close
+   PR #64 review findings.
 3. PR-OPERATIONS-006 — POS/Kitchen Owner workflow, stable pickup identity,
    voice/reminder behavior, and responsive E2E.
 
 Independent Architecture Review passed. PR-OPERATIONS-004 was independently
-reviewed and merged as PR #63. DECISIONS #098 authorizes only
-PR-OPERATIONS-005 implementation and local candidate validation. PR 006,
-commit, push, PR, merge, and deployment remain gated. No historical backfill,
+reviewed and merged as PR #63. PR-OPERATIONS-005 is open as PR #64;
+DECISIONS #099 authorizes only the two review remediations, validation and push
+to that existing PR. PR 006, merge, and deployment remain gated. No historical backfill,
 Waste Domain, provider integration, UAT/database change, or deployment is part
 of the current Gate.
 

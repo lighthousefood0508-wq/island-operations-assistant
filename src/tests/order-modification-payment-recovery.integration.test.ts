@@ -108,14 +108,37 @@ test("unpaid no-external replacement confirms atomically and replays without dup
     assert.equal(confirmed.paymentAdjustment, null);
     assert.equal(confirmed.effectiveOrder.paymentStatus, "unpaid");
     assert.equal(confirmed.effectiveOrder.grandTotal, 200);
+    assert.notEqual(confirmed.effectiveOrder.orderNumber, original.orderNumber, "replacement retains a unique internal order number");
+    assert.deepEqual(confirmed.effectiveOrder.presentation, {
+      pickupNumber: original.orderNumber,
+      modified: true,
+      effectiveRevision: 2,
+      modificationSequence: 1
+    });
     assert.equal(value.orders.listEventOrders(value.event.eventId).length, 1);
     assert.equal(value.orders.listEventOrders(value.event.eventId)[0]!.orderId, confirmed.effectiveOrder.orderId);
+    assert.equal(value.orders.listEventOrders(value.event.eventId)[0]!.presentation.pickupNumber, original.orderNumber);
+    const lifecycleOrder = new LifecycleRepository(value.database).listEventOrders(value.event.eventId)[0]!;
+    assert.equal(lifecycleOrder.presentation.pickupNumber, original.orderNumber);
+    assert.equal(lifecycleOrder.presentation.modified, true);
     assert.deepEqual(value.database.queryOne<{ sold: number; reserved: number }>("SELECT sold_quantity AS sold, reserved_quantity AS reserved FROM operations_sellable_inventory WHERE event_id = ? AND product_version_id = ?", [value.event.eventId, meal.productVersionId]), { sold: 2, reserved: 0 });
 
     const replay = value.modifications.confirm(prepared.intent.intentId, confirmInput(confirmed.intent, null));
     assert.equal(replay.replayed, true);
     assert.equal(replay.effectiveOrder.orderId, confirmed.effectiveOrder.orderId);
     assert.equal(value.database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_order_replacements")?.count, 1);
+
+    const secondPrepared = prepare(value, confirmed.effectiveOrder, { key: "unpaid-change-again", quantity: 3 });
+    const secondConfirmed = value.modifications.confirm(secondPrepared.intent.intentId, confirmInput(secondPrepared.intent, null));
+    assert.notEqual(secondConfirmed.effectiveOrder.orderNumber, confirmed.effectiveOrder.orderNumber);
+    assert.deepEqual(secondConfirmed.effectiveOrder.presentation, {
+      pickupNumber: original.orderNumber,
+      modified: true,
+      effectiveRevision: 3,
+      modificationSequence: 2
+    });
+    assert.equal(value.orders.listEventOrders(value.event.eventId).length, 1);
+    assert.equal(value.database.queryOne<{ count: number }>("SELECT COUNT(DISTINCT order_number) AS count FROM operations_orders")?.count, 3);
   } finally {
     cleanup(value);
   }
@@ -318,6 +341,37 @@ test("expired no-external prepared intent cannot confirm and leaves zero Phase B
     assert.equal(value.database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_orders")?.count, 1);
     assert.equal(value.modifications.expirePrepared(), 1);
     assert.equal(value.modifications.getIntent(prepared.intent.intentId).state, "expired");
+  } finally {
+    cleanup(value);
+  }
+});
+
+test("expiry CAS races permit exactly one terminal transition and release held quantity once", () => {
+  const value = fixture();
+  try {
+    const original = createOrder(value, { key: "expiry-race-root" });
+    const prepared = prepare(value, original, { key: "expiry-race-change", quantity: 2 });
+    value.database.execute("UPDATE operations_order_modification_intents SET expires_at = ? WHERE intent_id = ?", ["2026-09-05T04:59:59.000Z", prepared.intent.intentId]);
+    assert.deepEqual(value.modifications.sweepExpiredPrepared(), { expired: 1, failures: 0 });
+    assert.throws(
+      () => value.modifications.cancelPrepared(prepared.intent.intentId, prepared.intent.intentRevision, "Owner", "race cancel"),
+      (error: unknown) => (error as { code?: string }).code === "ORDER_MODIFICATION_CANCEL_CONFLICT"
+    );
+    assert.throws(
+      () => value.modifications.confirm(prepared.intent.intentId, confirmInput(prepared.intent, null)),
+      (error: unknown) => (error as { code?: string }).code === "ORDER_MODIFICATION_CONCURRENTLY_CHANGED"
+    );
+    assert.equal(value.database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_order_modification_reservations WHERE intent_id = ? AND status = 'released'", [prepared.intent.intentId])?.count, 1);
+    assert.equal(value.database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM audit_logs WHERE entity_id = ? AND action = 'order.modification_expired'", [prepared.intent.intentId])?.count, 1);
+    assert.deepEqual(value.modifications.sweepExpiredPrepared(), { expired: 0, failures: 0 });
+
+    const second = createOrder(value, { key: "confirm-wins-root" });
+    const confirmWins = prepare(value, second, { key: "confirm-wins-change", quantity: 2 });
+    const confirmed = value.modifications.confirm(confirmWins.intent.intentId, confirmInput(confirmWins.intent, null));
+    value.database.execute("UPDATE operations_order_modification_intents SET expires_at = ? WHERE intent_id = ?", ["2026-09-05T04:59:59.000Z", confirmWins.intent.intentId]);
+    assert.equal(confirmed.intent.state, "confirmed");
+    assert.deepEqual(value.modifications.sweepExpiredPrepared(), { expired: 0, failures: 0 });
+    assert.equal(value.database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_order_replacements WHERE intent_id = ?", [confirmWins.intent.intentId])?.count, 1);
   } finally {
     cleanup(value);
   }

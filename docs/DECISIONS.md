@@ -1,5 +1,34 @@
 # Decisions
 
+# DECISIONS #099 — PR #64 Blocking-Finding Remediation Gate
+
+- **Date**: 2026-09-07 (Asia/Taipei).
+- **Owner instruction**: `確認修復 PR #64 的兩個 blocking findings，維持既有 branch 與 PR，不另開 PR。`
+- **Authorized branch and PR**:
+  `feature/pr-operations-005-payment-adjustment-recovery-disposition`, PR #64,
+  based on candidate `ca0a91276aa0f1bb78d7bd897bb9b0a1efa42f94` and integration
+  `3808a08433a09acfe1923ec4e4294ca3eac562d0`.
+- **Authorized remediation**:
+  1. Add one startup plus bounded, non-overlapping runtime expiry sweep under
+     `src/server/jobs/`; it may call only the existing Operations Application
+     Service. Only elapsed `prepared` leases may CAS-expire, release holds and
+     unlock within one transaction. External/reconciliation states never
+     auto-expire, failures do not stop later sweeps, and graceful shutdown
+     removes the timer.
+  2. Add an explicit effective-Order presentation projection containing root
+     pickup number, modified state, effective revision and modification
+     sequence. Internal replacement Order ID/number stay unique and unchanged;
+     POS and Kitchen render the projection. No historical backfill is allowed.
+- **Exact implementation allowlist**: the nineteen paths frozen in the amended
+  PR-OPERATIONS-005 Task Card. The public modification/payment workflow,
+  migration/schema changes and every unrelated feature remain excluded.
+- **Git gate**: implementation, focused/full validation, remediation commit,
+  normal push to the existing branch, and Independent PR Review are authorized.
+  Merge and deployment are not authorized. Only a PASSED 0/0 review may be
+  reported as merge-ready.
+- **Runtime exclusion**: Windows UAT, live SQLite, Cloudflare, Scheduled Task,
+  Docker/n8n and Legacy remain untouched; no deployment or restart is allowed.
+
 ## DECISIONS #098 — PR-OPERATIONS-005 Implementation Gate
 
 - **Status**: APPROVED by Owner on 2026-09-05 through the explicit instruction

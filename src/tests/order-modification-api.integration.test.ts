@@ -143,6 +143,23 @@ test("authenticated modification API binds actor, enforces CSRF/strict schema, a
     assert.equal(confirmed.body.data.intent.state, "confirmed");
     assert.equal(confirmed.body.data.paymentAdjustment.amount, 100);
     assert.notEqual(confirmed.body.data.paymentAdjustment.confirmedBy, "spoofed");
+    assert.notEqual(confirmed.body.data.effectiveOrder.orderNumber, value.order.orderNumber);
+    assert.deepEqual(confirmed.body.data.effectiveOrder.presentation, {
+      pickupNumber: value.order.orderNumber,
+      modified: true,
+      effectiveRevision: 2,
+      modificationSequence: 1
+    });
+
+    const effectiveList = await request(baseUrl, `/api/events/${value.eventId}/orders`, { headers: { cookie: adminCookie } });
+    assert.equal(effectiveList.response.status, 200);
+    assert.equal(effectiveList.body.data.length, 1);
+    assert.equal(effectiveList.body.data[0].presentation.pickupNumber, value.order.orderNumber);
+    assert.equal(effectiveList.body.data[0].presentation.modified, true);
+    const reloadedDetail = await request(baseUrl, `/api/orders/${confirmed.body.data.effectiveOrder.orderId}`, { headers: { cookie: adminCookie } });
+    assert.equal(reloadedDetail.response.status, 200);
+    assert.equal(reloadedDetail.body.data.presentation.pickupNumber, value.order.orderNumber);
+    assert.equal(reloadedDetail.body.data.presentation.modificationSequence, 1);
 
     const database = createDatabase({ host: "127.0.0.1", port: 0, databasePath });
     try {

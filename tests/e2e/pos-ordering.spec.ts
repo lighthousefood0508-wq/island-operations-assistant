@@ -200,9 +200,9 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await expect(page.locator("#orders")).toContainText("less sauce");
     await expect(page.locator("#orders")).toContainText("counter pickup");
     await expect(page.locator('#orders [data-order-action="start"]')).toBeVisible();
-    await expect(page.locator("#orders [data-edit-reservation]")).toHaveCount(0);
+    await expect(page.locator("#orders [data-modify-order]")).toBeVisible();
     await page.locator("#orders [data-view-order]").click();
-    await expect(page.locator("#orders")).toContainText("confirmed");
+    await expect(page.locator("#orders")).toContainText("有效訂單");
     await expect(kitchen.locator("#pending")).toContainText("Miles");
     await expect(kitchen.locator("#clock")).toHaveText(/^\d{2}:\d{2}$/);
     await expect(kitchen.locator(".voice-grid")).toBeVisible();
@@ -281,7 +281,7 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     });
     expect(scheduledOrders.body.data.find((order: any) => order.orderNumber === "POSUI-002")?.scheduledPickupAt).toContain("2026-07-20T18:30:00");
 
-    await page.locator('#preorder-orders [data-edit-reservation]').click();
+    await page.locator('#preorder-orders [data-modify-order]').click();
     await expect(page.locator("#reservation-editor")).toBeVisible();
     for (const viewport of [{ width: 1024, height: 768 }, { width: 768, height: 1024 }]) {
       await page.setViewportSize(viewport);
@@ -292,8 +292,10 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await page.locator("#edit-customer-name").fill("Lin Updated");
     await page.locator("#edit-pickup-time").selectOption("19:00");
     await page.locator('[data-edit-item-note="0"]').fill("customer edit");
-    await page.locator("#editor-save").click();
-    await expect(page.locator("#notice")).toContainText("預約單 POSUI-002 已更新並保留修改紀錄");
+    await page.locator("#editor-review-button").click();
+    await expect(page.locator("#editor-review-content")).toContainText("修改後金額");
+    await page.locator("#editor-prepare").click();
+    await expect(page.locator("#notice")).toContainText("訂單 POSUI-002（已修改） 已修改");
     await expect(page.locator("#preorder-orders")).toContainText("Lin Updated");
     await expect(page.locator("#preorder-orders")).toContainText("customer edit");
     await page.locator("#preorder-search").fill("Lin Updated");
@@ -325,10 +327,10 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
     await page.locator('button[data-tab="served"]').click();
     await page.locator('#served-orders [data-collection-method="LINE_PAY"]').click();
     await page.locator('#served-orders [data-confirm-payment]').click();
-    await expect(page.locator("#notice")).toContainText("POSUI-002 已確認收款 NT$180");
+    await expect(page.locator("#notice")).toContainText("POSUI-002（已修改） 已確認收款 NT$180");
     await expect.poll(async () => {
       const currentOrders = await api(page, `/api/events/${eventId}/orders`);
-      return currentOrders.body.data.find((order: any) => order.orderNumber === "POSUI-002");
+      return currentOrders.body.data.find((order: any) => order.presentation?.pickupNumber === "POSUI-002");
     }).toMatchObject({
       orderStatus: "completed",
       paymentStatus: "paid",
@@ -525,6 +527,95 @@ test("replacement keeps the root pickup number across POS, Kitchen, SSE refresh,
     expect(effective.body.data).toHaveLength(1);
     expect(effective.body.data[0].orderNumber).toBe(confirmed.body.data.effectiveOrder.orderNumber);
     expect(effective.body.data[0].presentation.pickupNumber).toBe(root.orderNumber);
+  } catch (error) {
+    testError = error;
+    throw error;
+  } finally {
+    await completeCleanup(testError, [
+      async () => { await Promise.all([kitchenContext.close(), secondPosContext.close()]); },
+      () => closeEvent(page, eventId)
+    ]);
+  }
+});
+
+test("POS and Kitchen complete a paid modification with cross-device recovery and responsive controls", async ({ browser, page }) => {
+  const { eventId, contracts } = await setupOpenEvent(page, "MODUI", [
+    { name: "Dongpo bowl", posName: "東坡肉", price: 100, quantity: 10 },
+    { name: "Braised bowl", posName: "焢肉", price: 150, quantity: 10 }
+  ]);
+  const firstProduct = contracts[0]!;
+  const kitchenContext = await browser.newContext();
+  const secondPosContext = await browser.newContext();
+  const kitchen = await kitchenContext.newPage();
+  const secondPos = await secondPosContext.newPage();
+  let testError: unknown;
+  try {
+    const created = await api(page, "/api/orders", "POST", {
+      source: "pos",
+      eventId,
+      idempotencyKey: "mod-ui-paid-root",
+      items: [{ productId: firstProduct.productId, productVersionId: firstProduct.productVersionId, quantity: 1, notes: null }],
+      scheduledPickupAt: null,
+      paymentCollected: true,
+      customerName: "改單人",
+      customerPhoneTail: "321",
+      paymentMethod: "CASH",
+      notes: null,
+      deviceId: "POS-A"
+    });
+    assertApiSuccess(created, "create paid modification root");
+    const root = created.body.data;
+
+    await Promise.all([page.goto("/pos"), kitchen.goto("/kitchen")]);
+    await page.locator(`article[data-product-id="${firstProduct.productId}"]`).click();
+    await page.locator('button[data-tab="pending"]').click();
+    await page.locator('#orders [data-modify-order]').click();
+    await expect(page.locator("#reservation-editor")).not.toBeVisible();
+    await expect(page.locator("#notice")).toContainText("購物車尚未送出");
+    await page.locator('button[data-tab="onsite"]').click();
+    await page.locator("#clear-cart").click();
+    await page.locator('button[data-tab="pending"]').click();
+
+    await page.locator('#orders [data-modify-order]').click();
+    await expect(page.locator("#reservation-editor")).toBeVisible();
+    await page.locator("#editor-add-item").click();
+    await page.locator('[data-edit-item-note="1"]').fill("不要辣");
+    await page.locator("#editor-review-button").click();
+    await expect(page.locator("#editor-review-content")).toContainText("應補收 NT$150");
+    await expect(page.locator("#editor-review-content")).toContainText("東坡肉");
+    await expect(page.locator("#editor-review-content")).toContainText("焢肉");
+
+    for (const viewport of [{ width: 1024, height: 768 }, { width: 768, height: 1024 }]) {
+      await page.setViewportSize(viewport);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      const editorBox = await page.locator("#reservation-editor").boundingBox();
+      expect(editorBox && editorBox.x >= 0 && editorBox.x + editorBox.width <= viewport.width).toBe(true);
+    }
+
+    await page.locator("#editor-prepare").click();
+    await expect(page.locator("[data-begin-external]")).toContainText("開始補收 NT$150");
+    await expect(kitchen.locator(".modification-lock")).toContainText("改單處理中");
+    await expect(kitchen.locator("[data-status]")).toHaveCount(0);
+    await page.locator("[data-begin-external]").click();
+    await expect(page.locator("[data-confirm-money]")).toContainText("已完成收款");
+    await page.locator("#editor-actions [data-edit-close]").click();
+
+    await secondPos.goto("/pos");
+    await secondPos.locator('button[data-tab="pending"]').click();
+    await secondPos.locator("#orders [data-resume-modification]").click();
+    await expect(secondPos.locator("#editor-recovery-content")).toContainText("外部款項處理中");
+    await secondPos.locator("[data-confirm-money]").click();
+    await expect(secondPos.locator("#notice")).toContainText(`${root.orderNumber}（已修改）`);
+    await expect(kitchen.locator(".order-no")).toContainText(`${root.orderNumber}（已修改）`);
+    await expect(kitchen.locator(".change-list")).toContainText("新增：焢肉 ×1");
+    await expect(kitchen.locator(".modification-lock")).toHaveCount(0);
+
+    const effective = await api(secondPos, `/api/events/${eventId}/orders`);
+    assertApiSuccess(effective, "read modified UI order");
+    expect(effective.body.data).toHaveLength(1);
+    expect(effective.body.data[0].presentation.pickupNumber).toBe(root.orderNumber);
+    expect(effective.body.data[0].items).toHaveLength(2);
+    expect(effective.body.data[0].grandTotal).toBe(250);
   } catch (error) {
     testError = error;
     throw error;

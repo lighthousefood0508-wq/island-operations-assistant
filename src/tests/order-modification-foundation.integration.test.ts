@@ -332,6 +332,64 @@ test("decrease requires exact immutable disposition proposal and ready productio
   value.database.close();
 });
 
+test("ready deletion-only stays ready while the modification projection exposes the lock and confirmed difference", () => {
+  const value = fixture();
+  const original = value.orders.createPosOrder({
+    source: "pos",
+    eventId: value.event.eventId,
+    idempotencyKey: "ready-delete-only-root",
+    items: [{ productId: meal.productId, productVersionId: meal.productVersionId, quantity: 2, notes: null }],
+    scheduledPickupAt: null,
+    paymentCollected: false,
+    customerName: null,
+    customerPhoneTail: null,
+    paymentMethod: "CASH",
+    operator: "Owner",
+    deviceId: "POS-A",
+    notes: null
+  }).order;
+  value.database.execute("UPDATE operations_orders SET production_status = 'ready' WHERE order_id = ?", [original.orderId]);
+  const ready = value.orders.getOrder(original.orderId);
+  const prepared = value.modifications.prepare({
+    orderId: ready.orderId,
+    expectedRevision: ready.revision,
+    idempotencyKey: "ready-delete-only",
+    items: [{ productId: meal.productId, productVersionId: meal.productVersionId, quantity: 1, notes: null }],
+    scheduledPickupAt: null,
+    customerName: null,
+    customerPhoneTail: null,
+    paymentMethod: "CASH",
+    notes: null,
+    supplementMethod: null,
+    dispositions: [{ orderItemId: ready.items[0]!.orderItemId, returnedToSellableQuantity: 0, notReturnedQuantity: 1, reason: "已製作餐點不回售" }],
+    actor: "Owner",
+    deviceId: "POS-A"
+  });
+  assert.equal(prepared.intent.productionResetRequired, false);
+  assert.equal(prepared.intent.after.productionStatus, "ready");
+  assert.deepEqual(value.orders.getOrder(ready.orderId).modification, {
+    locked: true,
+    state: "prepared",
+    lastChanges: []
+  });
+  const confirmed = value.modifications.confirm(prepared.intent.intentId, {
+    expectedRevision: prepared.intent.intentRevision,
+    idempotencyKey: prepared.intent.idempotencyKey,
+    actor: "Owner",
+    deviceId: "POS-A",
+    evidence: null
+  });
+  assert.equal(confirmed.effectiveOrder.productionStatus, "ready");
+  assert.deepEqual(confirmed.effectiveOrder.modification.lastChanges, [{
+    kind: "quantity",
+    productId: meal.productId,
+    posName: meal.posName,
+    beforeQuantity: 2,
+    afterQuantity: 1
+  }]);
+  value.database.close();
+});
+
 test("effective Order projection hides a superseded member without historical backfill", () => {
   const value = fixture();
   const root = createScheduled(value, "root");

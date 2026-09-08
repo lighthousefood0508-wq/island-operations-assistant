@@ -603,7 +603,7 @@ async function route(request: IncomingMessage, response: ServerResponse, service
       }
       const result = services.orderModifications.confirm(intentId, command);
       if (!result.replayed) {
-        events.publish("order.updated", result.intent.eventId);
+        events.publish("order.modified", result.intent.eventId);
         events.publish("inventory.changed", result.intent.eventId);
       }
       return success(response, 200, result);

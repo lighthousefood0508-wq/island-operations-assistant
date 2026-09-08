@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-08 - PR-OPERATIONS-006 POS/Kitchen workflow authorized
+
+- Recorded DECISIONS #101 on the sole integration baseline `4d89a5416b8c`.
+- Authorized one POS modification/cancellation and recovery workflow over the
+  existing Operations contract, plus Kitchen lock/difference and
+  effective-revision voice/reminder presentation.
+- No schema, migration, live SQLite, deployment, Cloudflare, Scheduled Task,
+  Docker/n8n, WSL, Windows networking or Legacy change is included.
+
 ## 2026-09-08 - PR-OPERATIONS-005 chain-aware reporting completion authorized
 
 - Recorded DECISIONS #100 from the Owner's continuous implementation, review,

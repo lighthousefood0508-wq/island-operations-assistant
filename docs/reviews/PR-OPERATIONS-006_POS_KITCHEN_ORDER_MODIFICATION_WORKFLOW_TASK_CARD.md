@@ -2,14 +2,16 @@
 
 ## Constitution Compatibility Gate
 
-- **Approval record**: DECISIONS #096.
+- **Approval record**: DECISIONS #096 and implementation Gate DECISIONS #101.
 - **Reviewed authority**: Constitution v3; ADR-003 and ADR-014 through ADR-018;
   DECISIONS #035, #037, #087, #095; reviewed program architecture; merged
   PR-OPERATIONS-004 and PR-OPERATIONS-005 server contracts.
 - **Compatibility result**: PASS as a proposed UI/realtime consumer of the
   existing Operations authority. Browser state is never official truth.
-- **Status**: NOT AUTHORIZED FOR IMPLEMENTATION. It depends on separately
-  authorized, reviewed, and merged PR-OPERATIONS-004 and 005.
+- **Status**: IMPLEMENTED AND CANDIDATE-VALIDATED on the merged
+  PR-OPERATIONS-004/005 baseline
+  `4d89a5416b8c44307d421683c874ebc7e11c09b9`; publication and merge remain
+  governed by DECISIONS #101 and do not authorize UAT deployment.
 
 ## Single responsibility
 
@@ -78,14 +80,16 @@ Catalog/Cost/Recipe, closeout semantics, or deployment files.
 
 ## Verification
 
-Chromium E2E covers onsite/scheduled, unpaid/paid, not-started/preparing/ready,
-supplement/refund/no-difference, 7+ lines, item/note change, full cancellation,
-all dispositions, timeout/renewal, cross-device crash recovery, reconciliation,
-back/forward/reload, SSE reconnect, voice/reminder dedupe, and three viewports.
-Also run focused API/Operations regressions, authentication/roles/CSRF/canonical
-origin/actor/strict-schema checks, Architecture Guards, typecheck, lint, build,
-full tests, `pnpm run verify`, `pnpm run verify:full`, compiled collection,
-migration pending smoke, diff/text/encoding/secret scans.
+The combined focused Application/API/persistence/runtime suite and Chromium E2E
+cover onsite/scheduled, unpaid/paid, not-started/preparing/ready,
+supplement/refund/no-difference, item/note change, full cancellation, all
+dispositions, timeout/renewal, cross-device recovery, reconciliation,
+reload/SSE reconnect, stable pickup projection, voice/reminder identity, and
+desktop/tablet viewports. Verification also runs authentication/roles/CSRF/
+canonical-origin/actor/strict-schema regressions, Architecture Guards,
+typecheck, lint, build, full tests, `pnpm run verify`, `pnpm run verify:full`,
+the compiled repository collection, migration pending smoke, and
+diff/text/encoding/secret scans.
 
 ## Dependencies and stop conditions
 

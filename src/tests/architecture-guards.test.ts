@@ -3682,7 +3682,7 @@ test("POS Reservation Review and Correction stays inside Operations and preserve
   assert.match(page, /待處理預約/);
   assert.match(page, /已完成預約/);
   assert.match(page, /completed-preorder-orders/);
-  assert.match(page, /data-edit-reservation/);
+  assert.match(page, /data-modify-order/);
   assert.doesNotMatch(service + repository, /domains\/(catalog|cost|recipe)/i);
   assert.doesNotMatch(page, /localStorage.*(?:order|reservation)|indexedDB/i);
 });
@@ -3718,13 +3718,17 @@ test("PR-OPERATIONS-004 keeps pending modification foundation inside its exact O
     ...filesUnder(path.join(projectRoot, "migrations"), [".sql"])
   ];
   const successorPaths = new Set([
+    "src/domains/operations/domain/types.ts",
     "src/server/app/routes.ts",
+    "src/server/events/sse.ts",
     "src/server/index.ts",
     "src/server/jobs/order-modification-expiry-runner.ts",
     "src/domains/operations/infrastructure/payment-ledger-projection.ts",
     "src/tests/order-modification-api.integration.test.ts",
     "src/tests/order-modification-expiry-runtime.integration.test.ts",
-    "src/tests/order-modification-payment-recovery.integration.test.ts"
+    "src/tests/order-modification-payment-recovery.integration.test.ts",
+    "src/web/pos/page.ts",
+    "src/web/kitchen/page.ts"
   ]);
   const responsibilityFiles = candidateFiles
     .filter((filename) => isResponsibility(readFileSync(filename, "utf8")))
@@ -3762,6 +3766,7 @@ test("PR-OPERATIONS-005 keeps payment recovery and disposition inside its frozen
     "src/domains/operations/index.ts",
     "src/server/app/access-control.ts",
     "src/server/app/routes.ts",
+    "src/server/events/sse.ts",
     "src/server/index.ts",
     "src/server/jobs/order-modification-expiry-runner.ts",
     "src/web/pos/page.ts",
@@ -3772,7 +3777,7 @@ test("PR-OPERATIONS-005 keeps payment recovery and disposition inside its frozen
     "src/tests/architecture-guards.test.ts",
     "tests/e2e/pos-ordering.spec.ts"
   ]);
-  assert.equal(approvedPaths.size, 19);
+  assert.equal(approvedPaths.size, 20);
   assert.equal(approvedPaths.has("src/web/pages/pos-page.ts"), false);
   assert.equal(approvedPaths.has("migrations/025_order_modification_payment.sql"), false);
 
@@ -3823,6 +3828,30 @@ test("PR-OPERATIONS-005 keeps payment recovery and disposition inside its frozen
   assert.match(runtimeTest, /listenerCount\("close"\)/);
   assert.match(posE2e, /replacement keeps the root pickup number across POS, Kitchen, SSE refresh, reload and another device/);
   assert.doesNotMatch(service + repository, /domains\/(?:catalog|cost|recipe)|(?:waste|valuation)/i);
-  assert.doesNotMatch(routes, /order-modification\.completed|order\.modified/);
+  assert.doesNotMatch(routes, /order-modification\.completed/);
+  assert.match(routes, /events\.publish\("order\.modified"/);
+  assert.doesNotMatch(migration, /UPDATE operations_orders|UPDATE operations_order_items|UPDATE operations_payments/i);
+});
+
+test("PR-OPERATIONS-006 exposes one POS modification workflow and read-only Kitchen projection", () => {
+  const pos = readFileSync(path.join(sourceRoot, "web", "pos", "page.ts"), "utf8");
+  const kitchen = readFileSync(path.join(sourceRoot, "web", "kitchen", "page.ts"), "utf8");
+  const service = readFileSync(path.join(sourceRoot, "domains", "operations", "application", "order-modification-service.ts"), "utf8");
+  const lock = readFileSync(path.join(sourceRoot, "domains", "operations", "infrastructure", "order-modification-lock.ts"), "utf8");
+  const migration = readFileSync(path.join(projectRoot, "migrations", "024_operations_order_modification_foundation.sql"), "utf8");
+
+  assert.match(pos, /data-modify-order/);
+  assert.match(pos, /data-cancel-order/);
+  assert.match(pos, /建立改單並保留餐點/);
+  assert.match(pos, /verify-no-money/);
+  assert.match(pos, /require-reconciliation/);
+  assert.match(pos, /LINE Pay 外部完成退款／補收/);
+  assert.match(pos, /目前購物車尚未送出/);
+  assert.match(kitchen, /改單處理中，暫停狀態操作/);
+  assert.match(kitchen, /order-modified/);
+  assert.match(kitchen, /effectiveRevision/);
+  assert.match(lock, /resolveOrderModificationDisplay/);
+  assert.match(service, /requiresProductionReset/);
+  assert.doesNotMatch(pos + kitchen, /sqlite|better-sqlite|database\.execute/i);
   assert.doesNotMatch(migration, /UPDATE operations_orders|UPDATE operations_order_items|UPDATE operations_payments/i);
 });

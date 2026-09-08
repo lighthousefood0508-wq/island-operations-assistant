@@ -350,6 +350,10 @@ export class OrderModificationService {
       });
       const itemsChanged = !sameItems(current, lines);
       const productionContentChanged = itemsChanged || current.notes !== command.notes;
+      const requiresProductionReset = current.notes !== command.notes || lines.some((line) => {
+        const previous = beforeByProduct.get(line.productId);
+        return !previous || line.quantity > previous.quantity || line.notes !== previous.notes;
+      });
       const metadataChanged = current.scheduledPickupAt !== scheduledPickupAt
         || current.customerName !== command.customerName
         || current.customerPhoneTail !== command.customerPhoneTail
@@ -384,7 +388,7 @@ export class OrderModificationService {
 
       const timestamp = this.clock().toISOString();
       const expiresAt = new Date(Date.parse(timestamp) + PREPARED_LEASE_MS).toISOString();
-      const productionStatus: ProductionStatus = current.productionStatus === "ready" && productionContentChanged ? "preparing" : current.productionStatus;
+      const productionStatus: ProductionStatus = current.productionStatus === "ready" && requiresProductionReset ? "preparing" : current.productionStatus;
       const intentId = createId("mod_intent_");
       const after = {
         scheduledPickupAt,
@@ -422,7 +426,7 @@ export class OrderModificationService {
         adjustmentMethod,
         paymentBasisStatus: current.paymentStatus,
         outcomeKind,
-        productionResetRequired: current.productionStatus === "ready" && productionContentChanged,
+        productionResetRequired: current.productionStatus === "ready" && requiresProductionReset,
         createdBy: command.actor,
         deviceId: command.deviceId,
         createdAt: timestamp,

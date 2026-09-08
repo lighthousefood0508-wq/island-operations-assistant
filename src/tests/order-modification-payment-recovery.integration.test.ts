@@ -4,6 +4,7 @@ import { rmSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { LifecycleRepository } from "../domains/operations/infrastructure/lifecycle-repository.js";
+import { LifecycleService } from "../domains/operations/application/lifecycle-service.js";
 import { OperationsService } from "../domains/operations/application/operations-service.js";
 import { OrderModificationService } from "../domains/operations/application/order-modification-service.js";
 import { OrderService } from "../domains/operations/application/order-service.js";
@@ -171,6 +172,24 @@ test("paid supplement persists one immutable Cash adjustment and closeout uses n
   }
 });
 
+test("paid same-total correction and unpaid correction create no Payment Adjustment", () => {
+  const value = fixture();
+  try {
+    for (const [key, paid] of [["same-paid", true], ["same-unpaid", false]] as const) {
+      const original = createOrder(value, { key: `${key}-root`, paid, method: "CASH" });
+      const prepared = prepare(value, original, { key: `${key}-change`, quantity: 1, notes: "客人備註已更新" });
+      assert.equal(prepared.intent.adjustmentDirection, "none");
+      assert.equal(prepared.intent.adjustmentAmount, 0);
+      const confirmed = value.modifications.confirm(prepared.intent.intentId, confirmInput(prepared.intent, null));
+      assert.equal(confirmed.paymentAdjustment, null);
+      assert.equal(confirmed.effectiveOrder.paymentStatus, paid ? "paid" : "unpaid");
+    }
+    assert.equal(value.database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_payment_adjustments")?.count, 0);
+  } finally {
+    cleanup(value);
+  }
+});
+
 test("paid LINE Pay refund returns only the chosen quantity and freezes disposition evidence", () => {
   const value = fixture();
   try {
@@ -189,6 +208,96 @@ test("paid LINE Pay refund returns only the chosen quantity and freezes disposit
     assert.equal(statistics.receivedAmount, 100);
     assert.equal(statistics.linePayReceivedAmount, 100);
     assert.throws(() => value.database.execute("UPDATE operations_order_item_dispositions SET not_returned_quantity = 0 WHERE intent_id = ?", [external.intentId]));
+  } finally {
+    cleanup(value);
+  }
+});
+
+test("replacement chain reporting separates original, supplements and refunds while counting one logical Order", () => {
+  const value = fixture();
+  try {
+    const original = createOrder(value, { key: "chain-root", paid: true, method: "CASH" });
+    const originalPayment = value.database.queryOne<{ payment_id: string; order_id: string; amount: number; payment_method: string }>(
+      "SELECT payment_id, order_id, amount, payment_method FROM operations_payments WHERE order_id = ?",
+      [original.orderId]
+    );
+
+    const supplementPrepared = prepare(value, original, { key: "chain-supplement", quantity: 3, supplementMethod: "CASH" });
+    const supplementExternal = value.modifications.beginExternalAction(supplementPrepared.intent.intentId, supplementPrepared.intent.intentRevision, "Owner");
+    const supplement = value.modifications.confirm(supplementExternal.intentId, confirmInput(supplementExternal, {
+      kind: "cash", direction: "supplement", paymentMethod: "CASH", amount: 200, attested: true
+    }));
+
+    const refundPrepared = prepare(value, supplement.effectiveOrder, { key: "chain-refund", quantity: 2, returned: 1, notReturned: 0 });
+    const refundExternal = value.modifications.beginExternalAction(refundPrepared.intent.intentId, refundPrepared.intent.intentRevision, "Owner");
+    const refund = value.modifications.confirm(refundExternal.intentId, confirmInput(refundExternal, {
+      kind: "cash", direction: "refund", paymentMethod: "CASH", amount: 100, attested: true
+    }));
+
+    const ledger = value.repository.paymentLedger(refund.effectiveOrder.orderId);
+    assert.deepEqual(ledger, {
+      original: { cash: 100, linePay: 0, total: 100 },
+      supplements: { cash: 200, linePay: 0, total: 200 },
+      refunds: { cash: 100, linePay: 0, total: 100 },
+      net: { cash: 200, linePay: 0, total: 200 }
+    });
+    assert.equal(ledger.net.total, refund.effectiveOrder.grandTotal);
+    assert.deepEqual(value.database.queryOne<{ payment_id: string; order_id: string; amount: number; payment_method: string }>(
+      "SELECT payment_id, order_id, amount, payment_method FROM operations_payments WHERE payment_id = ?",
+      [originalPayment!.payment_id]
+    ), originalPayment, "the original Payment remains immutable and attached to the root Order");
+
+    const lifecycleRepository = new LifecycleRepository(value.database);
+    const statistics = lifecycleRepository.getStatistics(value.event.eventId) as {
+      orderCount: number;
+      ledgerAmount: number;
+      receivedAmount: number;
+      paymentLedger: typeof ledger;
+    };
+    assert.equal(statistics.orderCount, 1);
+    assert.equal(statistics.ledgerAmount, 200);
+    assert.equal(statistics.receivedAmount, 200);
+    assert.deepEqual(statistics.paymentLedger, ledger);
+
+    const lifecycle = new LifecycleService(lifecycleRepository);
+    lifecycle.changeStatus(refund.effectiveOrder.orderId, { status: "preparing", operator: "Owner" });
+    lifecycle.changeStatus(refund.effectiveOrder.orderId, { status: "ready", operator: "Owner" });
+    lifecycle.changeStatus(refund.effectiveOrder.orderId, { status: "served", operator: "Owner" });
+    lifecycle.saveCloseout(value.event.eventId, {
+      cashReceived: 200,
+      linePayReceived: 0,
+      otherReceived: 0,
+      wasteAmount: 0,
+      notes: "",
+      items: lifecycleRepository.listInventoryForCloseout(value.event.eventId).map((item) => ({ productVersionId: item.productVersionId, wasteQuantity: 0 })),
+      operator: "Owner"
+    });
+    const closed = lifecycle.closeEvent(value.event.eventId, { confirmed: true, operator: "Owner" });
+    assert.deepEqual(closed.report.orders, { total: 1, completed: 1, cancelled: 0, noShow: 0, effectiveAmount: 200 });
+    assert.deepEqual(closed.report.payments, { cash: 200, linePay: 0, other: 0 });
+    assert.deepEqual(closed.report.paymentLedger, ledger);
+    assert.deepEqual(closed.report.paymentReconciliation?.expected, { cash: 200, linePay: 0 });
+  } finally {
+    cleanup(value);
+  }
+});
+
+test("single-method refund fails closed when a mixed-method chain needs split tender", () => {
+  const value = fixture();
+  try {
+    const original = createOrder(value, { key: "mixed-root", paid: true, method: "CASH" });
+    const prepared = prepare(value, original, { key: "mixed-supplement", quantity: 2, supplementMethod: "LINE_PAY" });
+    const external = value.modifications.beginExternalAction(prepared.intent.intentId, prepared.intent.intentRevision, "Owner");
+    const supplemented = value.modifications.confirm(external.intentId, confirmInput(external, {
+      kind: "line_pay", direction: "supplement", paymentMethod: "LINE_PAY", amount: 100, externalReference: "mixed-line-supplement"
+    }));
+    assert.throws(
+      () => prepare(value, supplemented.effectiveOrder, { key: "mixed-full-refund", quantity: 0, returned: 2, notReturned: 0 }),
+      (error: unknown) => (error as { code?: string }).code === "ORDER_MODIFICATION_REFUND_SPLIT_REQUIRED"
+    );
+    assert.equal(value.database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_order_modification_intents")?.count, 1);
+    assert.equal(value.database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_payment_adjustments")?.count, 1);
+    assert.equal(value.repository.netCollected(original.orderId), 200);
   } finally {
     cleanup(value);
   }
@@ -215,6 +324,39 @@ test("Phase B failure enters durable reconciliation and another connection resum
       const second = new OrderModificationService(new OrderModificationRepository(secondDatabase), () => new Date("2026-09-05T05:05:00.000Z"));
       const resumed = second.confirm(recovery.intent.intentId, confirmInput(recovery.intent, evidence));
       assert.equal(resumed.intent.state, "confirmed");
+      assert.equal(secondDatabase.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_payment_adjustments")?.count, 1);
+      assert.equal(secondDatabase.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_order_replacements")?.count, 1);
+    } finally {
+      secondDatabase.close();
+    }
+  } finally {
+    cleanup(value);
+  }
+});
+
+test("two authorized devices share one CAS transition and one idempotent Payment Adjustment", () => {
+  const value = fixture();
+  try {
+    const original = createOrder(value, { key: "device-race-root", paid: true, method: "CASH" });
+    const prepared = prepare(value, original, { key: "device-race-change", quantity: 2, supplementMethod: "CASH" });
+    const secondDatabase = createDatabase({ host: "127.0.0.1", port: 0, databasePath: value.databasePath });
+    try {
+      const second = new OrderModificationService(new OrderModificationRepository(secondDatabase), () => new Date("2026-09-05T05:01:00.000Z"));
+      const external = value.modifications.beginExternalAction(prepared.intent.intentId, prepared.intent.intentRevision, "Owner");
+      assert.throws(
+        () => second.beginExternalAction(prepared.intent.intentId, prepared.intent.intentRevision, "Admin"),
+        (error: unknown) => (error as { code?: string }).code === "ORDER_MODIFICATION_EXTERNAL_START_CONFLICT"
+      );
+      const evidence = { kind: "cash", direction: "supplement", paymentMethod: "CASH", amount: 100, attested: true };
+      const confirmed = value.modifications.confirm(external.intentId, confirmInput(external, evidence));
+      const replayed = second.confirm(external.intentId, {
+        ...confirmInput(external, evidence),
+        actor: "Admin",
+        deviceId: "POS-C"
+      });
+      assert.equal(confirmed.replayed, false);
+      assert.equal(replayed.replayed, true);
+      assert.equal(replayed.effectiveOrder.orderId, confirmed.effectiveOrder.orderId);
       assert.equal(secondDatabase.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_payment_adjustments")?.count, 1);
       assert.equal(secondDatabase.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_order_replacements")?.count, 1);
     } finally {

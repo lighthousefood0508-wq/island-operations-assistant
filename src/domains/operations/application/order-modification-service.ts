@@ -358,7 +358,8 @@ export class OrderModificationService {
 
       const outcomeKind = lines.length ? "replacement" : "cancellation";
       const newTotal = lines.reduce((sum, line) => sum + line.lineTotal, 0);
-      const originalCollected = current.paymentStatus === "paid" ? this.repository.netCollected(current.orderId) : 0;
+      const paymentLedger = current.paymentStatus === "paid" ? this.repository.paymentLedger(current.orderId) : null;
+      const originalCollected = paymentLedger?.net.total ?? 0;
       if (!Number.isSafeInteger(newTotal) || !Number.isSafeInteger(originalCollected)) throw new HttpError(422, "ORDER_MODIFICATION_TOTAL_OVERFLOW", "訂單金額超出可安全計算範圍。");
       if (current.paymentStatus === "paid" && originalCollected <= 0) throw new HttpError(409, "ORDER_MODIFICATION_PAYMENT_EVIDENCE_MISSING", "已付款訂單缺少可核對的付款證據。");
       const difference = current.paymentStatus === "paid" ? newTotal - originalCollected : 0;
@@ -370,6 +371,16 @@ export class OrderModificationService {
           ? command.supplementMethod
           : null;
       if (adjustmentDirection !== "none" && !adjustmentMethod) throw new HttpError(422, "ORDER_MODIFICATION_ADJUSTMENT_METHOD_REQUIRED", "補收或退款必須有可核對的付款方式。");
+      if (adjustmentDirection === "refund" && paymentLedger && adjustmentMethod) {
+        const refundableByMethod = adjustmentMethod === "CASH" ? paymentLedger.net.cash : paymentLedger.net.linePay;
+        if (adjustmentAmount > refundableByMethod) {
+          throw new HttpError(409, "ORDER_MODIFICATION_REFUND_SPLIT_REQUIRED", "退款金額超過原付款方式目前可退款餘額，必須先完成款項核對，不能由單一調整自動拆分退款。", {
+            paymentMethod: adjustmentMethod,
+            adjustmentAmount: String(adjustmentAmount),
+            refundableAmount: String(refundableByMethod)
+          });
+        }
+      }
 
       const timestamp = this.clock().toISOString();
       const expiresAt = new Date(Date.parse(timestamp) + PREPARED_LEASE_MS).toISOString();

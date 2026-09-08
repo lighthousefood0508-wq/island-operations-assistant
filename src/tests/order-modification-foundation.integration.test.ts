@@ -71,6 +71,21 @@ function prepareInput(order: ReturnType<typeof createScheduled>, key = "modify-1
   };
 }
 
+function closeoutInput(repository: LifecycleRepository, eventId: string) {
+  return {
+    cashReceived: 0,
+    linePayReceived: 0,
+    otherReceived: 0,
+    wasteAmount: 0,
+    notes: "",
+    items: repository.listInventoryForCloseout(eventId).map((item) => ({
+      productVersionId: item.productVersionId,
+      wasteQuantity: 0
+    })),
+    operator: "Owner"
+  };
+}
+
 test("Migration 024 creates only empty additive order-modification structures", () => {
   const { database } = fixture();
   const expected = [
@@ -173,7 +188,8 @@ test("a server-side pending intent locks every existing Order and Event mutation
   const secondModifications = new OrderModificationService(new OrderModificationRepository(secondDatabase));
   assert.throws(() => secondModifications.prepare({ ...prepareInput(order, "second-device"), customerName: "Second POS" }), (error: unknown) => (error as { code?: string }).code === "ORDER_MODIFICATION_PENDING");
 
-  const lifecycle = new LifecycleService(new LifecycleRepository(value.database));
+  const lifecycleRepository = new LifecycleRepository(value.database);
+  const lifecycle = new LifecycleService(lifecycleRepository);
   const payments = new PaymentService(new PaymentRepository(value.database));
   assert.throws(() => lifecycle.changeStatus(order.orderId, { status: "preparing", operator: "Kitchen" }), (error: unknown) => (error as { code?: string }).code === "ORDER_MODIFICATION_PENDING");
   assert.throws(() => lifecycle.markNoShow(order.orderId, { operator: "Owner" }), (error: unknown) => (error as { code?: string }).code === "ORDER_MODIFICATION_PENDING");
@@ -189,6 +205,7 @@ test("a server-side pending intent locks every existing Order and Event mutation
     operator: "Owner",
     deviceId: "POS-B"
   }), (error: unknown) => (error as { code?: string }).code === "ORDER_MODIFICATION_PENDING");
+  assert.throws(() => lifecycle.saveCloseout(value.event.eventId, closeoutInput(lifecycleRepository, value.event.eventId)), (error: unknown) => (error as { code?: string }).code === "EVENT_MODIFICATION_PENDING");
   assert.throws(() => lifecycle.closeEvent(value.event.eventId, { confirmed: true, operator: "Owner" }), (error: unknown) => (error as { code?: string }).code === "EVENT_MODIFICATION_PENDING");
   assert.equal(value.modifications.getIntent(prepared.intent.intentId).state, "prepared");
   secondDatabase.close();
@@ -254,10 +271,20 @@ test("external and reconciliation states never auto-expire and retain reservatio
   assert.equal(prepared.intent.adjustmentAmount, 100);
   const external = value.modifications.beginExternalAction(prepared.intent.intentId, prepared.intent.intentRevision, "Owner");
   assert.equal(external.state, "external_in_progress");
+  const lifecycleRepository = new LifecycleRepository(value.database);
+  const lifecycle = new LifecycleService(lifecycleRepository);
+  assert.throws(() => lifecycle.changeStatus(paid.orderId, { status: "preparing", operator: "Kitchen" }), (error: unknown) => (error as { code?: string }).code === "ORDER_MODIFICATION_PENDING");
+  assert.throws(() => value.modifications.prepare({ ...prepareInput(paid, "external-second-device"), scheduledPickupAt: null }), (error: unknown) => (error as { code?: string }).code === "ORDER_MODIFICATION_PENDING");
+  assert.throws(() => lifecycle.saveCloseout(value.event.eventId, closeoutInput(lifecycleRepository, value.event.eventId)), (error: unknown) => (error as { code?: string }).code === "EVENT_MODIFICATION_PENDING");
+  assert.throws(() => lifecycle.closeEvent(value.event.eventId, { confirmed: true, operator: "Owner" }), (error: unknown) => (error as { code?: string }).code === "EVENT_MODIFICATION_PENDING");
   value.advance(24 * 60 * 60_000);
   assert.equal(value.modifications.expirePrepared(), 0);
   const reconciliation = value.modifications.requireReconciliation(external.intentId, external.intentRevision, "Admin", "網路中斷，款項狀態待核對");
   assert.equal(reconciliation.state, "reconciliation_required");
+  assert.throws(() => lifecycle.changeStatus(paid.orderId, { status: "preparing", operator: "Kitchen" }), (error: unknown) => (error as { code?: string }).code === "ORDER_MODIFICATION_PENDING");
+  assert.throws(() => value.modifications.prepare({ ...prepareInput(paid, "reconciliation-second-device"), scheduledPickupAt: null }), (error: unknown) => (error as { code?: string }).code === "ORDER_MODIFICATION_PENDING");
+  assert.throws(() => lifecycle.saveCloseout(value.event.eventId, closeoutInput(lifecycleRepository, value.event.eventId)), (error: unknown) => (error as { code?: string }).code === "EVENT_MODIFICATION_PENDING");
+  assert.throws(() => lifecycle.closeEvent(value.event.eventId, { confirmed: true, operator: "Owner" }), (error: unknown) => (error as { code?: string }).code === "EVENT_MODIFICATION_PENDING");
   assert.equal(value.modifications.expirePrepared(), 0);
   assert.equal(value.database.queryOne<{ total: number }>("SELECT COALESCE(SUM(reserved_quantity), 0) AS total FROM operations_sellable_inventory WHERE event_id = ?", [value.event.eventId])?.total, 1);
   value.database.close();
@@ -335,7 +362,7 @@ test("effective Order projection hides a superseded member without historical ba
     outcome: "matched",
     exception: null
   });
-  assert.deepEqual(report.orders, { total: 1, completed: 1, cancelled: 0, noShow: 0 });
+  assert.deepEqual(report.orders, { total: 1, completed: 1, cancelled: 0, noShow: 0, effectiveAmount: replacement.grandTotal });
   assert.equal(report.products[0]?.quantity, 1);
   assert.equal(value.database.queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM operations_order_replacements")?.count, 1);
   value.database.close();

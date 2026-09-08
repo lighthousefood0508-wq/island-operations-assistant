@@ -142,14 +142,29 @@ export type PaymentCloseoutReconciliation = Readonly<{
   exception: Readonly<{ reason: string; actor: string }> | null;
 }>;
 
+export type PaymentMethodAmounts = Readonly<{
+  cash: number;
+  linePay: number;
+  total: number;
+}>;
+
+export type PaymentLedgerProjection = Readonly<{
+  original: PaymentMethodAmounts;
+  supplements: PaymentMethodAmounts;
+  refunds: PaymentMethodAmounts;
+  net: PaymentMethodAmounts;
+}>;
+
 export const PRODUCTION_STATUSES = ["not_started", "queued", "preparing", "ready", "served", "cancelled"] as const;
 export type ProductionStatus = (typeof PRODUCTION_STATUSES)[number];
 
 export type DailyReport = Readonly<{
   event: Readonly<{ eventId: string; eventCode: string; displayName: string; date: string; startTime: string; endTime: string }>;
-  orders: Readonly<{ total: number; completed: number; cancelled: number; noShow: number }>;
+  orders: Readonly<{ total: number; completed: number; cancelled: number; noShow: number; effectiveAmount?: number }>;
   products: readonly Readonly<{ productId: string; posName: string; quantity: number; revenue: number }>[];
   payments: Readonly<{ cash: number; linePay: number; other: number }>;
+  /** Present on chain-aware reports. Absent on immutable historical reports created before this projection existed. */
+  paymentLedger?: PaymentLedgerProjection;
   // PaymentCloseoutReconciliationBoundary: immutable once Event Close succeeds.
   paymentReconciliation: PaymentCloseoutReconciliation | null;
   closedAt: string;

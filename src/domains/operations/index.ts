@@ -13,7 +13,7 @@ export { LifecycleRepository } from "./infrastructure/lifecycle-repository.js";
 export { PaymentRepository } from "./infrastructure/payment-repository.js";
 export { OrderModificationRepository } from "./infrastructure/order-modification-repository.js";
 export type { DailyReportEvidenceSummary, DailyReportReadPort } from "./domain/daily-report-read-port.js";
-export type { ConfirmPaymentResult, CreatePosOrderInput, DailyReport, EventProduct, EventStatus, OperationsEvent, OperationsOrder, OperationsPayment, OrderItem, OrderStatus, PosOrderItemInput, SellableInventory } from "./domain/types.js";
+export type { ConfirmPaymentResult, CreatePosOrderInput, DailyReport, EventProduct, EventStatus, OperationsEvent, OperationsOrder, OperationsPayment, OrderItem, OrderStatus, PaymentLedgerProjection, PaymentMethodAmounts, PosOrderItemInput, SellableInventory } from "./domain/types.js";
 export type {
   OrderItemDispositionEvidence,
   OrderModificationConfirmation,

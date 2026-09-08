@@ -1,6 +1,6 @@
 # Roadmap
 
-Last synchronized: 2026-09-07 (Asia/Taipei).
+Last synchronized: 2026-09-08 (Asia/Taipei).
 
 Roadmap entries describe planning and verified completion state. They do not
 grant implementation, Git, release, deployment, or cleanup authority.
@@ -20,11 +20,12 @@ paid/started Order replacement. The planned dependency sequence is:
    voice/reminder behavior, and responsive E2E.
 
 Independent Architecture Review passed. PR-OPERATIONS-004 was independently
-reviewed and merged as PR #63. PR-OPERATIONS-005 is open as PR #64;
-DECISIONS #099 authorizes only the two review remediations, validation and push
-to that existing PR. PR 006, merge, and deployment remain gated. No historical backfill,
-Waste Domain, provider integration, UAT/database change, or deployment is part
-of the current Gate.
+reviewed and merged as PR #63. The payment/recovery/disposition implementation
+and its review remediation merged as PR #64 at `2ffabc95905d...`.
+DECISIONS #100 authorizes the same responsibility's chain-aware reporting and
+closeout completion through a clean merge. PR-OPERATIONS-006 and deployment
+remain gated. No historical backfill, Waste Domain, provider integration,
+UAT/database change, or deployment is part of the current Gate.
 
 ## Completed and contained milestones
 

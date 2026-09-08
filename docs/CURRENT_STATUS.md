@@ -2,7 +2,26 @@
 
 Last synchronized: 2026-09-08 (Asia/Taipei)
 
-## Current implementation Gate — PR-OPERATIONS-005 chain-aware reporting completion
+## Current implementation Gate — PR-OPERATIONS-006 POS/Kitchen workflow
+
+- Fresh Git evidence established local and remote integration at
+  `4d89a5416b8c44307d421683c874ebc7e11c09b9`, with a clean feature branch
+  created directly from that identity.
+- DECISIONS #101 authorizes the POS/Kitchen workflow over the already merged
+  PR #64/#65 server contract, including full validation, PR and clean merge.
+- Candidate implementation now exposes one integrated Chinese POS edit/cancel
+  flow, server-side cross-device payment recovery, stable pickup-number
+  projection, Kitchen locking/differences, and revision-aware voice/reminders.
+- Fresh candidate validation passed the 696-test compiled collection, focused
+  modification suite (75), main suite (101), Architecture Guards (46),
+  populated migration rerun/restart/integrity evidence, and all 45 Chromium E2E
+  scenarios. Independent candidate review found 0 blocking and 0 non-blocking
+  findings.
+- Schema, migration 024 and live data remain unchanged. Windows UAT,
+  Cloudflare, Scheduled Task, Docker/n8n, WSL and Legacy remain untouched; a
+  later explicit `現在可以重啟` instruction is required before deployment.
+
+## Completed Gate — PR-OPERATIONS-005 chain-aware reporting
 
 - Fresh Git evidence established remote and synchronized local
   `integration/architecture-development` at

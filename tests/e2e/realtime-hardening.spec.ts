@@ -139,8 +139,8 @@ test("realtime clients refresh central state after order and Kitchen changes wit
     await posA.locator('button[data-tab="served"]').click();
     await posA.locator('#served-orders [data-collection-method="CASH"]').click();
     await posA.locator("#served-orders [data-confirm-payment]").click();
-    await expect(posB.locator("#served-orders")).toContainText("completed");
-    await expect(posB.locator("#served-orders")).toContainText("paid");
+    await expect(posB.locator("#served-orders")).toContainText("已完成");
+    await expect(posB.locator("#served-orders")).toContainText("已付款");
     await expect(statistics.locator("#sync-last-event")).toHaveText(/payment\.confirmed|order\.completed/);
 
     await posB.evaluate(() => window.dispatchEvent(new Event("focus")));

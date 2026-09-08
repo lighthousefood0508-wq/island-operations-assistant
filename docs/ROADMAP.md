@@ -22,9 +22,10 @@ paid/started Order replacement. The planned dependency sequence is:
 Independent Architecture Review passed. PR-OPERATIONS-004 was independently
 reviewed and merged as PR #63. The payment/recovery/disposition implementation
 and its review remediation merged as PR #64 at `2ffabc95905d...`.
-DECISIONS #100 authorizes the same responsibility's chain-aware reporting and
-closeout completion through a clean merge. PR-OPERATIONS-006 and deployment
-remain gated. No historical backfill, Waste Domain, provider integration,
+PR-OPERATIONS-005 completed and merged as integration
+`4d89a5416b8c44307d421683c874ebc7e11c09b9`. DECISIONS #101 now authorizes
+PR-OPERATIONS-006 implementation, validation, PR and clean merge. Deployment
+remains gated on `現在可以重啟`. No historical backfill, Waste Domain, provider integration,
 UAT/database change, or deployment is part of the current Gate.
 
 ## Completed and contained milestones

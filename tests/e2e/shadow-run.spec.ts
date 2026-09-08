@@ -82,8 +82,8 @@ test("shadow run syncs POS A, POS B, Kitchen, inventory, and closeout through ce
     await expect(posB.locator("#orders")).toContainText("可取餐");
     await kitchen.locator('[data-status="served"]').click();
     await expect(posA.locator("#served-orders")).toContainText("已完成");
-    await expect(posA.locator("#served-orders")).toContainText("completed");
-    await expect(posA.locator("#served-orders")).toContainText("paid");
+    await expect(posA.locator("#served-orders")).toContainText("已完成");
+    await expect(posA.locator("#served-orders")).toContainText("已付款");
     await kitchen.reload();
     await expect(kitchen.locator("#ready")).not.toContainText("SHADOW-001");
     const raceA = api(posA, "/api/orders", "POST", { source: "pos", eventId, idempotencyKey: "race-a", items: [{ productId: published.body.data.contract.productId, productVersionId: published.body.data.contract.productVersionId, quantity: 1, notes: null }], customerName: null, notes: null });

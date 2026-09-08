@@ -81,6 +81,18 @@ export type OrderPresentation = Readonly<{
   modificationSequence: number;
 }>;
 
+export type OrderModificationDisplay = Readonly<{
+  locked: boolean;
+  state: "prepared" | "external_in_progress" | "reconciliation_required" | null;
+  lastChanges: readonly Readonly<{
+    kind: "added" | "removed" | "quantity" | "note";
+    productId: string;
+    posName: string;
+    beforeQuantity: number;
+    afterQuantity: number;
+  }>[];
+}>;
+
 export type OperationsOrder = Readonly<{
   orderId: string;
   orderNumber: string;
@@ -103,6 +115,7 @@ export type OperationsOrder = Readonly<{
   confirmedAt: string;
   servedAt: string | null;
   presentation: OrderPresentation;
+  modification: OrderModificationDisplay;
   revision: string;
   items: readonly OrderItem[];
 }>;

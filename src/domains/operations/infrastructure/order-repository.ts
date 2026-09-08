@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { DatabaseAdapter } from "../../../shared/database/database-adapter.js";
 import { createId } from "../../../shared/utils/ids.js";
 import type { OperationsOrder, OrderItem, OrderStatus, PaymentMethod, PaymentStatus, PosOrderItemInput, ProductionStatus } from "../domain/types.js";
-import { hasNonterminalOrderModification, resolveOrderPresentation } from "./order-modification-lock.js";
+import { hasNonterminalOrderModification, resolveOrderModificationDisplay, resolveOrderPresentation } from "./order-modification-lock.js";
 
 type EventRow = { event_id: string; event_code: string; date: string; start_time: string; end_time: string; status: string };
 type EventProductRow = {
@@ -38,7 +38,12 @@ function mapOrder(database: DatabaseAdapter, row: OrderRow, items: readonly Orde
     grandTotal: row.grand_total, paidTotal: row.paid_total, createdAt: row.created_at, confirmedAt: row.confirmed_at, servedAt: row.served_at, items
   };
   const revision = createHash("sha256").update(JSON.stringify(order)).digest("hex");
-  return { ...order, presentation: resolveOrderPresentation(database, row.order_id, row.order_number), revision };
+  return {
+    ...order,
+    presentation: resolveOrderPresentation(database, row.order_id, row.order_number),
+    modification: resolveOrderModificationDisplay(database, row.order_id),
+    revision
+  };
 }
 
 function mapItem(row: OrderItemRow): OrderItem {

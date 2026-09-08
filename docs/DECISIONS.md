@@ -1,5 +1,35 @@
 # Decisions
 
+# DECISIONS #101 — PR-OPERATIONS-006 POS/Kitchen Workflow Gate
+
+- **Date**: 2026-09-08 (Asia/Taipei).
+- **Owner instruction**: use integration merge commit
+  `4d89a5416b8c44307d421683c874ebc7e11c09b9` as the sole baseline and
+  continuously complete PR-OPERATIONS-006 through implementation, full
+  validation, Independent Candidate Review, public non-Draft PR, Independent
+  PR Review, clean merge, integration synchronization and closeout.
+- **Authorized workflow**: expose the existing PR #64/#65 Operations-owned
+  modification, reservation, payment-adjustment, recovery, replacement and
+  disposition contracts through one Chinese POS workflow; project lock and
+  confirmed differences to Kitchen; preserve stable pickup identity; and make
+  voice/reminder behavior effective-revision aware.
+- **Behavioral rules**: onsite and scheduled Orders may add, remove, replace or
+  change quantities, production-visible notes and customer/pickup metadata
+  before served/completed/cancelled. Ready deletion-only stays ready; additions,
+  increases, replacement or Kitchen-visible note changes return ready to
+  preparing. Empty results use the same contract as full cancellation.
+- **Money and recovery**: no-difference/unpaid work confirms without adjustment;
+  paid differences use prepared then external-in-progress and the original
+  intent/idempotency evidence. Cash and LINE Pay remain operator-attested; ROS
+  does not execute LINE Pay. Recovery is server-side and cross-device.
+- **Containment**: no second command path, Waste Domain, LINE Pay provider API,
+  schema, migration, historical rewrite, UAT SQLite write, deployment or
+  infrastructure change is authorized.
+- **Git authorization**: normal commit/push, PR publication, independent reviews,
+  clean merge and integration closeout are authorized without routine pauses.
+- **Deployment gate**: Windows UAT backup, migration, deployment or restart
+  remains forbidden until the Owner explicitly says `現在可以重啟`.
+
 # DECISIONS #100 — PR-OPERATIONS-005 Chain-aware Reporting Completion Gate
 
 - **Date**: 2026-09-08 (Asia/Taipei).

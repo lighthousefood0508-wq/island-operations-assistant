@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-08 - PR-OPERATIONS-005 chain-aware reporting completion authorized
+
+- Recorded DECISIONS #100 from the Owner's continuous implementation, review,
+  PR and clean-merge authorization on the PR #64 merge baseline `2ffabc95905d`.
+- Centralized immutable original/supplement/refund/net projections for each
+  replacement chain and Event, and applied them to statistics, closeout
+  reconciliation and Daily Report evidence.
+- Preserved old stored Daily Reports, original Payment rows, lazy roots and
+  logical Order counts; no schema, migration, backfill, public modification UI,
+  provider integration, UAT/runtime or infrastructure change is included.
+
 ## 2026-09-07 - PR #64 blocking remediation authorized
 
 - Recorded DECISIONS #099 for the existing PR-OPERATIONS-005 branch and PR #64.

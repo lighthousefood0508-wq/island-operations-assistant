@@ -1,5 +1,43 @@
 # Decisions
 
+# DECISIONS #100 — PR-OPERATIONS-005 Chain-aware Reporting Completion Gate
+
+- **Date**: 2026-09-08 (Asia/Taipei).
+- **Owner instruction**: use integration merge commit
+  `2ffabc95905dba72219ce2c7e718d832ae1885b0` as the sole baseline and
+  continuously complete Payment Adjustment and chain-aware reporting through
+  implementation, independent reviews, public non-Draft PR, clean merge and
+  integration closeout.
+- **Historical identity**: PR #64 already merged the server-side
+  PR-OPERATIONS-005 payment/recovery/disposition protocol as integration commit
+  `2ffabc95905dba72219ce2c7e718d832ae1885b0`. This Gate is the explicitly
+  authorized reporting/reconciliation completion of that same responsibility;
+  it does not rewrite PR #64 history or create another payment authority.
+- **Authorized completion**:
+  1. Project one Operations-owned immutable payment ledger per lazy-root Order
+     chain and Event: original Payment plus supplements minus refunds equals the
+     effective collected amount, separated by Cash and LINE Pay.
+  2. Use that projection for statistics, closeout reconciliation and immutable
+     Daily Report evidence while counting only the effective Order once.
+  3. Preserve original Payment rows and existing Payment Adjustment evidence;
+     no payment row may be moved, rewritten or backfilled.
+  4. Fail closed when the current one-method adjustment contract cannot safely
+     represent a split-tender refund. LINE Pay remains operator-attested
+     external evidence, not an API integration.
+  5. Prove no-adjustment, supplement, partial/full refund, replay, recovery,
+     reconciliation, pending lock, race, atomic failure, migration and security
+     behavior with isolated test databases.
+- **Exact implementation allowlist**: Operations domain/application/
+  infrastructure payment projection and report read paths, their Operations
+  exports, the two Order-modification integration suites, and Architecture
+  Guards. No public workflow UI, schema or migration is authorized.
+- **Git authorization**: commit, normal push, public non-Draft PR publication,
+  Independent Candidate/PR Review, clean merge, integration synchronization and
+  repository closeout are authorized without routine pauses.
+- **Runtime exclusion**: no deployment or restart. Windows UAT, live SQLite,
+  Cloudflare, Scheduled Task, Docker/n8n, WSL, Windows networking and Legacy
+  remain untouched.
+
 # DECISIONS #099 — PR #64 Blocking-Finding Remediation Gate
 
 - **Date**: 2026-09-07 (Asia/Taipei).

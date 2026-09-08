@@ -1,7 +1,8 @@
 import type { DatabaseAdapter } from "../../../shared/database/database-adapter.js";
 import { hasNonterminalEventModification as eventHasNonterminalModification, hasNonterminalOrderModification, resolveOrderPresentation } from "./order-modification-lock.js";
 import type { DailyReportReadPort } from "../domain/daily-report-read-port.js";
-import type { DailyReport, OrderStatus, PaymentCloseoutReconciliation, PaymentMethod, PaymentStatus, ProductionStatus } from "../domain/types.js";
+import type { DailyReport, OrderStatus, PaymentCloseoutReconciliation, PaymentLedgerProjection, PaymentMethod, PaymentStatus, ProductionStatus } from "../domain/types.js";
+import { readEventPaymentLedger } from "./payment-ledger-projection.js";
 
 type OrderRow = { order_id: string; order_number: string; event_id: string; source: string; created_at: string; scheduled_pickup_at: string | null; customer_name: string | null; customer_phone_tail: string | null; payment_method: PaymentMethod | null; notes: string | null; order_status: OrderStatus; payment_status: PaymentStatus; production_status: ProductionStatus; cancellation_reason: string | null; grand_total: number; paid_total: number; served_at: string | null };
 type EventRow = { event_id: string; event_code: string; display_name: string; date: string; start_time: string; end_time: string; status: string };
@@ -35,6 +36,19 @@ function validReconciliation(value: unknown): boolean {
   return candidate.outcome === "exception_accepted" && !!exception && text(exception.reason) && text(exception.actor);
 }
 
+function validPaymentLedger(value: unknown): boolean {
+  const candidate = record(value);
+  if (!candidate) return false;
+  const sections = ["original", "supplements", "refunds", "net"] as const;
+  if (!sections.every((section) => amounts(candidate[section], ["cash", "linePay", "total"]))) return false;
+  const ledger = candidate as unknown as PaymentLedgerProjection;
+  const totalsMatch = sections.every((section) => ledger[section].total === ledger[section].cash + ledger[section].linePay);
+  return totalsMatch
+    && ledger.net.cash === ledger.original.cash + ledger.supplements.cash - ledger.refunds.cash
+    && ledger.net.linePay === ledger.original.linePay + ledger.supplements.linePay - ledger.refunds.linePay
+    && ledger.net.total === ledger.original.total + ledger.supplements.total - ledger.refunds.total;
+}
+
 function storedDailyReport(value: string): DailyReport {
   let parsed: unknown;
   try { parsed = JSON.parse(value); } catch { throw new Error("Stored Daily Report JSON is invalid."); }
@@ -55,6 +69,12 @@ function storedDailyReport(value: string): DailyReport {
   const paymentReconciliation = report.paymentReconciliation;
   if (!validReconciliation(paymentReconciliation)) {
     throw new Error("Stored Daily Report reconciliation evidence is invalid.");
+  }
+  if (report.paymentLedger !== undefined && !validPaymentLedger(report.paymentLedger)) {
+    throw new Error("Stored Daily Report payment ledger evidence is invalid.");
+  }
+  if (orders?.effectiveAmount !== undefined && !amount(orders.effectiveAmount)) {
+    throw new Error("Stored Daily Report effective Order amount is invalid.");
   }
   return Object.freeze({ ...report, paymentReconciliation: paymentReconciliation ?? null }) as DailyReport;
 }
@@ -126,33 +146,15 @@ export class LifecycleRepository implements DailyReportReadPort {
       .map((row) => storedDailyReport(row.daily_report_json))
       .sort((left, right) => right.closedAt.localeCompare(left.closedAt) || left.event.eventId.localeCompare(right.event.eventId)));
   }
-  private paymentTotals(eventId: string): Readonly<{ cash: number; linePay: number; total: number }> {
-    const row = this.database.queryOne<{ cash: number; line_pay: number; total: number }>(`SELECT
-      COALESCE(SUM(CASE WHEN p.payment_method = 'CASH' AND p.payment_status = 'paid' THEN p.amount ELSE 0 END), 0) AS cash,
-      COALESCE(SUM(CASE WHEN p.payment_method = 'LINE_PAY' AND p.payment_status = 'paid' THEN p.amount ELSE 0 END), 0) AS line_pay,
-      COALESCE(SUM(CASE WHEN p.payment_status = 'paid' THEN p.amount ELSE 0 END), 0) AS total
-      FROM operations_payments p JOIN operations_orders o ON o.order_id = p.order_id WHERE o.event_id = ?`, [eventId]) ?? { cash: 0, line_pay: 0, total: 0 };
-    const adjustments = this.database.queryOne<{ cash: number; line_pay: number; total: number }>(`SELECT
-      COALESCE(SUM(CASE WHEN a.payment_method = 'CASH' THEN CASE a.direction WHEN 'supplement' THEN a.amount ELSE -a.amount END ELSE 0 END), 0) AS cash,
-      COALESCE(SUM(CASE WHEN a.payment_method = 'LINE_PAY' THEN CASE a.direction WHEN 'supplement' THEN a.amount ELSE -a.amount END ELSE 0 END), 0) AS line_pay,
-      COALESCE(SUM(CASE a.direction WHEN 'supplement' THEN a.amount ELSE -a.amount END), 0) AS total
-      FROM operations_payment_adjustments a
-      JOIN operations_order_modification_intents i ON i.intent_id = a.intent_id
-      WHERE i.event_id = ?`, [eventId]) ?? { cash: 0, line_pay: 0, total: 0 };
-    return {
-      cash: row.cash + adjustments.cash,
-      linePay: row.line_pay + adjustments.line_pay,
-      total: row.total + adjustments.total
-    };
-  }
+  private paymentLedger(eventId: string): PaymentLedgerProjection { return readEventPaymentLedger(this.database, eventId); }
   getPaymentCloseoutReconciliation(eventId: string): PaymentCloseoutReconciliationCandidate | undefined {
     const closeout = this.database.queryOne<CloseoutRow>("SELECT cash_received, line_pay_received, other_received, waste_amount, notes, updated_at FROM operations_event_closeouts WHERE event_id = ?", [eventId]);
     if (!closeout) return undefined;
-    const payments = this.paymentTotals(eventId);
+    const paymentLedger = this.paymentLedger(eventId);
     return {
-      expected: { cash: payments.cash, linePay: payments.linePay },
+      expected: { cash: paymentLedger.net.cash, linePay: paymentLedger.net.linePay },
       declared: { cash: closeout.cash_received, linePay: closeout.line_pay_received, other: closeout.other_received },
-      variance: { cash: closeout.cash_received - payments.cash, linePay: closeout.line_pay_received - payments.linePay }
+      variance: { cash: closeout.cash_received - paymentLedger.net.cash, linePay: closeout.line_pay_received - paymentLedger.net.linePay }
     };
   }
   getStatistics(eventId: string): Record<string, unknown> {
@@ -166,8 +168,8 @@ export class LifecycleRepository implements DailyReportReadPort {
     const inventory = this.database.queryMany<{ product_id: string; product_version_id: string; pos_name: string; remaining: number }>("SELECT i.product_id, i.product_version_id, COALESCE(p.pos_name, i.product_id) AS pos_name, i.planned_quantity - i.reserved_quantity - i.sold_quantity AS remaining FROM operations_sellable_inventory i LEFT JOIN operations_product_copies p ON p.product_version_id = i.product_version_id WHERE i.event_id = ?", [eventId]);
     const closeout = this.database.queryOne<CloseoutRow>("SELECT cash_received, line_pay_received, other_received, waste_amount, notes, updated_at FROM operations_event_closeouts WHERE event_id = ?", [eventId]);
     const closeoutItems = this.database.queryMany<CloseoutItemRow>("SELECT product_id, product_version_id, remaining_quantity, waste_quantity, retained_quantity, updated_at FROM operations_event_closeout_items WHERE event_id = ? ORDER BY product_version_id", [eventId]);
-    const payments = this.paymentTotals(eventId);
-    return { event, orderCount: totals.orders, scheduledOrderCount: totals.scheduled ?? 0, ledgerAmount: totals.amount, receivedAmount: payments.total, cashReceivedAmount: payments.cash, linePayReceivedAmount: payments.linePay, paymentReceiptExpected: { cash: payments.cash, linePay: payments.linePay }, unresolvedCount: totals.unresolved ?? 0, cancelledCount: totals.cancelled ?? 0, noShowCount: totals.no_show ?? 0, products, inventory: inventory.map((item) => ({ productId: item.product_id, productVersionId: item.product_version_id, posName: item.pos_name, remainingQuantity: item.remaining })), closeout: closeout ? { cashReceived: closeout.cash_received, linePayReceived: closeout.line_pay_received, otherReceived: closeout.other_received, wasteAmount: closeout.waste_amount, notes: closeout.notes, updatedAt: closeout.updated_at } : null, closeoutItems: closeoutItems.map((item) => ({ productId: item.product_id, productVersionId: item.product_version_id, remainingQuantity: item.remaining_quantity, wasteQuantity: item.waste_quantity, retainedQuantity: item.retained_quantity, updatedAt: item.updated_at })) };
+    const paymentLedger = this.paymentLedger(eventId);
+    return { event, orderCount: totals.orders, scheduledOrderCount: totals.scheduled ?? 0, ledgerAmount: totals.amount, receivedAmount: paymentLedger.net.total, cashReceivedAmount: paymentLedger.net.cash, linePayReceivedAmount: paymentLedger.net.linePay, paymentReceiptExpected: { cash: paymentLedger.net.cash, linePay: paymentLedger.net.linePay }, paymentLedger, unresolvedCount: totals.unresolved ?? 0, cancelledCount: totals.cancelled ?? 0, noShowCount: totals.no_show ?? 0, products, inventory: inventory.map((item) => ({ productId: item.product_id, productVersionId: item.product_version_id, posName: item.pos_name, remainingQuantity: item.remaining })), closeout: closeout ? { cashReceived: closeout.cash_received, linePayReceived: closeout.line_pay_received, otherReceived: closeout.other_received, wasteAmount: closeout.waste_amount, notes: closeout.notes, updatedAt: closeout.updated_at } : null, closeoutItems: closeoutItems.map((item) => ({ productId: item.product_id, productVersionId: item.product_version_id, remainingQuantity: item.remaining_quantity, wasteQuantity: item.waste_quantity, retainedQuantity: item.retained_quantity, updatedAt: item.updated_at })) };
   }
   saveCloseout(eventId: string, input: { cashReceived: number; linePayReceived: number; otherReceived: number; wasteAmount: number; notes: string; updatedAt: string; operator: string; auditLogId: string }): void {
     this.database.execute(`INSERT INTO operations_event_closeouts (event_id, cash_received, line_pay_received, other_received, waste_amount, notes, updated_at, updated_by, audit_log_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(event_id) DO UPDATE SET cash_received=excluded.cash_received, line_pay_received=excluded.line_pay_received, other_received=excluded.other_received, waste_amount=excluded.waste_amount, notes=excluded.notes, updated_at=excluded.updated_at, updated_by=excluded.updated_by, audit_log_id=excluded.audit_log_id`, [eventId, input.cashReceived, input.linePayReceived, input.otherReceived, input.wasteAmount, input.notes, input.updatedAt, input.operator, input.auditLogId]);
@@ -188,19 +190,20 @@ export class LifecycleRepository implements DailyReportReadPort {
     WHERE event_id = ? AND order_status NOT IN ('completed', 'cancelled')
       AND order_id NOT IN (SELECT superseded_order_id FROM operations_order_replacements)`, [eventId])?.count ?? 0; }
   buildReport(event: EventRow, closedAt: string, paymentReconciliation: PaymentCloseoutReconciliation): DailyReport {
-    const counts = this.database.queryOne<{ total: number; completed: number; cancelled: number; no_show: number }>(`SELECT COUNT(*) AS total,
+    const counts = this.database.queryOne<{ total: number; completed: number; cancelled: number; no_show: number; effective_amount: number }>(`SELECT COUNT(*) AS total,
       SUM(CASE WHEN order_status = 'completed' THEN 1 ELSE 0 END) AS completed,
       SUM(CASE WHEN order_status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled,
-      SUM(CASE WHEN order_status = 'cancelled' AND cancellation_reason = 'no_show' THEN 1 ELSE 0 END) AS no_show
+      SUM(CASE WHEN order_status = 'cancelled' AND cancellation_reason = 'no_show' THEN 1 ELSE 0 END) AS no_show,
+      COALESCE(SUM(CASE WHEN order_status != 'cancelled' THEN grand_total ELSE 0 END), 0) AS effective_amount
       FROM operations_orders WHERE event_id = ?
-        AND order_id NOT IN (SELECT superseded_order_id FROM operations_order_replacements)`, [event.event_id]) ?? { total: 0, completed: 0, cancelled: 0, no_show: 0 };
+        AND order_id NOT IN (SELECT superseded_order_id FROM operations_order_replacements)`, [event.event_id]) ?? { total: 0, completed: 0, cancelled: 0, no_show: 0, effective_amount: 0 };
     const products = this.database.queryMany<{ product_id: string; pos_name_snapshot: string; quantity: number; revenue: number }>(`SELECT i.product_id, i.pos_name_snapshot, SUM(i.quantity) AS quantity, SUM(i.line_total) AS revenue
       FROM operations_order_items i JOIN operations_orders o ON o.order_id = i.order_id
       WHERE o.event_id = ? AND o.order_status = 'completed'
         AND o.order_id NOT IN (SELECT superseded_order_id FROM operations_order_replacements)
       GROUP BY i.product_id, i.pos_name_snapshot ORDER BY i.pos_name_snapshot`, [event.event_id]);
-    const payments = this.paymentTotals(event.event_id);
-    return { event: { eventId: event.event_id, eventCode: event.event_code, displayName: event.display_name, date: event.date, startTime: event.start_time, endTime: event.end_time }, orders: { total: counts.total, completed: counts.completed ?? 0, cancelled: counts.cancelled ?? 0, noShow: counts.no_show ?? 0 }, products: products.map((item) => ({ productId: item.product_id, posName: item.pos_name_snapshot, quantity: item.quantity, revenue: item.revenue })), payments: { cash: payments.cash, linePay: payments.linePay, other: 0 }, paymentReconciliation, closedAt };
+    const paymentLedger = this.paymentLedger(event.event_id);
+    return { event: { eventId: event.event_id, eventCode: event.event_code, displayName: event.display_name, date: event.date, startTime: event.start_time, endTime: event.end_time }, orders: { total: counts.total, completed: counts.completed ?? 0, cancelled: counts.cancelled ?? 0, noShow: counts.no_show ?? 0, effectiveAmount: counts.effective_amount }, products: products.map((item) => ({ productId: item.product_id, posName: item.pos_name_snapshot, quantity: item.quantity, revenue: item.revenue })), payments: { cash: paymentLedger.net.cash, linePay: paymentLedger.net.linePay, other: 0 }, paymentLedger, paymentReconciliation, closedAt };
   }
   insertClosure(eventId: string, report: DailyReport, timestamp: string, operator: string, auditLogId: string): void { this.database.execute("INSERT INTO operations_event_closures (event_id, closed_at, operator, daily_report_json, audit_log_id) VALUES (?, ?, ?, ?, ?)", [eventId, timestamp, operator, JSON.stringify(report), auditLogId]); }
   closeEvent(eventId: string, timestamp: string): boolean { return this.database.execute("UPDATE operations_events SET status = 'closed', updated_at = ? WHERE event_id = ? AND status IN ('open', 'paused')", [timestamp, eventId]).changes === 1; }

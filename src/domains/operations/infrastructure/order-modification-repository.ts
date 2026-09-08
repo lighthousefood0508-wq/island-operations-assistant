@@ -8,9 +8,10 @@ import type {
   OrderReplacementEvidence,
   PaymentAdjustmentEvidence
 } from "../domain/order-modification.js";
-import type { OperationsOrder, PaymentMethod } from "../domain/types.js";
+import type { OperationsOrder, PaymentLedgerProjection, PaymentMethod } from "../domain/types.js";
 import { OrderRepository, type OrderProductSnapshot } from "./order-repository.js";
 import { hasNonterminalEventModification, hasNonterminalOrderModification, resolveOrderModificationRoot } from "./order-modification-lock.js";
+import { readOrderChainPaymentLedger } from "./payment-ledger-projection.js";
 
 type EventRow = Readonly<{
   event_id: string;
@@ -296,18 +297,11 @@ export class OrderModificationRepository {
   }
 
   netCollected(orderId: string): number {
-    const rootOrderId = this.resolveRootOrderId(orderId);
-    const original = this.database.queryOne<{ amount: number }>(`SELECT COALESCE(SUM(p.amount), 0) AS amount
-      FROM operations_payments p
-      JOIN operations_orders o ON o.order_id = p.order_id
-      WHERE p.payment_status = 'paid'
-        AND (o.order_id = ? OR o.order_id IN (
-          SELECT superseded_order_id FROM operations_order_replacements WHERE root_order_id = ?
-          UNION SELECT replacement_order_id FROM operations_order_replacements WHERE root_order_id = ?
-        ))`, [rootOrderId, rootOrderId, rootOrderId])?.amount ?? 0;
-    const adjustments = this.database.queryOne<{ amount: number }>(`SELECT COALESCE(SUM(CASE direction WHEN 'supplement' THEN amount ELSE -amount END), 0) AS amount
-      FROM operations_payment_adjustments WHERE root_order_id = ?`, [rootOrderId])?.amount ?? 0;
-    return original + adjustments;
+    return this.paymentLedger(orderId).net.total;
+  }
+
+  paymentLedger(orderId: string): PaymentLedgerProjection {
+    return readOrderChainPaymentLedger(this.database, orderId);
   }
 
   reserveQuantity(input: { eventId: string; productId: string; productVersionId: string; quantity: number; timestamp: string }): boolean {

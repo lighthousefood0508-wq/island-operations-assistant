@@ -3721,6 +3721,7 @@ test("PR-OPERATIONS-004 keeps pending modification foundation inside its exact O
     "src/server/app/routes.ts",
     "src/server/index.ts",
     "src/server/jobs/order-modification-expiry-runner.ts",
+    "src/domains/operations/infrastructure/payment-ledger-projection.ts",
     "src/tests/order-modification-api.integration.test.ts",
     "src/tests/order-modification-expiry-runtime.integration.test.ts",
     "src/tests/order-modification-payment-recovery.integration.test.ts"
@@ -3780,6 +3781,7 @@ test("PR-OPERATIONS-005 keeps payment recovery and disposition inside its frozen
   const lock = readFileSync(path.join(sourceRoot, "domains", "operations", "infrastructure", "order-modification-lock.ts"), "utf8");
   const orderRepository = readFileSync(path.join(sourceRoot, "domains", "operations", "infrastructure", "order-repository.ts"), "utf8");
   const lifecycle = readFileSync(path.join(sourceRoot, "domains", "operations", "infrastructure", "lifecycle-repository.ts"), "utf8");
+  const paymentLedger = readFileSync(path.join(sourceRoot, "domains", "operations", "infrastructure", "payment-ledger-projection.ts"), "utf8");
   const routes = readFileSync(path.join(sourceRoot, "server", "app", "routes.ts"), "utf8");
   const access = readFileSync(path.join(sourceRoot, "server", "app", "access-control.ts"), "utf8");
   const server = readFileSync(path.join(sourceRoot, "server", "index.ts"), "utf8");
@@ -3795,7 +3797,12 @@ test("PR-OPERATIONS-005 keeps payment recovery and disposition inside its frozen
   assert.match(service, /returnToSellable/);
   assert.match(repository, /operations_payment_adjustments/);
   assert.match(repository, /operations_order_item_dispositions/);
-  assert.match(lifecycle, /WHEN 'supplement' THEN a\.amount ELSE -a\.amount/);
+  assert.match(paymentLedger, /a\.direction = 'supplement'/);
+  assert.match(paymentLedger, /a\.direction = 'refund'/);
+  assert.match(paymentLedger, /i\.state != 'confirmed'/);
+  assert.match(lifecycle, /readEventPaymentLedger/);
+  assert.doesNotMatch(lifecycle, /FROM operations_payment_adjustments/);
+  assert.doesNotMatch(paymentLedger, /domains\/(?:catalog|cost|recipe)|(?:waste|valuation)/i);
   assert.match(routes, /verify-no-money\|confirm/);
   assert.match(access, /order-modifications/);
   assert.match(migration, /UNIQUE \(intent_id, source_order_item_id\)/);

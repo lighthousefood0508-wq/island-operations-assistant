@@ -5,6 +5,7 @@ export type DailyReportEvidenceSummary = Readonly<{
   event: DailyReport["event"];
   orders: DailyReport["orders"];
   payments: DailyReport["payments"];
+  paymentLedger?: DailyReport["paymentLedger"];
   paymentReconciliation: PaymentCloseoutReconciliation | null;
   closedAt: string;
 }>;

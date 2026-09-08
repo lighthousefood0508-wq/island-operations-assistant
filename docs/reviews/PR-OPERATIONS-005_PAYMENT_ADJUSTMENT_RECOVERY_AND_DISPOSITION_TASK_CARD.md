@@ -8,9 +8,10 @@
   merged PR-OPERATIONS-004 foundation.
 - **Compatibility result**: PASS as a proposed Operations Payment and lifecycle
   increment. It does not create provider settlement, Waste, or Cost authority.
-- **Status**: PR #64 remediation authorized by DECISIONS #099. The existing
-  branch/PR may be committed and pushed after complete validation, followed by
-  Independent PR Review. Merge, release, and deployment remain gated.
+- **Status**: PR #64 merged as integration commit `2ffabc95905d...`.
+  DECISIONS #100 authorizes a follow-on chain-aware reporting completion on that
+  exact baseline through independent review and clean merge. Release and
+  deployment remain gated.
 
 ## Single responsibility
 
@@ -88,6 +89,31 @@ blocking findings. It is frozen to these nineteen paths:
 Governance synchronization files are not implementation paths. No twentieth
 implementation path and no Owner-facing modification/payment workflow belongs
 in this PR. The POS/Kitchen changes are limited to stable pickup presentation.
+
+## Chain-aware reporting completion scope
+
+DECISIONS #100 preserves the merged protocol and authorizes only the reporting
+completion in these eleven implementation/test paths:
+
+1. `src/domains/operations/domain/types.ts`
+2. `src/domains/operations/domain/daily-report-read-port.ts`
+3. `src/domains/operations/application/daily-report-read-service.ts`
+4. `src/domains/operations/application/order-modification-service.ts`
+5. `src/domains/operations/infrastructure/order-modification-repository.ts`
+6. `src/domains/operations/infrastructure/payment-ledger-projection.ts`
+7. `src/domains/operations/infrastructure/lifecycle-repository.ts`
+8. `src/domains/operations/index.ts`
+9. `src/tests/order-modification-foundation.integration.test.ts`
+10. `src/tests/order-modification-payment-recovery.integration.test.ts`
+11. `src/tests/architecture-guards.test.ts`
+
+It adds no schema/migration and no public modification workflow. The single
+canonical ledger projection separates original Payment, supplements, refunds
+and net receipts by method. Event statistics, closeout reconciliation and
+immutable Daily Report use that projection. Old frozen Daily Reports lacking
+the additive projection remain readable. A refund that exceeds the available
+balance of its frozen single method fails closed instead of silently creating a
+negative per-method receipt or inventing split-tender behavior.
 
 ## Acceptance criteria
 

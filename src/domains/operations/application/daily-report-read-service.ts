@@ -11,6 +11,7 @@ function summary(report: DailyReport) {
     event: report.event,
     orders: report.orders,
     payments: report.payments,
+    ...(report.paymentLedger ? { paymentLedger: report.paymentLedger } : {}),
     paymentReconciliation: report.paymentReconciliation,
     closedAt: report.closedAt
   });

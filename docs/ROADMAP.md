@@ -1,9 +1,16 @@
 # Roadmap
 
-Last synchronized: 2026-09-08 (Asia/Taipei).
+Last synchronized: 2026-09-13 (Asia/Taipei).
 
 Roadmap entries describe planning and verified completion state. They do not
 grant implementation, Git, release, deployment, or cleanup authority.
+
+## Current POS correction — duplicate phone-tail confirmation
+
+DECISIONS #104 authorizes a contained POS correction: duplicate three-digit
+phone tails remain valid, while the existing current-Event Order projection
+provides an inline identity check before a new independent Order is created.
+The work adds no API, schema, migration, Customer authority or live-data change.
 
 ## Planned Operations correction program — gated
 

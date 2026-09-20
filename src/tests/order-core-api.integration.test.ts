@@ -67,6 +67,24 @@ test("Order API creates, replays, retrieves public snapshots, and never exposes 
   }
 });
 
+test("Order API permits distinct Orders with the same customer phone tail", async () => {
+  const { server, baseUrl, eventId, product } = await setup(2);
+  try {
+    const first = await request(baseUrl, "/api/orders", "POST", payload(eventId, product, "same-tail-one"));
+    const second = await request(baseUrl, "/api/orders", "POST", { ...payload(eventId, product, "same-tail-two"), customerName: "Another customer" });
+    assert.equal(first.status, 201);
+    assert.equal(second.status, 201);
+    assert.notEqual(second.body.data.orderId, first.body.data.orderId);
+    assert.equal(first.body.data.customerPhoneTail, "123");
+    assert.equal(second.body.data.customerPhoneTail, "123");
+    const orders = await request(baseUrl, `/api/events/${eventId}/orders`);
+    assert.equal(orders.status, 200);
+    assert.equal(orders.body.data.filter((order: any) => order.customerPhoneTail === "123").length, 2);
+  } finally {
+    await closeServer(server);
+  }
+});
+
 test("ScheduledPickupOrderLifecycleBoundary accepts only the explicit Event-local instant", async () => {
   const { server, baseUrl, eventId, product } = await setup(2);
   try {

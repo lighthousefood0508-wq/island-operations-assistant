@@ -360,6 +360,77 @@ test("POS keeps front-office tabs, creates a central Order, and completes the ac
   }
 });
 
+test("POS warns about a repeated phone tail and creates a separate Order after confirmation", async ({ page }) => {
+  const { eventId, contracts } = await setupOpenEvent(page, "POSTAIL", [
+    { name: "Tail meal", posName: "Meal", price: 180, quantity: 4 }
+  ]);
+  let testError: unknown;
+  try {
+    const product = contracts[0];
+    const existing = await api(page, "/api/orders", "POST", {
+      source: "pos",
+      eventId,
+      idempotencyKey: "same-tail-existing",
+      items: [{ productId: product?.productId, productVersionId: product?.productVersionId, quantity: 1, notes: null }],
+      scheduledPickupAt: "2026-07-20T18:30:00+08:00",
+      customerName: "王小姐",
+      customerPhoneTail: "321",
+      paymentMethod: "CASH",
+      notes: null
+    });
+    assertApiSuccess(existing, "same-tail existing Order");
+    const anotherExisting = await api(page, "/api/orders", "POST", {
+      source: "pos",
+      eventId,
+      idempotencyKey: "same-tail-existing-two",
+      items: [{ productId: product?.productId, productVersionId: product?.productVersionId, quantity: 1, notes: null }],
+      scheduledPickupAt: "2026-07-20T19:00:00+08:00",
+      customerName: "陳先生",
+      customerPhoneTail: "321",
+      paymentMethod: "LINE_PAY",
+      notes: null
+    });
+    assertApiSuccess(anotherExisting, "second same-tail existing Order");
+
+    await page.setViewportSize({ width: 800, height: 1000 });
+    await page.goto("/pos");
+    await addToCart(page, product?.productId as string);
+    await page.locator("#customer-name").fill("林先生");
+    await page.locator("#customer-phone-tail").fill("321");
+
+    const warning = page.locator("#phone-tail-duplicate");
+    await expect(warning).toBeVisible();
+    await expect(warning).toContainText("尾號 321 本場次已有 2 張訂單");
+    await expect(warning).toContainText("POSTAIL-001");
+    await expect(warning).toContainText("POSTAIL-002");
+    await expect(warning).toContainText("王小姐");
+    await expect(warning).toContainText("陳先生");
+    await expect(warning).toContainText("取餐");
+    await expect(warning).toContainText("06:30");
+    const warningBox = await warning.boundingBox();
+    expect(warningBox && warningBox.x + warningBox.width).toBeLessThanOrEqual(800);
+
+    await page.locator("#create-order").click();
+    await expect(page.locator("#notice")).toContainText("請先核對並確認仍要建立新單");
+    let orders = await api(page, `/api/events/${eventId}/orders`);
+    expect(orders.body.data).toHaveLength(2);
+
+    await page.getByRole("button", { name: "確認仍要建立新單" }).click();
+    await expect(warning).toContainText("已確認，可建立新的獨立訂單");
+    await page.locator("#create-order").click();
+    await expect(page.locator("#notice")).toContainText("POSTAIL-003 建立成功");
+    orders = await api(page, `/api/events/${eventId}/orders`);
+    expect(orders.body.data).toHaveLength(3);
+    expect(orders.body.data.every((order: any) => order.customerPhoneTail === "321")).toBe(true);
+    expect(new Set(orders.body.data.map((order: any) => order.orderId)).size).toBe(3);
+  } catch (error) {
+    testError = error;
+    throw error;
+  } finally {
+    await completeCleanup(testError, [() => closeEvent(page, eventId)]);
+  }
+});
+
 test("reservation workspace renders one order per row in pickup-time order", async ({ page }) => {
   const { eventId, contracts } = await setupOpenEvent(page, "POSROW", [
     { name: "Reservation meal", posName: "Meal", price: 180, quantity: 10 }

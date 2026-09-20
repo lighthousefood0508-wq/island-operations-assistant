@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-13 - POS duplicate phone-tail confirmation authorized
+
+- Recorded DECISIONS #104: telephone tail remains non-unique verification
+  metadata and never replaces Order identity.
+- Added an inline current-Event match summary and explicit confirmation before
+  a separate Order is created with the same tail.
+- Reused the existing Order projection and create path; no API, domain,
+  database, migration, UAT data or infrastructure change is included.
+- Fresh validation passed 102 configured tests, 46 Architecture Guards, 46
+  Chromium scenarios, 697 complete compiled tests and migration integrity.
+
 ## 2026-09-08 - PR-OPERATIONS-006 POS/Kitchen workflow authorized
 
 - Recorded DECISIONS #101 on the sole integration baseline `4d89a5416b8c`.

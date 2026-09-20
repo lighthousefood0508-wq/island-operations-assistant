@@ -1,5 +1,34 @@
 # Decisions
 
+# DECISIONS #104 — POS Duplicate Phone-Tail Confirmation
+
+- **Date**: 2026-09-13 (Asia/Taipei).
+- **Owner instruction**: when a POS operator enters a customer telephone tail
+  already used by another Order, make the situation understandable and safe
+  without preventing a legitimate new Order.
+- **Constitution Compatibility Gate**:
+  - **Reviewed ADR**: ADR-014, ADR-015, ADR-016, ADR-017, ADR-018;
+    DECISIONS #037, #095 and #101.
+  - **Compatibility Result**: PASS. Operations remains the owner of Orders and
+    the current-Event Order projection remains the only source. Phone tail is
+    contact-verification metadata, not Order identity or uniqueness authority.
+- **Decision**:
+  - Distinct Orders may use the same three-digit phone tail. Each retains its
+    own immutable Order ID, Event order number and idempotency boundary.
+  - POS shows every matching current-Event Order with pickup number, customer,
+    pickup timing and readable status. It requires an explicit inline
+    confirmation before creating another Order with that tail.
+  - A matching tail never selects, merges, updates or overwrites an existing
+    Order. If the current-Event population changes after confirmation, the
+    operator must confirm the new match set again.
+- **Containment**: reuse the existing POS Order list and create API. No new API,
+  service, repository, schema, migration, unique constraint, Customer domain,
+  UAT data write, infrastructure or external integration is authorized.
+- **Verification**: API regression proves two independent Orders may share one
+  tail; Chromium proves visible matching details, zero write before explicit
+  confirmation, separate Order creation after confirmation and tablet-safe
+  layout.
+
 # DECISIONS #101 — PR-OPERATIONS-006 POS/Kitchen Workflow Gate
 
 - **Date**: 2026-09-08 (Asia/Taipei).

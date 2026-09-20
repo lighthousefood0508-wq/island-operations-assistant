@@ -1,6 +1,20 @@
 # Current Status
 
-Last synchronized: 2026-09-08 (Asia/Taipei)
+Last synchronized: 2026-09-13 (Asia/Taipei)
+
+## Current implementation Gate — POS duplicate phone-tail confirmation
+
+- DECISIONS #104 records that a three-digit customer phone tail is
+  verification metadata, never unique Order identity.
+- POS reuses the complete current-Event Order projection to show matching
+  pickup number, customer, pickup time and status, then requires one explicit
+  inline confirmation before creating a distinct Order with the same tail.
+- Fresh candidate validation passed the configured 102-test suite, 46
+  Architecture Guards, all 46 Chromium scenarios and the complete 78-file /
+  697-test compiled collection. Migration 001-024 smoke and populated 014
+  upgrade/restart/rerun/integrity evidence also passed.
+- No backend behavior, API, schema, migration, SQLite data, Customer domain or
+  infrastructure changes are included.
 
 ## Current implementation Gate — PR-OPERATIONS-006 POS/Kitchen workflow
 
